@@ -47,6 +47,10 @@ title: CI/CD
 - `ffi.yml` -- cdylib build + consumer_compile + consumer_smoke (3 OS) + setup-gcc pins.
 - `nightly.yml` / `cranelift.yml` -- isolated, dispatch/schedule only.
 
+On the `release/v1` maintenance branch, `format.yml`, `build.yml`, `test.yml`, and `ffi.yml`
+also run on push and are never cancelled mid-run. Formatting there is check-only: the auto-fix
+push stays limited to `main`/`master`. `nightly.yml` and `cranelift.yml` do not run on `release/v1`.
+
 ## CODEOWNERS
 
 - `* @ConnerAdamsMaine @mrdwarf7` (owner first)

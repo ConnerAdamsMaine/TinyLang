@@ -2,13 +2,13 @@ name: "Build"
 
 on:
   push:
-    branches: ["main", "master"]
+    branches: ["main", "master", "release/v1"]
   pull_request:
   workflow_dispatch:
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/master' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/master' && github.ref != 'refs/heads/release/v1' }}
 
 env:
   CARGO_TERM_COLOR: "always"
