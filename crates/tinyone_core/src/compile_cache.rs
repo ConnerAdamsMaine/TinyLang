@@ -1,5 +1,8 @@
+mod origins;
+
 use std::collections::{BTreeMap, VecDeque};
 use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -7,6 +10,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use blake2::{Blake2b512, Digest};
 use serde::{Deserialize, Serialize};
 
+use self::origins::SourceInput;
 use crate::{
     ModuleResolver,
     ResolverInput,
@@ -18,9 +22,9 @@ use crate::{
     write_binary_artifact,
 };
 
-// v8 records the earliest signed-module expiry.  A cache entry must never
-// authorize a module after the signature used to compile it has expired.
-const CACHE_FORMAT_VERSION: u32 = 8;
+// v9 requires a private, snapshot-bound source-origin sidecar. v8's signature
+// expiry checks remain authoritative; source metadata never grants authority.
+const CACHE_FORMAT_VERSION: u32 = 10;
 const MAX_CACHE_METADATA_BYTES: usize = 1024 * 1024;
 const MAX_CACHE_INPUT_BYTES: usize = 1024 * 1024;
 const SMALL_CACHE_MAX_MODULES: usize = 2;
@@ -132,48 +136,67 @@ pub(crate) fn lookup(root: &Path, optimize: bool) -> Result<CacheLookup> {
         return Ok(CacheLookup::Miss);
     }
 
-    let mut changed = None;
-    for input in &record.inputs {
-        let state = match_input(input);
-        if let InputMatch::Changed { bytes, digest } = state {
-            if changed.is_some() {
-                return Ok(CacheLookup::Miss);
-            }
-            changed = Some((input.path.clone(), input.digest.is_some(), bytes, digest));
-        }
-    }
-    if changed
-        .as_ref()
-        .is_some_and(|(path, existed, bytes, digest)| path == root || !existed || bytes.is_none() || digest.is_none())
-    {
+    let Some(verified) = match_cached_program(&paths.artifact, &record.fingerprint) else {
         return Ok(CacheLookup::Miss);
+    };
+    if record.modules.len() != verified.program().modules.len() {
+        return Ok(CacheLookup::Miss);
+    }
+    let Ok(origin_bytes) = read_bounded(&paths.origins, origins::encoded_length(&verified)) else {
+        return Ok(CacheLookup::Miss);
+    };
+    // Keep only source bytes needed for diagnostics, not manifest/signature
+    // bytes. The verified module bound and per-file limit cap aggregate
+    // retention even if malformed metadata repeats the same source input.
+    let source_byte_limit = (verified.program().modules.len() + 1) * MAX_CACHE_INPUT_BYTES;
+    let mut retained_source_bytes = 0usize;
+    let mut source_inputs = Vec::with_capacity(record.inputs.len());
+    let mut changed = None;
+    for (index, input) in record.inputs.iter().enumerate() {
+        let source = match match_input(input) {
+            InputMatch::Same(bytes)
+                if input.path == root || record.modules.iter().any(|module| module.path == input.path) =>
+            {
+                retained_source_bytes = retained_source_bytes.saturating_add(bytes.capacity());
+                if retained_source_bytes > source_byte_limit {
+                    return Ok(CacheLookup::Miss);
+                }
+                SourceInput::Bytes(bytes)
+            }
+            InputMatch::Same(_) | InputMatch::Absent => SourceInput::Unavailable,
+            InputMatch::Changed { bytes, digest } => {
+                if changed.is_some() || input.path == root {
+                    return Ok(CacheLookup::Miss);
+                }
+                changed = Some((index, bytes, digest));
+                SourceInput::Unavailable
+            }
+            InputMatch::Invalid => return Ok(CacheLookup::Miss),
+        };
+        source_inputs.push(source);
     }
     if !resolutions_match(&record.resolutions) {
         return Ok(CacheLookup::Miss);
     }
 
-    let Some((path, existed, bytes, digest)) = changed else {
-        return Ok(
-            match_cached_program(&paths.artifact, &record.fingerprint).map_or(CacheLookup::Miss, CacheLookup::Hit)
-        );
+    let Some((index, bytes, digest)) = changed else {
+        return Ok(origins::restore(verified, &origin_bytes, &record, source_inputs, None)
+            .map_or(CacheLookup::Miss, CacheLookup::Hit));
     };
-    debug_assert!(path != root && existed);
-    let (Some(bytes), Some(digest)) = (bytes, digest) else {
-        return Ok(CacheLookup::Miss);
-    };
+    let path = &record.inputs[index].path;
     let Ok(source) = String::from_utf8(bytes) else {
         return Ok(CacheLookup::Miss);
     };
-    let Some(module) = record.modules.iter().find(|module| module.path == path) else {
+    let Some(module) = record.modules.iter().find(|module| module.path == *path) else {
         return Ok(CacheLookup::Miss);
     };
     let module_name = module.name.clone();
-    let Some(verified) = match_cached_program(&paths.artifact, &record.fingerprint) else {
+    let Some(verified) = origins::restore(verified, &origin_bytes, &record, source_inputs, Some(&module_name)) else {
         return Ok(CacheLookup::Miss);
     };
     Ok(CacheLookup::Incremental(Box::new(IncrementalCandidate {
         program: Some(verified),
-        module_path: path,
+        module_path: path.clone(),
         module_name,
         module_source: Some(source),
         module_digest: digest,
@@ -184,7 +207,7 @@ pub(crate) fn lookup(root: &Path, optimize: bool) -> Result<CacheLookup> {
 fn match_cached_program(path: &Path, expected_fingerprint: &str) -> Option<VerifiedProgram> {
     // Cache files live beside project sources and are not an authenticated
     // authority store. Decode them as untrusted data; any entry that dispatches
-    // a builtin is rebuilt from current source/configuration rather than
+    // a builtin or requests coprocessor placement is rebuilt from current source/configuration rather than
     // allowed to re-grant serialized policy.
     let program = load_verified_artifact(path).ok()?;
     (!program.program().needs_runtime_host_permissions() && program.fingerprint() == expected_fingerprint)
@@ -393,21 +416,26 @@ pub(crate) fn store_incremental(
 }
 
 fn store_record(paths: &CachePaths, verified: &VerifiedProgram, record: &CacheRecord) -> Result<()> {
+    let origins = origins::encode(verified, record)?;
+    let metadata = serde_json::to_vec(record)
+        .map_err(|error| TinyOneError::compile(format!("Compile cache metadata error: {error}")))?;
+    if metadata.len() > MAX_CACHE_METADATA_BYTES {
+        return Err(TinyOneError::compile("Compile cache metadata exceeds byte size limit"));
+    }
     fs::create_dir_all(&paths.directory)
         .map_err(|error| TinyOneError::compile(format!("Compile cache directory error: {error}")))?;
     write_binary_artifact(verified.program(), &paths.artifact)?;
-    let metadata = serde_json::to_vec(record)
-        .map_err(|error| TinyOneError::compile(format!("Compile cache metadata error: {error}")))?;
+    fs::write(&paths.origins, origins)
+        .map_err(|error| TinyOneError::compile(format!("Compile cache source-origin write error: {error}")))?;
     fs::write(&paths.metadata, metadata)
         .map_err(|error| TinyOneError::compile(format!("Compile cache write error: {error}")))
 }
 
 enum InputMatch {
-    Same,
-    Changed {
-        bytes:  Option<Vec<u8>>,
-        digest: Option<[u8; 16]>,
-    },
+    Same(Vec<u8>),
+    Absent,
+    Changed { bytes: Vec<u8>, digest: [u8; 16] },
+    Invalid,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -449,28 +477,17 @@ fn match_input(input: &CacheInput) -> InputMatch {
     match &input.digest {
         Some(expected) => {
             let Ok(bytes) = read_bounded(&input.path, MAX_CACHE_INPUT_BYTES) else {
-                return InputMatch::Changed {
-                    bytes:  None,
-                    digest: None,
-                };
+                return InputMatch::Invalid;
             };
             let digest = content_digest(&bytes);
             if digest_matches(expected, digest) {
-                InputMatch::Same
+                InputMatch::Same(bytes)
             } else {
-                InputMatch::Changed {
-                    bytes:  Some(bytes),
-                    digest: Some(digest),
-                }
+                InputMatch::Changed { bytes, digest }
             }
         }
-        None if input.path.exists() => {
-            InputMatch::Changed {
-                bytes:  None,
-                digest: None,
-            }
-        }
-        None => InputMatch::Same,
+        None if input.path.exists() => InputMatch::Invalid,
+        None => InputMatch::Absent,
     }
 }
 
@@ -489,12 +506,25 @@ fn resolutions_match(resolutions: &[CacheResolution]) -> bool {
 }
 
 fn read_bounded(path: &Path, max_bytes: usize) -> Result<Vec<u8>> {
-    let metadata =
-        fs::metadata(path).map_err(|error| TinyOneError::compile(format!("Compile cache read error: {error}")))?;
+    let file =
+        fs::File::open(path).map_err(|error| TinyOneError::compile(format!("Compile cache read error: {error}")))?;
+    let metadata = file
+        .metadata()
+        .map_err(|error| TinyOneError::compile(format!("Compile cache read error: {error}")))?;
     if metadata.len() > max_bytes as u64 {
         return Err(TinyOneError::compile(format!("Compile cache input exceeds byte size limit {max_bytes}")));
     }
-    fs::read(path).map_err(|error| TinyOneError::compile(format!("Compile cache read error: {error}")))
+    // The bound above proves the file size fits usize. Preserve the known
+    // size hint that wrapping File in Take would otherwise lose; the read
+    // limit and post-read check still reject a file that grows past the cap.
+    let mut bytes = Vec::with_capacity(metadata.len() as usize);
+    file.take((max_bytes as u64).saturating_add(1))
+        .read_to_end(&mut bytes)
+        .map_err(|error| TinyOneError::compile(format!("Compile cache read error: {error}")))?;
+    if bytes.len() > max_bytes {
+        return Err(TinyOneError::compile(format!("Compile cache input exceeds byte size limit {max_bytes}")));
+    }
+    Ok(bytes)
 }
 
 fn load_record(path: &Path) -> Option<CacheRecord> {
@@ -533,6 +563,7 @@ struct CachePaths {
     directory: PathBuf,
     metadata:  PathBuf,
     artifact:  PathBuf,
+    origins:   PathBuf,
 }
 
 fn cache_paths(root: &Path, optimize: bool) -> CachePaths {
@@ -546,13 +577,31 @@ fn cache_paths(root: &Path, optimize: bool) -> CachePaths {
     CachePaths {
         metadata: directory.join(format!("{key}.json")),
         artifact: directory.join(format!("{key}.tob")),
+        origins: directory.join(format!("{key}.origins")),
         directory,
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{earliest_expiry, signature_cache_entry_is_current};
+    use super::{MAX_CACHE_INPUT_BYTES, earliest_expiry, read_bounded, signature_cache_entry_is_current};
+
+    #[test]
+    fn bounded_cache_reads_preserve_bytes_and_enforce_file_limits() {
+        for length in [0, 1, 31, 32, 33, 4096, 5000, 65_537, MAX_CACHE_INPUT_BYTES] {
+            let file = tempfile::NamedTempFile::new().expect("short-lived cache input");
+            let expected = vec![0x5a; length];
+            std::fs::write(file.path(), &expected).expect("write cache input");
+            let read = read_bounded(file.path(), MAX_CACHE_INPUT_BYTES).expect("bounded read");
+            assert_eq!(read, expected);
+            eprintln!("cache input: length={length} retained_capacity={}", read.capacity());
+            assert_eq!(read_bounded(file.path(), length).expect("exact limit"), expected);
+            if length > 0 {
+                assert!(read_bounded(file.path(), length - 1).is_err());
+            }
+            file.close().expect("remove short-lived cache input");
+        }
+    }
 
     #[test]
     fn signature_expiry_invalidates_cache_entries_after_expiry() {

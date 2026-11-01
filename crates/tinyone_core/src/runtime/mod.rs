@@ -66,12 +66,12 @@ pub(crate) use limits::{
     MAX_ARRAY_LENGTH,
     MAX_BUFFER_BYTES,
     MAX_CALL_DEPTH,
-    MAX_HEAP_BYTES,
     MAX_HEAP_OBJECTS,
     VALUE_BYTES,
     VmSettings,
 };
 pub use memory::TinyMemory;
+pub use limits::VmExecutionLimits;
 pub(crate) use minifloat::round_to_kind;
 pub(crate) use pointers::{
     expect_pointer,
@@ -97,4 +97,5 @@ pub(crate) use pointers::{
 pub use typing::TypeKind;
 pub(crate) use value::Value;
 pub use value::{HeapRef, RawPointer, RuntimeValue};
+pub use vm::VmHeapValue;
 pub use vm::{TinyRunReport, VM};

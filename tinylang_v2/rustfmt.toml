@@ -1,0 +1,3 @@
+# Keep the imported standalone crate on stable rustfmt defaults.
+edition = "2024"
+max_width = 100

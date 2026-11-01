@@ -23,6 +23,18 @@ instruction is:
 { "op": "OPCODE_NAME", "arg": 0, "arg2": 0 }
 ```
 
+Source compilation also retains optional, fixed-length byte-offset tables
+beside main/function bytecode. These are cold diagnostic metadata, not fields
+in `Instr`, executable fingerprints, or either artifact format. Peephole
+compaction preserves the corresponding source origin. Artifact decoding has
+no source table unless a separate source-aware owner restores one. The private
+disk cache does this using a snapshot-bound `.origins` sidecar and validated
+source inputs; it does not extend the portable artifact formats or restore
+serialized authority.
+JIT lowering retains a second cold mapping from executable operations back to
+original bytecode indexes, including distinct failure sites within fused
+operations. Neither mapping changes when an instruction is quickened.
+
 ## Opcodes
 
 There are 34 opcodes. Opcode ordinals are serialized into artifacts and are
@@ -223,10 +235,10 @@ before any allocation for the program body.
 
 `.tob` files use the magic `TINYONEB`, a little-endian version field, bounded
 length-prefixed tables, numeric opcode ordinals, and fixed-width instruction
-operands. The current binary revision is **2**; it includes the complete
-program metadata, including enum variants and each module's capability bitset.
-Revision 1 artifacts are rejected rather than being loaded with an ambiguous
-privilege set. Decoding applies byte, table, text, per-chunk, and
+operands. The current binary revision is **5**; it includes the complete
+program metadata, including enum variants, execution permissions, and ordered
+function decorators. Revision 5 adds decorators to revision 4's layout.
+All other revisions are rejected. Decoding applies byte, table, text, per-chunk, and
 total-instruction limits before verification and rejects unknown versions,
 unknown opcodes, truncation, invalid UTF-8, and trailing bytes.
 
@@ -237,12 +249,15 @@ extensions retain the readable JSON format.
 ## Program Fingerprint
 
 `Program::fingerprint()` hashes the complete program with Blake2b512 and
-returns the first 16 bytes as a lowercase hex string. The domain-separated v2
+returns the first 16 bytes as a lowercase hex string. The domain-separated v5
 hash covers opcodes, operands, code/table lengths, slot and local names,
-function declarations, string literals, structs, fields, modules (including
+function declarations and ordered typed decorators, string literals, structs, fields, modules (including
 their capability grants), and enum variants. `VerifiedProgram` computes it once in a shared `OnceLock`, so clones
 do not re-hash metadata. It keys both the in-memory JIT cache and integrity
-checks for dependency-validated disk artifacts.
+checks for dependency-validated disk artifacts. It identifies artifact content:
+generic artifact loading preserves the fingerprint while removing policy trust.
+JIT execution identity additionally includes whether the embedding trusted the
+policy, so an untrusted artifact cannot reuse a trusted program's authority.
 
 ## Verifier Rules
 
@@ -251,8 +266,9 @@ following hold for every chunk (main and all functions):
 
 1. **Terminal opcode** — the chunk's last reachable instruction is `HALT` (main)
    or `RETURN` (function).
-2. **Stack balance** — at every instruction, the operand stack depth inferred by
-   BFS is non-negative and consistent across all paths reaching that instruction.
+2. **Stack balance** — every reachable instruction has all its required input
+   operands before producing any results. The inferred stack depth is
+   non-negative and consistent across all paths reaching that instruction.
 3. **Stack depth** — stack depth never exceeds 65,536.
 4. **Branch targets** — all `JUMP` and `JUMP_IF_ZERO` targets are within
    `[0, code.len())`.
@@ -274,7 +290,7 @@ following hold for every chunk (main and all functions):
     4,096; per-chunk slot count ≤ 65,536; string/field/name count ≤ 65,536;
     struct count ≤ 4,096; module count ≤ 256; imports/exports per module ≤ 4,096;
     total text bytes ≤ 1 MiB.
-12. **Work limit** — BFS step count ≤ 10,000,000. Prevents timeout on adversarial
+12. **Work limit** — traversal step count ≤ 10,000,000. Prevents timeout on adversarial
     jump graphs.
 13. **Module metadata integrity** — module names and logical paths agree;
     declarations have valid unique qualified names; imports resolve to known
@@ -291,6 +307,14 @@ These rules are applied by `VerifiedProgram` before VM execution and before
 JIT lowering, so the adaptive JIT never receives bytecode with a wider module
 authority than the source compiler would grant.
 
+The immutable verification certificate retains per-chunk stack peaks, numeric
+permission ownership and boxed basic-block metadata. A block records its
+half-open bytecode range and optional reachable entry depth in 12 bytes;
+unreachable is distinct from an empty stack. Chunk entry, branch targets and
+instructions following terminators define boundaries. Offsets use `u32`, so
+the complete instruction budget remains representable. Verification-token
+clones share these facts rather than rebuilding them during JIT lowering.
+
 ## JIT Adaptive Tier
 
 ### Compilation
@@ -303,7 +327,20 @@ function chunks are lowered into reserved slots on their first call:
 - `PUSH_INT 42` → `JitOp::PushInt(42i64)`
 - `CALL 1 2` → `JitOp::Call(1usize, 2usize)`
 
-Superinstructions fuse common branch-safe instruction sequences:
+Operand widths follow static verifier guarantees, not just reachable stack
+depths. Slot indexes fit `u16`, but a slot count or function arity can be
+65,536. Branch offsets can exceed 65,535. On 64-bit hosts, unreachable
+`MAKE_ARRAY` and `CALL_VALUE` instructions may even have statically valid
+arities above `u32::MAX`; lowering preserves those operands without narrowing
+or attempting to execute them. Any future compact encoding must account for
+these cases independently of reachable operand-stack limits.
+
+Within each verified block, symbolic constants, local reads and binary
+expressions pass through ordered constant/copy propagation, slot-version
+propagation, constant and branch folding, dead-temporary elimination, and safe
+dead-store elimination before final instruction fusion. These direct encodings
+apply when the expression has not already folded to a literal; they no longer
+require adjacent scalar source patterns:
 
 | Bytecode sequence | JIT superinstruction |
 | --- | --- |
@@ -317,18 +354,33 @@ Superinstructions fuse common branch-safe instruction sequences:
 | `LOAD s, PUSH_INT n, DIV` | `PushDivSlotInt(s, n)` |
 | `LOAD s, PUSH_INT n, CMP, JUMP_IF_ZERO t` | `CompareSlotIntJumpIfZero(s, n, cmp, t)` |
 | `LOAD s, JUMP_IF_ZERO t` | `JumpIfZeroSlot(s, t)` |
+| `LOAD a, LOAD b, ADD, STORE c` | `BinarySlotsStore(Add, a, b, c)` |
+| `LOAD a, PUSH_INT n, ADD, STORE b` | `BinarySlotIntStore(Add, a, n, b)` |
+| `LOAD a, PUSH_FLOAT bits, ADD, STORE b` | `BinarySlotFloatStore(Add, a, bits, b)` |
 
-Lowering refuses a fusion whenever another branch targets an instruction
-inside the candidate range. The expression multiply/divide forms leave one
-result on the operand stack; move, in-place arithmetic, and direct branch
-forms avoid the temporary operands entirely.
+Block partitioning prevents branches into a fused expression. Effects and
+block exits materialize pending values in original evaluation order; non-empty
+incoming stacks remain physical. Potentially failing arithmetic is not removed
+merely because its result is discarded. Only successful I64 arithmetic and
+comparisons are constant-folded; float arithmetic and failures remain runtime
+operations. Versioned copies preserve snapshots after writes, and slot facts
+never cross opaque effects or basic-block boundaries. Dead stores are limited
+to adjacent non-failing literal writes without intervening reads or effects.
+The direct scalar store families use
+the shared checked I64 handlers with actual-tag guards and generic fallbacks.
+The float-immediate family reconstructs the exact Fp64 literal from its stored
+bits and reaches shared float/mixed-numeric semantics, including promotion,
+comparison booleans and division-by-zero errors. It does not fold float
+arithmetic, infer a source-slot type, or change portable bytecode.
+The multiply/divide expression forms leave one result on the operand stack;
+move, scalar stores and direct branches avoid temporary operands entirely.
 
 ### Hot-path quickening
 
 Every backward branch in a compiled chunk increments an edge counter. When a
-counter reaches 8 (`HOT_BACK_EDGE_THRESHOLD`), the range
-`[branch_target, branch_instruction + 1)` is promoted in-place to faster
-variants:
+counter first reaches its configured threshold (8 by default), the range
+`[branch_target, branch_instruction + 1)` is armed for sampling. Type evidence
+can then select the following faster variants in place:
 
 | Cold | Quickened | Effect |
 | --- | --- | --- |
@@ -346,10 +398,18 @@ variants:
 | `Jump(t)` | `JumpHot(t)` | Skips back-edge counter increment |
 | `JumpIfZero(t)` | `JumpIfZeroHot(t)` | Same |
 
-Quickening is in-place and permanent for the lifetime of the `JitProgram`.
-Programs with heterogeneous loop payloads receive quickened ops too; arithmetic
-and fused slot operations automatically fall back to the generic numeric
-implementation when operands are not I64 values.
+Typed quickening follows bounded per-site observations, not hotness alone.
+Eight consecutive actual-I64 samples select these typed handlers. Sampling
+stops after 32 observations or a third representation shape; unsupported stable
+types remain generic. A miss uses shared generic semantics and records its
+representation. Four misses without 32 consecutive hits trigger resampling;
+each site allows at most two promotions before repeated instability makes it
+permanently generic. Counter-eliding jumps need no type evidence.
+
+Fixed-length feedback tables are allocated only for heated chunks, under one
+64-KiB program-wide byte budget. Tables that cannot fit are skipped; this does
+not reject an otherwise valid program. Metadata retains representation tags,
+not runtime values. All rewrites preserve instruction extent and operands.
 
 The default hot-edge threshold is 8. `JitOptions` can select another `u16`
 threshold for `JitProgram::compile_with_options`, `JitCache::with_options`, or
@@ -357,15 +417,25 @@ the configured runner APIs; zero disables quickening.
 
 ### Cache
 
-`JitCache` stores `JitProgram` instances keyed by fingerprint in a
-`HashMap<String, JitProgram>`. A cache hit reuses the compiled and potentially
+`JitCache` stores `JitProgram` instances keyed by content fingerprint and policy
+trust. Both must match. A cache hit reuses the compiled and potentially
 already-quickened program, so hot ranges from a previous run carry over.
+Compiled retention uses independent LRU limits (128 entries and 16 MiB of
+charged entry data by default), configured with `with_compiled_cache_limits`.
+Either zero disables retention, not execution. Charges include verified
+metadata and buffer capacities, lazy chunks, feedback and idle operand storage;
+they are updated after successful and failing runs. Oversized results bypass
+retention. The borrowed compile-only API can keep one temporary result outside
+that budget until the next mutation. `compiled_cache_stats()` reports it
+separately. Charges exclude opaque allocator overhead and unused hash buckets;
+see [Rust API](ffi/rust-api.md) for the full accounting boundary.
+
 Source-based cache calls additionally reuse an exact-source `VerifiedProgram`;
 the first call still compiles and verifies normally. That source cache is a
 deterministic least-recently-used cache bounded by both entry count and retained
 source bytes (128 entries and 8 MiB by default). Configure it with
 `JitCache::with_source_cache_limits`; setting either limit to zero disables
-source retention without disabling the fingerprint-keyed compiled-program
+source retention without disabling the compiled-program
 cache. `JitCacheStats` reports source hits, misses, compilations, evictions,
 bypasses, and currently retained source bytes.
 
@@ -392,3 +462,11 @@ Folding never consumes an instruction that is an interior branch target. When
 a fold shortens a chunk, every jump target is remapped before the next pass.
 The optimizer does not reorder expressions or analyze across basic-block
 boundaries.
+
+Each pass compacts an owned instruction buffer in place; it does not allocate
+a second instruction vector. Chunks without a constant-fold candidate skip
+scratch allocation, and the remapping table is built only after a branch-safe
+fold is found. The output is compacted once at completion so removed instructions and
+input builder slack do not remain retained. Negative and out-of-range branch
+operands remain invalid for authoritative verification. Integer overflow and
+division failures remain runtime operations.

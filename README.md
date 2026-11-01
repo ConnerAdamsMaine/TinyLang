@@ -162,7 +162,12 @@ Run the repo-local CI/release gate from the repository root:
 
 The gate checks tinyone_core, tinyone_ralloc, the xtask harness, language
 fixtures, formatting, Clippy, benchmark smoke coverage, and ABI drift. It
-requires `uv` for the Python tooling steps.
+requires `uv` for the Python tooling steps and an installed nightly Rust
+toolchain with `rustfmt`. Only the formatting commands explicitly select
+nightly, matching `.github/workflows/format.yml`; other Cargo checks retain
+the repository's stable toolchain selection. For a manual formatting check,
+use `rustup run nightly cargo fmt --all --check`: `.rustfmt.toml` contains
+nightly-only options that stable rustfmt ignores.
 
 This creates the debug executable at `target/debug/tinylang`.
 Build with `--release` when you want the optimized executable at
@@ -434,33 +439,32 @@ The main documentation tree is `docs/`:
   limits
 - `docs/stdlib.md` describes builtins and stdlib bridge behavior
 - `docs/v2-roadmap.md` tracks the active internal v2 language roadmap
+- `docs/TIDE_OVERVIEW.md` describes the new development governance system
 
-The change-document process is defined by the TinyLang
-documentation-change system:
+New development requests and engineering records are handled through TIDE,
+the TinyLang Intent & Decision Engine. TIDE preserves original submissions
+and authorship while recording later decisions separately. It replaces the
+previously planned TLR/TLP/TLIN proposal workflow; those abbreviations remain
+valid only where they have an unrelated established meaning, such as TinyLang
+Runtime (TLR).
 
-`TLR`
-
-: TinyLang Request. A lightweight request for a change, fix,
-clarification, or improvement.
-
-`TLP`
-
-: TinyLang Proposal. A structured design proposal for significant
-language, compiler, tooling, documentation, standard-library,
-ecosystem, or governance changes.
-
-`TLIN`
-
-: TinyLang Implementation Notice. A release-facing or pre-release notice
-explaining what is being implemented, what changed, and how users
-should migrate.
-
-The intended path is:
-
-    TLR -> TLP -> TLIN
-
-Small accepted changes may go directly from TLR to TLIN. Major language
-changes should not skip the TLP stage.
+See the [TIDE community and governance guide](docs/Community_Forum.md) and the
+[TIDE implementation overview](docs/TIDE_OVERVIEW.md). Previously discussed
+TinyLang v2 proposal ideas remain unpublished and do not have TIDE identifiers.
+TIDE writes require an active session established through the same linked
+GitHub, Discord, or X account; linking a provider to a local-password session
+alone is not sufficient.
+Use the [private TIDE support page](https://tl.404connernotfound.dev/support.html)
+for account, identity, abuse, moderation-appeal, and security reports that must
+not be posted publicly; see [TIDE support limits](docs/TIDE_SUPPORT.md).
+Private abuse and safety reports can also be filed through the
+[TIDE investigations page](https://tl.404connernotfound.dev/investigations.html);
+the [appeals page](https://tl.404connernotfound.dev/appeals.html) accepts
+email-verified appeals for active TIDE restrictions. The
+[TIDE chat page](https://tl.404connernotfound.dev/chat.html) provides
+authenticated community channels for non-governance discussion. The
+[moderation guide](docs/TIDE_MODERATION.md) describes reviewer access and
+remaining limits.
 
 <a id="developer-tools"></a>
 
@@ -554,9 +558,28 @@ revision or release they need.
   and comparisons within basic blocks, remapping branch targets without
   moving expressions across control-flow boundaries.
 - The adaptive JIT is not native code generation.
+  The experimental standalone [v2 scalar engine](docs/v2/reports/COMPILER_ARCHITECTURE.md)
+  adds a separate checked-i64 ASM path and optional Cranelift backend.
+  See [implementation status](docs/v2/reports/V2_IMPLEMENTATION_STATUS.md) for capability
+  limits and executed evidence.
 - Spawned functions use the portable VM backend even when the parent
   program uses JIT mode. Both parent modes provide the verified program
   reference and are covered by threading parity tests.
+
+### Experimental v2 function execution
+
+Invoke one isolated checked-i64 function without executing top-level code:
+
+```powershell
+cargo run --manifest-path .\tinylang_v2\Cargo.toml --bin tinylang-v2 -- --backend asm .\tinylang_v2\examples\scalar.tinyone add 19 23
+cargo run --manifest-path .\tinylang_v2\Cargo.toml --features cranelift --bin tinylang-v2 -- --backend cranelift .\tinylang_v2\examples\scalar.tinyone add 19 23
+```
+
+`--backend interpreter` selects the checked scalar reference path.
+`--backend llvm` emits LLVM IR rather than executing it. `--fuel N` bounds
+executed instructions (default 1,000,000). Unsupported values and operations
+are errors, not implicit conversions or hidden interpreter fallbacks.
+The existing compiler CLI, decoded-opcode JIT and frozen v1 ABI are unchanged.
 
 <a id="allocator-boundary"></a>
 
@@ -705,6 +728,11 @@ See `LICENSE`.
 <a id="feedback-and-community"></a>
 
 # Feedback and Community
+
+Use the [TIDE community platform](https://tl.404connernotfound.dev/tide.html)
+for new development requests and discussion. The [legacy
+forum](https://tl.404connernotfound.dev/forum.html) retains existing records
+under its previous behavior.
 
 Comments, concerns, and questions should be sent to the TinyLang
 community forum at <https://tl.404connernotfound.dev>. This is the

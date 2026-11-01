@@ -12,7 +12,6 @@ use crate::tiny_allocator::RallocBytes;
 use crate::{
     HeapRef,
     MAX_ARRAY_LENGTH,
-    MAX_HEAP_BYTES,
     MAX_HEAP_OBJECTS,
     Result,
     TinyOneError,
@@ -283,6 +282,7 @@ pub(crate) struct TinyHeap {
     /// The cache is bounded to one 64-byte slot and remains protected by the
     /// heap mutex; logical heap accounting still follows live objects only.
     spare_cell:             Option<RallocBytes>,
+    limits:                 crate::VmExecutionLimits,
 }
 
 impl std::fmt::Debug for TinyHeap {
@@ -324,7 +324,16 @@ impl TinyHeap {
             stats:       TinyHeapStats::default(),
             shutdown:    false,
             spare_cell:  None,
+            limits:      crate::VmExecutionLimits::default(),
         }
+    }
+
+    pub(crate) fn set_execution_limits(&mut self, limits: crate::VmExecutionLimits) -> Result<()> {
+        if self.stats.live_objects > limits.heap_objects || self.stats.live_bytes > limits.heap_bytes {
+            return Err(TinyOneError::runtime("Existing heap exceeds requested execution limits"));
+        }
+        self.limits = limits;
+        Ok(())
     }
 
     pub(crate) fn alloc(&mut self, object: HeapObject) -> Result<HeapRef> {
@@ -363,12 +372,12 @@ impl TinyHeap {
     }
 
     pub(crate) fn ensure_can_allocate(&self, bytes: usize) -> Result<()> {
-        if self.stats.live_objects >= MAX_HEAP_OBJECTS {
-            return Err(TinyOneError::runtime(format!("Heap object limit {MAX_HEAP_OBJECTS} exceeded")));
+        if self.stats.live_objects >= self.limits.heap_objects {
+            return Err(TinyOneError::runtime(format!("Heap object limit {} exceeded", self.limits.heap_objects)));
         }
         let next_bytes = checked_or(self.stats.live_bytes.checked_add(bytes), "Heap byte accounting overflow")?;
-        if next_bytes > MAX_HEAP_BYTES {
-            return Err(TinyOneError::runtime(format!("Heap byte limit {MAX_HEAP_BYTES} exceeded")));
+        if next_bytes > self.limits.heap_bytes {
+            return Err(TinyOneError::runtime(format!("Heap byte limit {} exceeded", self.limits.heap_bytes)));
         }
         Ok(())
     }
@@ -448,8 +457,8 @@ impl TinyHeap {
 
     pub(crate) fn ensure_can_allocate_delta(&self, bytes: usize) -> Result<()> {
         let next_bytes = checked_or(self.stats.live_bytes.checked_add(bytes), "Heap byte accounting overflow")?;
-        if next_bytes > MAX_HEAP_BYTES {
-            return Err(TinyOneError::runtime(format!("Heap byte limit {MAX_HEAP_BYTES} exceeded")));
+        if next_bytes > self.limits.heap_bytes {
+            return Err(TinyOneError::runtime(format!("Heap byte limit {} exceeded", self.limits.heap_bytes)));
         }
         Ok(())
     }
@@ -849,12 +858,16 @@ pub(crate) fn decode_value_slot(bytes: &RallocBytes) -> Value {
 /// formatting) — replaces the whole-object `.clone()` pattern that's no
 /// longer possible now that these containers own real Ralloc memory.
 pub(crate) fn decode_array_values(vec: &RallocVec) -> Vec<Value> {
-    (0..vec.len())
-        .map(|i| {
-            let bytes = vec.get(i).expect("index within bounds");
-            value_codec::decode_value(bytes.try_into().unwrap())
-        })
-        .collect()
+    iter_array_values(vec).collect()
+}
+
+/// Decodes borrowed array/capture storage without allocating a snapshot.
+/// The owner (and its heap lock, when applicable) must outlive this iterator.
+pub(crate) fn iter_array_values(vec: &RallocVec) -> impl ExactSizeIterator<Item = Value> + '_ {
+    (0..vec.len()).map(|i| {
+        let bytes = vec.get(i).expect("index within bounds");
+        value_codec::decode_value(bytes.try_into().unwrap())
+    })
 }
 
 /// Decodes every `(key, value)` pair of a `HeapData::Map`/`Dictionary`-backed
@@ -883,6 +896,64 @@ pub(crate) fn decode_map_value(vec: &RallocVec, index: usize) -> Option<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    #[ignore = "build-specific map key layout/hash-input attribution; not a portable layout contract"]
+    fn report_map_index_layout() {
+        use std::hash::{Hash, Hasher};
+
+        #[derive(Default)]
+        struct HashInput {
+            bytes:  usize,
+            writes: usize,
+        }
+
+        impl Hasher for HashInput {
+            fn finish(&self) -> u64 {
+                // This observer is never installed as a map's hasher.
+                0
+            }
+
+            fn write(&mut self, bytes: &[u8]) {
+                self.bytes += bytes.len();
+                self.writes += 1;
+            }
+        }
+
+        eprintln!(
+            "map-index-layout: key_bytes={} key_align={} entry_bytes={} map_data_bytes={}",
+            size_of::<MapKey>(),
+            align_of::<MapKey>(),
+            size_of::<(MapKey, usize)>(),
+            size_of::<MapData>(),
+        );
+        for (name, key) in [
+            ("integer", MapKey::Integer(7)),
+            ("negative_integer", MapKey::Integer(-7)),
+            ("string", MapKey::String("key".to_owned())),
+            (
+                "heap",
+                MapKey::HeapObject {
+                    address:    7,
+                    generation: 1,
+                },
+            ),
+            (
+                "pointer",
+                MapKey::Pointer {
+                    address:    7,
+                    kind:       PointerKind::Field,
+                    index:      0,
+                    field:      "field".to_owned(),
+                    generation: 1,
+                },
+            ),
+        ] {
+            let mut input = HashInput::default();
+            key.hash(&mut input);
+            eprintln!("map-index-hash/{name}: bytes={} writes={}", input.bytes, input.writes);
+        }
+    }
 
     #[test]
     fn new_heap_data_variants_are_allocatable() {

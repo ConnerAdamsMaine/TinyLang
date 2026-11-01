@@ -1,6 +1,8 @@
 pub(crate) mod incremental;
 pub(crate) mod modules;
 pub(crate) mod parser;
+#[cfg(feature = "testing-hooks")]
+pub(crate) mod profile;
 pub(crate) mod state;
 pub(crate) mod symbols;
 

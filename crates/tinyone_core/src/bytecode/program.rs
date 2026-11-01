@@ -1,6 +1,8 @@
 use blake2::{Blake2b512, Digest};
 
-use crate::{Instr, Result, TinyOneError, VmSettings};
+use super::certificate::{ChunkCertificate, PermissionSetId, VerificationCertificate};
+use crate::source::bytecode::BytecodeSource;
+use crate::{Decorator, Instr, Result, TinyOneError, VmSettings};
 
 /// A host resource that an imported module must be explicitly granted.
 ///
@@ -388,6 +390,12 @@ impl ModulePermissions {
         self.environment_read.as_deref()
     }
 
+    pub(super) fn allocation_bytes(&self) -> usize {
+        self.environment_read
+            .as_ref()
+            .map_or(0, super::retention::string_table_bytes)
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn from_detailed_fields(
         filesystem_read: bool,
@@ -432,7 +440,7 @@ impl ModulePermissions {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct Function {
     pub(crate) name:           String,
     /// Generic parameters are erased at runtime. They are retained in the
@@ -441,8 +449,10 @@ pub struct Function {
     pub(crate) generic_params: Vec<String>,
     pub(crate) param_count:    usize,
     pub(crate) code:           Vec<Instr>,
+    pub(crate) source:         Option<std::sync::Arc<BytecodeSource>>,
     pub(crate) slot_count:     usize,
     pub(crate) names:          Vec<String>,
+    pub(crate) decorators:     Vec<Decorator>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -482,9 +492,10 @@ pub struct ModuleDef {
     pub(crate) permissions:        ModulePermissions,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct Program {
     pub(crate) code:              Vec<Instr>,
+    pub(crate) source:            Option<std::sync::Arc<BytecodeSource>>,
     pub(crate) slot_count:        usize,
     pub(crate) names:             Vec<String>,
     pub(crate) functions:         Vec<Function>,
@@ -505,6 +516,42 @@ pub struct Program {
     pub(crate) vm_settings:       VmSettings,
 }
 
+// Source origins are diagnostic context, not executable/artifact identity.
+// In particular, an artifact round trip intentionally has no source owner.
+impl PartialEq for Program {
+    fn eq(&self, other: &Self) -> bool {
+        self.code == other.code
+            && self.slot_count == other.slot_count
+            && self.names == other.names
+            && self.functions == other.functions
+            && self.strings == other.strings
+            && self.structs == other.structs
+            && self.fields == other.fields
+            && self.modules == other.modules
+            && self.enum_variants == other.enum_variants
+            && self.root_capabilities == other.root_capabilities
+            && self.root_permissions == other.root_permissions
+            && self.policy_trusted == other.policy_trusted
+            && self.vm_settings == other.vm_settings
+    }
+}
+
+impl Eq for Program {}
+
+impl PartialEq for Function {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+            && self.generic_params == other.generic_params
+            && self.param_count == other.param_count
+            && self.code == other.code
+            && self.slot_count == other.slot_count
+            && self.names == other.names
+            && self.decorators == other.decorators
+    }
+}
+
+impl Eq for Function {}
+
 impl Program {
     /// Create a program with empty metadata. The resulting program is still
     /// unverified and must pass through `VerifiedProgram` before execution.
@@ -512,6 +559,7 @@ impl Program {
     pub fn new(code: Vec<Instr>, slot_count: usize) -> Self {
         Self {
             code,
+            source: None,
             slot_count,
             names: Vec::new(),
             functions: Vec::new(),
@@ -603,12 +651,17 @@ impl Program {
     /// conservatively treated as host-facing: this avoids making a future
     /// builtin an authority bypass merely because the cache scanner was not
     /// updated at the same time. Such programs are recompiled from current
-    /// source and configuration instead.
+    /// source and configuration instead. Coprocessor placement also requires
+    /// this rebuild so unauthenticated metadata cannot confer device authority.
     pub(crate) fn needs_runtime_host_permissions(&self) -> bool {
-        self.code
+        self.functions
             .iter()
-            .chain(self.functions.iter().flat_map(|function| function.code.iter()))
-            .any(|instruction| instruction.op == crate::Op::Builtin)
+            .any(|function| function.coprocessor_target().is_some())
+            || self
+                .code
+                .iter()
+                .chain(self.functions.iter().flat_map(|function| function.code.iter()))
+                .any(|instruction| instruction.op == crate::Op::Builtin)
     }
 
     #[must_use]
@@ -692,10 +745,14 @@ impl Program {
             .is_some_and(|module| module.exported_functions.iter().any(|export| export == local_name))
     }
 
+    /// Fingerprint of program content, including serialized permissions and
+    /// execution limits. Artifact policy trust is an embedding decision that
+    /// is not serialized; execution caches must include it in their identity
+    /// in addition to this content fingerprint.
     #[must_use]
     pub fn fingerprint(&self) -> String {
         let mut hasher = Blake2b512::new();
-        hasher.update(b"tinyone-program-fingerprint-v4");
+        hasher.update(b"tinyone-program-fingerprint-v5");
         Self::hash_code(&mut hasher, &self.code);
         hasher.update((self.slot_count as u64).to_le_bytes());
         hash_module_permissions(&mut hasher, &self.root_permissions);
@@ -709,6 +766,11 @@ impl Program {
             hasher.update((function.slot_count as u64).to_le_bytes());
             Self::hash_code(&mut hasher, &function.code);
             hash_string_list(&mut hasher, function.names.iter());
+            hasher.update(b"function-decorators");
+            hasher.update((function.decorators.len() as u64).to_le_bytes());
+            for decorator in &function.decorators {
+                decorator.hash(&mut hasher);
+            }
         }
         hasher.update((self.strings.len() as u64).to_le_bytes());
         for text in &self.strings {
@@ -763,8 +825,10 @@ impl Function {
             generic_params: Vec::new(),
             param_count,
             code,
+            source: None,
             slot_count,
             names: Vec::new(),
+            decorators: Vec::new(),
         }
     }
 
@@ -774,8 +838,27 @@ impl Function {
     }
 
     #[must_use]
+    pub fn param_count(&self) -> usize {
+        self.param_count
+    }
+
+    #[must_use]
     pub fn generic_params(&self) -> &[String] {
         &self.generic_params
+    }
+
+    /// Ordered compile-time declaration metadata. Paths are canonicalized
+    /// independently of the source import alias.
+    #[must_use]
+    pub fn decorators(&self) -> &[Decorator] {
+        &self.decorators
+    }
+
+    /// Declared device target. This metadata alone does not grant access to
+    /// hardware; placement consumers should use the verified permission check.
+    #[must_use]
+    pub fn coprocessor_target(&self) -> Option<&str> {
+        self.decorators.iter().find_map(Decorator::coprocessor_target)
     }
 
     #[must_use]
@@ -895,13 +978,20 @@ fn hash_module_permissions(hasher: &mut Blake2b512, permissions: &ModulePermissi
 /// callers that want to verify once and reuse.
 #[derive(Debug, Clone)]
 pub struct VerifiedProgram {
-    program:     std::sync::Arc<Program>,
-    fingerprint: std::sync::Arc<std::sync::OnceLock<String>>,
+    inner: std::sync::Arc<VerifiedProgramData>,
+}
+
+#[derive(Debug)]
+struct VerifiedProgramData {
+    program:       std::sync::Arc<Program>,
+    fingerprint:   std::sync::OnceLock<String>,
+    certificate:   VerificationCertificate,
+    storage_bytes: std::sync::OnceLock<usize>,
 }
 
 impl PartialEq for VerifiedProgram {
     fn eq(&self, other: &Self) -> bool {
-        self.program == other.program
+        self.inner.program == other.inner.program
     }
 }
 
@@ -916,44 +1006,132 @@ impl VerifiedProgram {
     /// opcodes, stack/slot misuse, capability ownership violations, budget
     /// violations, or module graph errors).
     pub fn verify(program: Program) -> crate::Result<Self> {
-        crate::BytecodeVerifier::verify(&program)?;
-        Ok(Self::from_verified_arc(std::sync::Arc::new(program)))
+        Self::verify_arc(std::sync::Arc::new(program))
     }
 
     pub(crate) fn verify_arc(program: std::sync::Arc<Program>) -> crate::Result<Self> {
-        crate::BytecodeVerifier::verify(&program)?;
-        Ok(Self::from_verified_arc(program))
+        let certificate = crate::BytecodeVerifier::verify_with_certificate(&program)?;
+        Ok(Self {
+            inner: std::sync::Arc::new(VerifiedProgramData {
+                program,
+                fingerprint: std::sync::OnceLock::new(),
+                certificate,
+                storage_bytes: std::sync::OnceLock::new(),
+            }),
+        })
     }
 
-    pub(crate) fn from_verified_arc(program: std::sync::Arc<Program>) -> Self {
-        Self {
-            program,
-            fingerprint: std::sync::Arc::new(std::sync::OnceLock::new()),
+    pub(crate) fn chunk_certificate(&self, chunk_index: usize) -> Result<&ChunkCertificate> {
+        self.inner
+            .certificate
+            .chunks
+            .get(chunk_index)
+            .ok_or_else(|| TinyOneError::runtime(format!("Invalid verified chunk {chunk_index}")))
+    }
+
+    pub(crate) fn permissions_for_chunk(&self, chunk_index: usize) -> Result<&ModulePermissions> {
+        let certificate = self.chunk_certificate(chunk_index)?;
+        if !self.inner.program.policy_trusted {
+            return Ok(&self.inner.certificate.denied_permissions);
         }
+        Ok(match certificate.permissions {
+            PermissionSetId::Root => &self.inner.program.root_permissions,
+            PermissionSetId::Module(index) => &self.inner.program.modules[index].permissions,
+        })
     }
 
     /// Borrow the inner program.
     #[must_use]
     pub fn program(&self) -> &Program {
-        &self.program
+        &self.inner.program
+    }
+
+    /// Query a placement target with the function's effective hardware grant.
+    /// Generic artifact loads retain targets but do not authenticate grants.
+    ///
+    /// # Errors
+    /// Returns an error for an invalid index or denied hardware access.
+    pub fn coprocessor_target(&self, function_index: usize) -> Result<Option<&str>> {
+        let function = self
+            .program()
+            .functions
+            .get(function_index)
+            .ok_or_else(|| TinyOneError::compile("Invalid coprocessor function index"))?;
+        let target = function.coprocessor_target();
+        if target.is_some() {
+            let permissions = self.permissions_for_chunk(function_index + 1)?;
+            if !permissions.capabilities().allows(ModuleCapability::Hardware) || !permissions.hardware_access() {
+                return Err(TinyOneError::compile("Coprocessor placement requires an authenticated hardware grant"));
+            }
+        }
+        Ok(target)
     }
 
     /// Return the stable program fingerprint, computing it at most once for
     /// this verification token and all of its clones.
     #[must_use]
     pub fn fingerprint(&self) -> &str {
-        self.fingerprint.get_or_init(|| self.program.fingerprint()).as_str()
+        self.inner
+            .fingerprint
+            .get_or_init(|| self.inner.program.fingerprint())
+            .as_str()
     }
 
     pub(crate) fn program_arc(&self) -> std::sync::Arc<Program> {
-        std::sync::Arc::clone(&self.program)
+        std::sync::Arc::clone(&self.inner.program)
+    }
+
+    /// Restore only diagnostic ownership on a private, freshly loaded token.
+    /// Neither executable content nor its verification certificate is mutable
+    /// through this boundary. Published/shared tokens cannot be rebound here.
+    pub(crate) fn with_source_origins(mut self, sources: Vec<Option<std::sync::Arc<BytecodeSource>>>) -> Result<Self> {
+        let program = self.program();
+        if sources.len() != program.functions.len() + 1
+            || sources
+                .iter()
+                .zip(std::iter::once(program.code.len()).chain(program.functions.iter().map(|f| f.code.len())))
+                .any(|(source, length)| {
+                    source
+                        .as_ref()
+                        .is_some_and(|source| source.instruction_count() != length)
+                })
+        {
+            return Err(TinyOneError::compile("Cached source origins do not match bytecode extents"));
+        }
+        let data = std::sync::Arc::get_mut(&mut self.inner)
+            .ok_or_else(|| TinyOneError::compile("Cached source restoration requires a private verification token"))?;
+        let program = std::sync::Arc::get_mut(&mut data.program)
+            .ok_or_else(|| TinyOneError::compile("Cached source restoration requires a private program"))?;
+        let mut sources = sources.into_iter();
+        program.source = sources.next().expect("main origin entry was checked");
+        for (function, source) in program.functions.iter_mut().zip(sources) {
+            function.source = source;
+        }
+        data.storage_bytes.take();
+        Ok(self)
+    }
+
+    /// Inclusive shared metadata charge, excluding Arc control blocks and
+    /// allocator overhead. The immutable deep scan is shared by token clones.
+    pub(crate) fn retained_bytes(&self) -> usize {
+        let fixed = self.inner.storage_bytes.get_or_init(|| {
+            size_of::<VerifiedProgramData>()
+                .saturating_add(size_of::<Program>())
+                .saturating_add(self.inner.program.allocation_bytes())
+                .saturating_add(self.inner.certificate.allocation_bytes())
+        });
+        fixed.saturating_add(self.inner.fingerprint.get().map_or(0, String::capacity))
     }
 
     /// Consume the capability and recover an owned program. If other clones
     /// still share the program, the metadata is cloned for the caller.
     #[must_use]
     pub fn into_program(self) -> Program {
-        match std::sync::Arc::try_unwrap(self.program) {
+        let program = match std::sync::Arc::try_unwrap(self.inner) {
+            Ok(inner) => inner.program,
+            Err(inner) => std::sync::Arc::clone(&inner.program),
+        };
+        match std::sync::Arc::try_unwrap(program) {
             Ok(program) => program,
             Err(program) => (*program).clone(),
         }
@@ -962,8 +1140,90 @@ impl VerifiedProgram {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use super::*;
     use crate::Op;
+
+    fn cached_origin_fixture() -> (VerifiedProgram, Vec<Option<Arc<BytecodeSource>>>) {
+        let compiled = crate::compile_source_verified_with_filename(
+            "fn fail(value) { return 1 / value } print fail(0)",
+            "cached.to",
+        )
+        .expect("source fixture");
+        let sources = std::iter::once(compiled.program().source.clone())
+            .chain(
+                compiled
+                    .program()
+                    .functions
+                    .iter()
+                    .map(|function| function.source.clone()),
+            )
+            .collect();
+        let bytes = compiled.program().to_binary_artifact().expect("artifact");
+        let decoded = Program::from_binary_artifact(&bytes).expect("decode");
+        (VerifiedProgram::verify(decoded).expect("verify"), sources)
+    }
+
+    #[test]
+    fn source_restoration_preserves_executable_ownership_and_refreshes_retained_bytes() {
+        let (verified, sources) = cached_origin_fixture();
+        let token = Arc::as_ptr(&verified.inner);
+        let program = Arc::as_ptr(&verified.inner.program);
+        let code = verified.program().code.as_ptr();
+        let certificate = verified.inner.certificate.chunks.as_ptr();
+        let fingerprint = verified.fingerprint().as_ptr();
+        let before = verified.retained_bytes();
+        assert!(verified.inner.storage_bytes.get().is_some());
+        assert!(!verified.program().policy_trusted);
+
+        let restored = verified.with_source_origins(sources).expect("private restoration");
+        assert_eq!(Arc::as_ptr(&restored.inner), token);
+        assert_eq!(Arc::as_ptr(&restored.inner.program), program);
+        assert_eq!(restored.program().code.as_ptr(), code);
+        assert_eq!(restored.inner.certificate.chunks.as_ptr(), certificate);
+        assert_eq!(restored.fingerprint().as_ptr(), fingerprint);
+        assert!(!restored.program().policy_trusted, "diagnostics cannot grant authority");
+        assert!(restored.inner.storage_bytes.get().is_none());
+        let source_bytes = restored.program().source_allocation_bytes();
+        assert!(source_bytes > 0);
+        assert_eq!(restored.retained_bytes(), before + source_bytes);
+    }
+
+    #[test]
+    fn source_restoration_rejects_shared_tokens_and_programs_without_mutating_aliases() {
+        let (verified, sources) = cached_origin_fixture();
+        let alias = verified.clone();
+        let before = alias.retained_bytes();
+        assert!(verified.with_source_origins(sources).is_err());
+        assert!(alias.program().source.is_none());
+        assert!(
+            alias
+                .program()
+                .functions
+                .iter()
+                .all(|function| function.source.is_none())
+        );
+        assert_eq!(alias.retained_bytes(), before);
+
+        let (verified, sources) = cached_origin_fixture();
+        let alias = verified.program_arc();
+        assert!(verified.with_source_origins(sources).is_err());
+        assert!(alias.source.is_none());
+        assert!(alias.functions.iter().all(|function| function.source.is_none()));
+    }
+
+    #[test]
+    fn source_restoration_rejects_wrong_chunk_and_instruction_extents() {
+        let (verified, mut sources) = cached_origin_fixture();
+        sources.pop();
+        assert!(verified.with_source_origins(sources).is_err());
+
+        let (verified, mut sources) = cached_origin_fixture();
+        let owner = Arc::clone(sources[1].as_ref().expect("function source").source_owner());
+        sources[1] = Some(BytecodeSource::new(owner, Vec::new()));
+        assert!(verified.with_source_origins(sources).is_err());
+    }
 
     #[test]
     fn cache_authority_scan_rejects_any_builtin_in_main_or_function() {

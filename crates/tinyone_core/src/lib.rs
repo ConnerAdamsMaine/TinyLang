@@ -31,6 +31,7 @@ mod bytecode;
 mod compile_cache;
 mod compiler;
 mod config;
+mod decorators;
 mod error;
 mod ffi;
 #[cfg(any(test, feature = "testing-hooks"))]
@@ -108,15 +109,19 @@ pub use config::{
     module_signature_digest,
     module_source_hash,
 };
+pub use decorators::{Decorator, DecoratorArgument};
 pub use error::{Result, TinyOneError};
 #[doc(hidden)]
 pub use ffi::sandbox_worker_main;
 pub use jit::{
+    DEFAULT_COMPILED_CACHE_MAX_BYTES,
+    DEFAULT_COMPILED_CACHE_MAX_ENTRIES,
     DEFAULT_HOT_BACK_EDGE_THRESHOLD,
     DEFAULT_SOURCE_CACHE_MAX_BYTES,
     DEFAULT_SOURCE_CACHE_MAX_ENTRIES,
     JitCache,
     JitCacheStats,
+    JitCompiledCacheStats,
     JitExecutionProfile,
     JitOpcodeProfile,
     JitOptions,
@@ -145,7 +150,6 @@ pub(crate) use runtime::{
     MAX_ARRAY_LENGTH,
     MAX_BUFFER_BYTES,
     MAX_CALL_DEPTH,
-    MAX_HEAP_BYTES,
     MAX_HEAP_OBJECTS,
     TinyHeap,
     TinyRuntimeContext,
@@ -211,6 +215,6 @@ pub(crate) use runtime::{
     runtime_write_uint,
     validate_pointer_base,
 };
-pub use runtime::{HeapRef, RawPointer, RuntimeValue, TinyHeapStats, TinyMemory, TinyRunReport, TypeKind, VM};
+pub use runtime::{HeapRef, RawPointer, RuntimeValue, TinyHeapStats, TinyMemory, TinyRunReport, TypeKind, VM, VmExecutionLimits, VmHeapValue};
 pub(crate) use source::SourceMap;
 pub(crate) use syntax::{Lexer, Token, TokenKind};

@@ -1,0 +1,96 @@
+# TinyLang v2 performance baseline
+
+Status: **executed local release baseline**, 2026-11-01.
+
+The [benchmark](../../../tinylang_v2/examples/engine_bench.rs) executes the compiler-
+produced `sum(100)` and independently checks the result is 4950. It separates
+lexing, frontend plus lowering, scalar lowering, backend preparation, and
+warm execution. VM and native measurements include argument/frame/result
+overhead, not just arithmetic instruction timing.
+
+```powershell
+cargo run --release --manifest-path .\tinylang_v2\Cargo.toml --example engine_bench --locked
+cargo run --release --manifest-path .\tinylang_v2\Cargo.toml --features cranelift --example engine_bench --locked
+```
+
+101 samples per metric follow 8 warmups; warm execution batches 256
+invocations. Output reports median, P95 and P99 nanoseconds per operation,
+sample count and batch size. Preparation does not include source compilation.
+Preparation samples include destruction of the freshly prepared owner.
+This is a small local baseline, not a performance regression gate or a
+full-language speedup claim.
+
+Host: Rust 1.100.0-nightly (`f7575a9da`, 2026-09-24), LLVM 23.1.1 reported by
+rustc, target x86_64-pc-windows-msvc; Intel Core i7-8850H, 6 cores/12 logical
+processors. rustc's bundled LLVM version alone does
+not establish an available external LLVM toolchain.
+
+## Checked workload measurements
+
+Cranelift-enabled release build; every execution checked `sum(100) = 4950`.
+Times are nanoseconds per operation.
+
+| Metric | Median | P95 | P99 | Batch |
+| --- | ---: | ---: | ---: | ---: |
+| Lexing | 3,725 | 8,262 | 9,109 | 256 |
+| Frontend and scalar lowering | 55,900 | 60,600 | 67,300 | 1 |
+| Scalar lowering alone | 6,133 | 8,648 | 13,751 | 256 |
+| Existing VM warm invocation | 19,476 | 22,497 | 54,557 | 256 |
+| Scalar interpreter preparation | 200 | 300 | 400 | 1 |
+| Scalar interpreter warm invocation | 2,503 | 2,856 | 5,239 | 256 |
+| ASM preparation | 12,900 | 17,800 | 22,900 | 1 |
+| ASM warm invocation | 893 | 1,262 | 1,492 | 256 |
+| Cranelift preparation | 690,900 | 766,100 | 843,200 | 1 |
+| Cranelift warm invocation | 1,835 | 1,935 | 1,978 | 256 |
+
+This is equivalent checked scalar work, not equivalent full-language
+capability. The VM retains its general runtime/value/allocator machinery.
+No native backend existed for a before/after optimization comparison, and no
+full-language speedup is claimed. CPU scheduling, frequency and OS cache
+state were not controlled.
+
+## CLI process wall time and binary size
+
+31 fresh processes per backend, Cranelift-enabled release CLI, persistent
+[example](../../../tinylang_v2/examples/scalar.tinyone), `sum 100`; every output checked
+4950. These measurements include PowerShell launch, process startup, file
+compilation/cache handling, preparation and execution. Source/OS caches were
+warm, so they are not uncached cold-source measurements. With 31 samples P99
+is the maximum observed value, not a sustained tail-latency guarantee.
+
+| Backend | Median ms | P95 ms | P99 ms |
+| --- | ---: | ---: | ---: |
+| ASM | 8.401 | 10.620 | 14.407 |
+| Cranelift | 11.063 | 18.128 | 25.123 |
+
+Release CLI file size: 1,244,160 bytes default build; 5,977,600 bytes with
+Cranelift. Both were built with `cargo build --release --bin tinylang-v2`
+and executed successfully. These are CLI sizes, not DLL/object-file sizes.
+
+## Optional LLVM 20.1.8 object baseline
+
+The [repeatable LLVM benchmark](../../../tinylang_v2/examples/llvm_bench.py) uses the
+same checked `sum(100) = 4950` workload, 8 warmups and 101 samples:
+
+```powershell
+& '.\tinylang_v2\target\llvm-validation\Scripts\python.exe' '.\tinylang_v2\examples\llvm_bench.py'
+```
+
+Use the pinned environment setup in [LLVM integration](LLVM_CRANELIFT_INTEGRATION.md).
+Times are nanoseconds per operation:
+
+| Metric | Median | P95 | P99 | Batch |
+| --- | ---: | ---: | ---: | ---: |
+| LLVM IR parse/verify, object emission, loading/preparation and drop | 13,703,800 | 15,816,800 | 17,059,000 | 1 |
+| LLVM ctypes invocation, reused host frame | 3,259 | 3,658 | 4,771 | 256 |
+
+Preparation excludes the Rust frontend/IR-emission subprocess. Warm calls
+reuse their host buffers and include ctypes overhead, unlike the Rust
+execution APIs that allocate independent frames. **Do not rank these numbers
+as equivalent API-overhead measurements.** LLVM 20.1.8 must not be conflated
+with rustc's LLVM 23.1.1; native Rust LLVM embedding and full-language LLVM
+performance remain outside this milestone.
+
+No claims yet for reference-count elimination, slab latency, incremental
+compilation, FFI call performance, resident memory or sustained regression
+thresholds. Those need separate equivalent-workload measurements.

@@ -3,7 +3,16 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use tinyone::{Program, TinyOneError, VerifiedProgram, compile_file, run_program, write_binary_artifact};
+use tinyone::{
+    JitOptions,
+    JitProgram,
+    Program,
+    TinyOneError,
+    VerifiedProgram,
+    compile_file,
+    run_program,
+    write_binary_artifact,
+};
 
 struct TestDir(PathBuf);
 
@@ -82,15 +91,103 @@ fn imported_modules_start_without_host_capabilities_in_both_backends() {
     let project = TestDir::new("deny-filesystem");
     let main = write_fs_module(&project, r#""host.to""#);
     let program = compile_file(main).expect("compile isolated module");
+    let module_path = project
+        .path()
+        .join("host.to")
+        .canonicalize()
+        .expect("canonical module path");
+    let location = format!("{}:3:18:", module_path.display());
 
     for mode in ["vm", "jit"] {
         let error = run(program.clone(), mode).expect_err("filesystem access must be denied");
+        assert!(
+            error.to_string().starts_with(&location),
+            "callee permission failure must retain its source: {error}"
+        );
         assert!(
             error
                 .to_string()
                 .contains("builtin \"fs_exists\" requires \"filesystem\""),
             "{error}"
         );
+    }
+}
+
+#[test]
+fn warmed_dynamic_calls_keep_callee_permissions_in_original_and_cloned_programs() {
+    for (manifest_module, expected) in [
+        (r#""host.to""#, Err("builtin \"fs_exists\" requires \"filesystem\"")),
+        (r#"{"path":"host.to","capabilities":["filesystem"]}"#, Ok("1\n")),
+    ] {
+        let project = TestDir::new("guarded-module-permissions");
+        let main = write_fs_module(&project, manifest_module);
+        fs::write(
+            project.path().join("host.to"),
+            "export fn probe(check) { if check { return fs_exists(\".\") } return 7 }
+             export fn callback() { return probe }",
+        )
+        .expect("write conditionally protected module");
+        for callback in ["host.callback()", r#"closure_new("host.probe", [])"#] {
+            fs::write(&main, format!("import \"host\" as host\nlet callback = {callback}\nprint callback(read_int())"))
+                .expect("write dynamic caller");
+            let program = compile_file(&main).expect("compile dynamic module call");
+            let mut reference_output = Vec::new();
+            let reference = run_program(program.clone(), "vm", &mut reference_output, vec!["1".to_owned()])
+                .map(|memory| memory.snapshot())
+                .map_err(|error| error.to_string());
+            match expected {
+                Ok(output) => {
+                    assert!(reference.is_ok());
+                    assert_eq!(reference_output, output.as_bytes());
+                }
+                Err(needle) => {
+                    assert!(
+                        reference
+                            .as_ref()
+                            .expect_err("module grant must be absent")
+                            .contains(needle)
+                    )
+                }
+            }
+            for threshold in [0, 1, 8] {
+                let mut compiled = JitProgram::compile_with_options(
+                    &program,
+                    JitOptions::new()
+                        .with_hot_back_edge_threshold(threshold)
+                        .with_call_feedback(true)
+                        .with_execution_profile(true),
+                )
+                .expect("compile guarded caller");
+                for _ in 0..8 {
+                    let mut output = Vec::new();
+                    drop(
+                        compiled
+                            .run(&mut output, vec!["0".to_owned()])
+                            .expect("warm harmless call"),
+                    );
+                    assert_eq!(output, b"7\n");
+                }
+                assert_eq!(
+                    compiled.execution_profile().expect("profile").call_specializations,
+                    u64::from(threshold != 0),
+                );
+                let mut cloned = compiled.clone();
+                for guarded in [&mut compiled, &mut cloned] {
+                    guarded.reset_execution_profile();
+                    let mut output = Vec::new();
+                    let actual = guarded
+                        .run(&mut output, vec!["1".to_owned()])
+                        .map(|memory| memory.snapshot())
+                        .map_err(|error| error.to_string());
+                    assert_eq!(output, reference_output);
+                    assert_eq!(actual, reference);
+                    let profile = guarded.execution_profile().expect("profile");
+                    assert_eq!(profile.call_guard_hits, u64::from(threshold != 0));
+                    assert_eq!(profile.call_guard_misses, 0);
+                    assert_eq!(profile.call_feedback_samples, 0);
+                }
+            }
+        }
     }
 }
 

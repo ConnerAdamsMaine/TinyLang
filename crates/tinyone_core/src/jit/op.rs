@@ -1,9 +1,12 @@
+use super::call_feedback::{CallSample, GuardedCall};
+use super::scalar::{ScalarOp, SlotId};
 use crate::{BUILTINS, Instr, Op, Result, TinyOneError, checked_non_negative_usize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PackedSlotCompareJump {
-    // Verification caps both a chunk and its slot table at 65,536 entries.
-    // Packing their zero-based indexes into u16s keeps every JitOp at 24 bytes.
+    // Slot indexes are verifier-bounded to u16. Public verified chunks can
+    // exceed 65,536 instructions, so new() declines wider branch targets and
+    // lowering preserves their ordinary, full-width branch operations.
     value:    i64,
     metadata: u64,
 }
@@ -199,8 +202,45 @@ impl PackedSlotCompareJump {
     }
 
     fn set_target(&mut self, target: usize) {
+        // Lowering only removes instructions, so remapping cannot increase
+        // the original target that new() already proved fits in u16.
         let target = u16::try_from(target).expect("verified JIT target fits in u16");
         self.metadata = (self.metadata & !(u64::from(u16::MAX) << 16)) | (u64::from(target) << 16);
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SlotIntMode {
+    MulAssign,
+    DivAssign,
+    MulPush,
+    DivPush,
+}
+
+impl SlotIntMode {
+    pub(super) fn scalar(self) -> ScalarOp {
+        match self {
+            Self::MulAssign | Self::MulPush => ScalarOp::Mul,
+            Self::DivAssign | Self::DivPush => ScalarOp::Div,
+        }
+    }
+
+    fn hot(self, slot: usize, value: i64) -> JitOp {
+        match self {
+            Self::MulAssign => JitOp::MulSlotIntHot(slot, value),
+            Self::DivAssign => JitOp::DivSlotIntHot(slot, value),
+            Self::MulPush => JitOp::PushMulSlotIntHot(slot, value),
+            Self::DivPush => JitOp::PushDivSlotIntHot(slot, value),
+        }
+    }
+
+    fn generic(self, slot: usize, value: i64) -> JitOp {
+        match self {
+            Self::MulAssign => JitOp::MulSlotInt(slot, value),
+            Self::DivAssign => JitOp::DivSlotInt(slot, value),
+            Self::MulPush => JitOp::PushMulSlotInt(slot, value),
+            Self::DivPush => JitOp::PushDivSlotInt(slot, value),
+        }
     }
 }
 
@@ -215,6 +255,13 @@ pub(crate) enum JitOp {
     Store(usize),
     MoveSlot(usize, usize),
     StoreInt(usize, i64),
+    BinarySlotsStore(ScalarOp, SlotId, SlotId, SlotId),
+    BinarySlotIntStore(ScalarOp, SlotId, i64, SlotId),
+    /// The immediate retains the exact Fp64 literal bits; the source slot's
+    /// type is still determined by the shared numeric operation at runtime.
+    BinarySlotFloatStore(ScalarOp, SlotId, u64, SlotId),
+    SampleBinary(ScalarOp),
+    SampleSlotInt(SlotIntMode, SlotId, i64),
     AddSlotInt(usize, i64),
     SubSlotInt(usize, i64),
     MulSlotInt(usize, i64),
@@ -223,8 +270,12 @@ pub(crate) enum JitOp {
     DivSlotIntHot(usize, i64),
     CompareSlotIntJumpIfZero(PackedSlotCompareJump),
     CompareSlotIntJumpIfZeroHot(PackedSlotCompareJump),
+    SampleCompareSlotIntJumpIfZero(PackedSlotCompareJump),
+    GenericCompareSlotIntJumpIfZero(PackedSlotCompareJump),
     JumpIfZeroSlot(usize, usize),
     JumpIfZeroSlotHot(usize, usize),
+    SampleJumpIfZeroSlot(usize, usize),
+    GenericJumpIfZeroSlot(usize, usize),
     ArrayLenSlotJumpIfZero(usize, usize),
     MapGetAddSlots(PackedMapGetAdd),
     MapSetMulSlots(PackedMapSetMul),
@@ -262,6 +313,9 @@ pub(crate) enum JitOp {
     PushFloat(u64),
     PushFunction(usize),
     CallValue(usize),
+    SampleCallValue(usize, CallSample),
+    GuardedCallValue(GuardedCall),
+    UnseenCallValue(usize),
     BuiltinDirect(JitBuiltin),
     Builtin(usize, usize),
     Return,
@@ -337,22 +391,69 @@ impl JitOp {
         })
     }
 
-    pub(crate) fn quickened(self) -> Self {
+    /// Elide an already-hot back-edge counter without assuming operand types.
+    pub(super) fn quickened_branch(self) -> Self {
         match self {
-            Self::Add => Self::AddInt,
-            Self::Sub => Self::SubInt,
-            Self::Mul => Self::MulInt,
-            Self::Div => Self::DivInt,
-            Self::Compare(op) => Self::CompareInt(op),
-            Self::CompareSlotIntJumpIfZero(operands) => Self::CompareSlotIntJumpIfZeroHot(operands),
-            Self::JumpIfZeroSlot(slot, target) => Self::JumpIfZeroSlotHot(slot, target),
-            Self::MulSlotInt(slot, value) => Self::MulSlotIntHot(slot, value),
-            Self::DivSlotInt(slot, value) => Self::DivSlotIntHot(slot, value),
-            Self::PushMulSlotInt(slot, value) => Self::PushMulSlotIntHot(slot, value),
-            Self::PushDivSlotInt(slot, value) => Self::PushDivSlotIntHot(slot, value),
             Self::Jump(target) => Self::JumpHot(target),
             Self::JumpIfZero(target) => Self::JumpIfZeroHot(target),
             _ => self,
+        }
+    }
+
+    pub(super) fn sampling(self) -> Option<Self> {
+        Some(match self {
+            Self::Add | Self::AddInt => Self::SampleBinary(ScalarOp::Add),
+            Self::Sub | Self::SubInt => Self::SampleBinary(ScalarOp::Sub),
+            Self::Mul | Self::MulInt => Self::SampleBinary(ScalarOp::Mul),
+            Self::Div | Self::DivInt => Self::SampleBinary(ScalarOp::Div),
+            Self::Compare(op) | Self::CompareInt(op) => Self::SampleBinary(ScalarOp::from_opcode(op)?),
+            Self::MulSlotInt(slot, value) | Self::MulSlotIntHot(slot, value) => {
+                Self::SampleSlotInt(SlotIntMode::MulAssign, SlotId::from_index(slot)?, value)
+            }
+            Self::DivSlotInt(slot, value) | Self::DivSlotIntHot(slot, value) => {
+                Self::SampleSlotInt(SlotIntMode::DivAssign, SlotId::from_index(slot)?, value)
+            }
+            Self::PushMulSlotInt(slot, value) | Self::PushMulSlotIntHot(slot, value) => {
+                Self::SampleSlotInt(SlotIntMode::MulPush, SlotId::from_index(slot)?, value)
+            }
+            Self::PushDivSlotInt(slot, value) | Self::PushDivSlotIntHot(slot, value) => {
+                Self::SampleSlotInt(SlotIntMode::DivPush, SlotId::from_index(slot)?, value)
+            }
+            Self::CompareSlotIntJumpIfZero(operands) | Self::CompareSlotIntJumpIfZeroHot(operands) => {
+                Self::SampleCompareSlotIntJumpIfZero(operands)
+            }
+            Self::JumpIfZeroSlot(slot, target) | Self::JumpIfZeroSlotHot(slot, target) => {
+                Self::SampleJumpIfZeroSlot(slot, target)
+            }
+            _ => return None,
+        })
+    }
+
+    pub(super) fn specialized(self) -> Self {
+        match self {
+            Self::SampleBinary(mode) => {
+                match mode {
+                    ScalarOp::Add => Self::AddInt,
+                    ScalarOp::Sub => Self::SubInt,
+                    ScalarOp::Mul => Self::MulInt,
+                    ScalarOp::Div => Self::DivInt,
+                    _ => Self::CompareInt(mode.opcode()),
+                }
+            }
+            Self::SampleSlotInt(mode, slot, value) => mode.hot(slot.index(), value),
+            Self::SampleCompareSlotIntJumpIfZero(operands) => Self::CompareSlotIntJumpIfZeroHot(operands),
+            Self::SampleJumpIfZeroSlot(slot, target) => Self::JumpIfZeroSlotHot(slot, target),
+            _ => self,
+        }
+    }
+
+    pub(super) fn generic(self) -> Self {
+        match self {
+            Self::SampleBinary(mode) => mode.stack_op(),
+            Self::SampleSlotInt(mode, slot, value) => mode.generic(slot.index(), value),
+            Self::SampleCompareSlotIntJumpIfZero(operands) => Self::GenericCompareSlotIntJumpIfZero(operands),
+            Self::SampleJumpIfZeroSlot(slot, target) => Self::GenericJumpIfZeroSlot(slot, target),
+            _ => self.sampling().map_or(self, Self::generic),
         }
     }
 
@@ -367,6 +468,31 @@ impl JitOp {
             Self::Store(slot) => format!("store {slot}"),
             Self::MoveSlot(source, destination) => format!("slot.move {source} {destination}"),
             Self::StoreInt(slot, value) => format!("store.i {slot} {value}"),
+            Self::BinarySlotsStore(mode, lhs, rhs, destination) => {
+                format!("binary.{}.slots.store {} {} {}", mode.name(), lhs.index(), rhs.index(), destination.index())
+            }
+            Self::BinarySlotIntStore(mode, source, value, destination) => {
+                format!("binary.{}.slot.i.store {} {value} {}", mode.name(), source.index(), destination.index())
+            }
+            Self::BinarySlotFloatStore(mode, source, bits, destination) => {
+                format!(
+                    "binary.{}.slot.f.store {} {} {}",
+                    mode.name(),
+                    source.index(),
+                    f64::from_bits(bits),
+                    destination.index()
+                )
+            }
+            Self::SampleBinary(mode) => format!("sample.{}", mode.name()),
+            Self::SampleSlotInt(mode, slot, value) => format!("sample.{}", mode.generic(slot.index(), value).listing()),
+            Self::SampleCompareSlotIntJumpIfZero(operands) => {
+                format!("sample.{}", Self::CompareSlotIntJumpIfZero(operands).listing())
+            }
+            Self::GenericCompareSlotIntJumpIfZero(operands) => {
+                format!("generic.{}", Self::CompareSlotIntJumpIfZero(operands).listing())
+            }
+            Self::SampleJumpIfZeroSlot(slot, target) => format!("sample.slot.jz {slot} {target}"),
+            Self::GenericJumpIfZeroSlot(slot, target) => format!("generic.slot.jz {slot} {target}"),
             Self::AddSlotInt(slot, value) => format!("slot.add.i {slot} {value}"),
             Self::SubSlotInt(slot, value) => format!("slot.sub.i {slot} {value}"),
             Self::MulSlotInt(slot, value) => format!("slot.mul.i {slot} {value}"),
@@ -444,6 +570,11 @@ impl JitOp {
             Self::PushFloat(bits) => format!("push.f {}", f64::from_bits(bits)),
             Self::PushFunction(index) => format!("push.fn {index}"),
             Self::CallValue(count) => format!("call.value args={count}"),
+            Self::SampleCallValue(count, _) => format!("sample.call.value args={count}"),
+            Self::GuardedCallValue(guard) => {
+                format!("call.value.hot f{} args={}", guard.function_index(), guard.arg_count())
+            }
+            Self::UnseenCallValue(count) => format!("call.value.unseen args={count}"),
             Self::BuiltinDirect(builtin) => format!("builtin.direct.{}", builtin.name()),
             Self::Builtin(index, arg_count) => format!("builtin b{index} argc={arg_count}"),
             Self::Return => "return".to_string(),
@@ -460,12 +591,17 @@ impl JitOp {
             | Self::JumpIfZeroHot(target)
             | Self::JumpIfZeroSlot(_, target)
             | Self::JumpIfZeroSlotHot(_, target)
+            | Self::SampleJumpIfZeroSlot(_, target)
+            | Self::GenericJumpIfZeroSlot(_, target)
             | Self::ArrayLenSlotJumpIfZero(_, target) => {
                 if let Some(mapped) = original_to_compiled.get(*target) {
                     *target = *mapped;
                 }
             }
-            Self::CompareSlotIntJumpIfZero(operands) | Self::CompareSlotIntJumpIfZeroHot(operands) => {
+            Self::CompareSlotIntJumpIfZero(operands)
+            | Self::CompareSlotIntJumpIfZeroHot(operands)
+            | Self::SampleCompareSlotIntJumpIfZero(operands)
+            | Self::GenericCompareSlotIntJumpIfZero(operands) => {
                 if let Some(mapped) = original_to_compiled.get(operands.target()) {
                     operands.set_target(*mapped);
                 }
@@ -485,6 +621,22 @@ impl JitOp {
             Self::Store(_) => "store",
             Self::MoveSlot(_, _) => "slot.move",
             Self::StoreInt(_, _) => "store.i",
+            Self::BinarySlotsStore(_, _, _, _) => "binary.slots.store",
+            Self::BinarySlotIntStore(_, _, _, _) => "binary.slot.i.store",
+            Self::BinarySlotFloatStore(_, _, _, _) => "binary.slot.f.store",
+            Self::SampleBinary(_) => "sample.binary",
+            Self::SampleSlotInt(mode, _, _) => {
+                match mode {
+                    SlotIntMode::MulAssign => "sample.slot.mul.i",
+                    SlotIntMode::DivAssign => "sample.slot.div.i",
+                    SlotIntMode::MulPush => "sample.push.slot.mul.i",
+                    SlotIntMode::DivPush => "sample.push.slot.div.i",
+                }
+            }
+            Self::SampleCompareSlotIntJumpIfZero(_) => "sample.slot.cmp.i.jz",
+            Self::GenericCompareSlotIntJumpIfZero(_) => "generic.slot.cmp.i.jz",
+            Self::SampleJumpIfZeroSlot(_, _) => "sample.slot.jz",
+            Self::GenericJumpIfZeroSlot(_, _) => "generic.slot.jz",
             Self::AddSlotInt(_, _) => "slot.add.i",
             Self::SubSlotInt(_, _) => "slot.sub.i",
             Self::MulSlotInt(_, _) => "slot.mul.i",
@@ -529,6 +681,9 @@ impl JitOp {
             Self::PushFloat(_) => "push.f",
             Self::PushFunction(_) => "push.fn",
             Self::CallValue(_) => "call.value",
+            Self::SampleCallValue(..) => "sample.call.value",
+            Self::GuardedCallValue(_) => "call.value.hot",
+            Self::UnseenCallValue(_) => "call.value.unseen",
             Self::BuiltinDirect(builtin) => {
                 match builtin {
                     JitBuiltin::Len => "builtin.direct.len",
@@ -581,15 +736,26 @@ impl JitOp {
             | Self::DivInt
             | Self::Compare(_)
             | Self::CompareInt(_)
+            | Self::SampleBinary(_)
             | Self::Index => (1, 2),
             Self::Neg | Self::GetField(_) => (1, 1),
+            Self::SampleSlotInt(SlotIntMode::MulPush | SlotIntMode::DivPush, _, _) => (1, 0),
+            Self::SampleSlotInt(SlotIntMode::MulAssign | SlotIntMode::DivAssign, _, _)
+            | Self::SampleCompareSlotIntJumpIfZero(_)
+            | Self::GenericCompareSlotIntJumpIfZero(_)
+            | Self::SampleJumpIfZeroSlot(_, _)
+            | Self::GenericJumpIfZeroSlot(_, _) => (0, 0),
             Self::Call(_, args) | Self::Builtin(_, args) => (1, args),
             Self::BuiltinDirect(builtin) => (1, builtin.arg_count()),
-            Self::CallValue(args) => (1, args + 1),
+            Self::CallValue(args) | Self::SampleCallValue(args, _) | Self::UnseenCallValue(args) => (1, args + 1),
+            Self::GuardedCallValue(guard) => (1, guard.arg_count() + 1),
             Self::MakeArray(count) | Self::MakeStruct(_, count) | Self::MakeEnum(_, count) => (1, count),
             Self::SetIndex => (0, 3),
             Self::SetField(_) => (0, 2),
             Self::StoreInt(_, _)
+            | Self::BinarySlotsStore(_, _, _, _)
+            | Self::BinarySlotIntStore(_, _, _, _)
+            | Self::BinarySlotFloatStore(_, _, _, _)
             | Self::MoveSlot(_, _)
             | Self::AddSlotInt(_, _)
             | Self::SubSlotInt(_, _)

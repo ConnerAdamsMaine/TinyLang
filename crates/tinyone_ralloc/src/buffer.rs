@@ -26,7 +26,8 @@ pub enum RallocError {
 /// `RallocBuffer` gives Rust callers an ownership-based API over the allocator:
 /// freeing happens on drop, resizing requires `&mut self`, and byte access is
 /// exposed through Rust slices instead of requiring callers to manage raw
-/// pointer lifetimes.
+/// pointer lifetimes. Newly allocated bytes, including the tail added by
+/// growth, are zero-initialized before safe byte access is exposed.
 pub struct RallocBuffer {
     ptr:       NonNull<u8>,
     len:       usize,
@@ -40,7 +41,7 @@ pub struct RallocBuffer {
 unsafe impl Send for RallocBuffer {}
 
 impl RallocBuffer {
-    /// Allocates a byte buffer of `len` bytes.
+    /// Allocates a zero-initialized byte buffer of `len` bytes.
     ///
     /// A zero-length buffer does not allocate and always succeeds.
     #[must_use]
@@ -48,7 +49,7 @@ impl RallocBuffer {
         Self::try_new(len).ok()
     }
 
-    /// Allocates a byte buffer of `len` bytes, returning an explicit error on
+    /// Allocates a zero-initialized byte buffer of `len` bytes, returning an explicit error on
     /// allocation failure.
     ///
     /// # Errors
@@ -61,7 +62,7 @@ impl RallocBuffer {
         Self::try_new_aligned(len, crate::block::ALIGNMENT)
     }
 
-    /// Allocates a byte buffer of `len` bytes with at least `align` byte
+    /// Allocates a zero-initialized byte buffer of `len` bytes with at least `align` byte
     /// alignment.
     ///
     /// # Errors
@@ -83,6 +84,11 @@ impl RallocBuffer {
         let Some(ptr) = NonNull::new(ptr) else {
             return Err(RallocError::OutOfMemory);
         };
+
+        // SAFETY: The allocator returned uniquely owned storage writable for
+        // `len` bytes. A previous typed allocation may have left uninitialized
+        // padding here, so initialize every byte before exposing safe slices.
+        unsafe { ptr.as_ptr().write_bytes(0, len) };
 
         Ok(Self {
             ptr,
@@ -107,15 +113,17 @@ impl RallocBuffer {
     /// Returns the buffer as an immutable byte slice.
     #[must_use]
     pub fn as_slice(&self) -> &[u8] {
-        // SAFETY: `ptr` is either a live allocation of `len` bytes or a dangling
-        // non-null pointer with `len == 0`.
+        // SAFETY: `ptr` is either a live allocation of `len` initialized bytes
+        // or a dangling non-null pointer with `len == 0`. Raw ownership recovery
+        // requires the caller to preserve this initialization invariant.
         unsafe { slice::from_raw_parts(self.ptr.as_ptr(), self.len) }
     }
 
     /// Returns the buffer as a mutable byte slice.
     pub fn as_mut_slice(&mut self) -> &mut [u8] {
         // SAFETY: `&mut self` proves unique access to the owned allocation, and
-        // `ptr` is either live for `len` bytes or dangling with `len == 0`.
+        // `ptr` is either live for `len` initialized bytes or dangling with
+        // `len == 0`. Raw ownership recovery preserves this invariant.
         unsafe { slice::from_raw_parts_mut(self.ptr.as_ptr(), self.len) }
     }
 
@@ -126,6 +134,7 @@ impl RallocBuffer {
     }
 
     /// Resizes the buffer, preserving the first `min(old_len, new_len)` bytes.
+    /// Newly added bytes are zero-initialized.
     ///
     /// Returns `false` if allocation fails; on failure the original buffer is
     /// left unchanged.
@@ -134,6 +143,7 @@ impl RallocBuffer {
     }
 
     /// Resizes the buffer, preserving the first `min(old_len, new_len)` bytes.
+    /// Newly added bytes are zero-initialized.
     ///
     /// On error the original buffer remains unchanged.
     ///
@@ -175,6 +185,13 @@ impl RallocBuffer {
             return Err(RallocError::OutOfMemory);
         };
 
+        if new_len > self.len {
+            // SAFETY: Successful reallocation owns `new_len` writable bytes.
+            // The old logical prefix is initialized; the new tail may include
+            // uninitialized allocator capacity and must be initialized here.
+            unsafe { ptr.as_ptr().add(self.len).write_bytes(0, new_len - self.len) };
+        }
+
         self.ptr = ptr;
         self.len = new_len;
         #[cfg(any(test, feature = "testing-hooks"))]
@@ -201,7 +218,7 @@ impl RallocBuffer {
     ///
     /// `ptr` and `len` must come from a previous `RallocBuffer::into_raw_parts`
     /// call, must not have been freed, and must not already be owned by another
-    /// handle.
+    /// handle. All `len` bytes must remain initialized while ownership is raw.
     ///
     /// # Errors
     ///
@@ -256,7 +273,9 @@ impl Drop for RallocBuffer {
 /// Owned typed allocation backed by Ralloc.
 ///
 /// `RallocBox<T>` owns exactly one initialized `T`. Dropping the handle drops
-/// the value first and then releases the allocator storage.
+/// the value first and then releases the allocator storage, including when
+/// the value's destructor unwinds. Zero-sized values retain the same ownership
+/// and drop behavior without allocating storage.
 pub struct RallocBox<T> {
     ptr:       NonNull<T>,
     allocated: bool,
@@ -283,6 +302,9 @@ impl<T> RallocBox<T> {
     /// types are never allocated and always succeed.
     pub fn try_new(value: T) -> Result<Self, RallocError> {
         if mem::size_of::<T>() == 0 {
+            // Transfer the zero-sized value's destructor obligation to the
+            // returned handle; returning must not drop the incoming value.
+            mem::forget(value);
             return Ok(Self {
                 ptr:       NonNull::dangling(),
                 allocated: false,
@@ -379,13 +401,26 @@ impl<T> RallocBox<T> {
 
 impl<T> Drop for RallocBox<T> {
     fn drop(&mut self) {
+        // Install the storage owner before invoking user-provided drop code.
+        // Its cleanup runs after T's field drops, on success or unwinding.
+        let _storage = if self.allocated {
+            Some(BoxStorageRelease(self.ptr.cast()))
+        } else {
+            None
+        };
         // SAFETY: `ptr` points to the initialized value owned by this handle.
         unsafe { ptr::drop_in_place(self.ptr.as_ptr()) };
-        if self.allocated {
-            // SAFETY: After dropping the value, the allocation is still owned by
-            // this handle and must be released exactly once.
-            unsafe { ralloc_free(self.ptr.as_ptr().cast::<c_void>()) };
-        }
+    }
+}
+
+struct BoxStorageRelease(NonNull<c_void>);
+
+impl Drop for BoxStorageRelease {
+    fn drop(&mut self) {
+        // SAFETY: RallocBox::drop transfers its non-zero allocation to this
+        // sole storage owner. The value's drop attempt has finished, and no
+        // other owner may free the allocation or access its value again.
+        unsafe { ralloc_free(self.0.as_ptr()) };
     }
 }
 
@@ -400,5 +435,156 @@ impl<T> Deref for RallocBox<T> {
 impl<T> DerefMut for RallocBox<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.get_mut()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    extern crate std;
+
+    use core::sync::atomic::{AtomicUsize, Ordering};
+    use std::panic::{AssertUnwindSafe, catch_unwind};
+
+    use super::{RallocBox, RallocBuffer};
+    use crate::{instrumentation, ralloc, region};
+
+    struct PanickingValue<'a> {
+        drops: &'a AtomicUsize,
+        child: RallocBuffer,
+    }
+
+    impl Drop for PanickingValue<'_> {
+        fn drop(&mut self) {
+            self.drops.fetch_add(1, Ordering::SeqCst);
+            // The box and its field must stay live until the value's
+            // destructor has finished, including the unwinding field drops.
+            self.child.as_mut_slice()[0] = 91;
+            assert_eq!(self.child.as_slice()[0], 91);
+            std::panic!("intentional value-drop failure");
+        }
+    }
+
+    #[repr(align(4096))]
+    struct AlignedValue<'a>(PanickingValue<'a>);
+
+    fn assert_nested_box_unwind_cleanup<T>(
+        value: RallocBox<T>,
+        drops: &AtomicUsize,
+        before: instrumentation::InstrumentationSnapshot,
+    ) {
+        // The closure consumes the only box owner. The test observes only
+        // independent counters after catching the intentional panic.
+        let outcome = catch_unwind(AssertUnwindSafe(|| drop(value)));
+        assert_eq!(
+            outcome
+                .expect_err("value destructor must unwind")
+                .downcast_ref::<&str>(),
+            Some(&"intentional value-drop failure"),
+        );
+        assert_eq!(drops.load(Ordering::SeqCst), 1);
+        let after = instrumentation::snapshot();
+        assert_eq!(after.allocations - before.allocations, 2, "box and nested byte buffer");
+        assert_eq!(after.deallocations - before.deallocations, 2, "both owners release storage");
+        assert_eq!(after.live_payload_bytes, before.live_payload_bytes, "no leaked box payload");
+    }
+
+    #[test]
+    fn box_unwinding_value_drop_releases_its_allocation() {
+        let _exclusive = region::TEST_LOCK.lock();
+        ralloc::reset_for_tests();
+        let before = instrumentation::snapshot();
+        let drops = AtomicUsize::new(0);
+        let value = RallocBox::try_new(PanickingValue {
+            drops: &drops,
+            child: RallocBuffer::try_new(32).expect("nested byte buffer"),
+        })
+        .expect("box allocation");
+
+        assert_nested_box_unwind_cleanup(value, &drops, before);
+    }
+
+    #[test]
+    fn box_unwinding_field_drop_releases_raw_recovered_aligned_allocation() {
+        let _exclusive = region::TEST_LOCK.lock();
+        ralloc::reset_for_tests();
+        let before = instrumentation::snapshot();
+        let drops = AtomicUsize::new(0);
+        let value = RallocBox::try_new(AlignedValue(PanickingValue {
+            drops: &drops,
+            child: RallocBuffer::try_new(32).expect("nested byte buffer"),
+        }))
+        .expect("aligned box allocation");
+        assert_eq!(value.as_ptr().addr() % 4096, 0);
+        assert_eq!(value.get().0.child.len(), 32);
+        let raw = value.into_raw();
+        // SAFETY: This recovers the sole, still-live owner just relinquished
+        // by into_raw, with the original value type and no intervening access.
+        let recovered = unsafe { RallocBox::from_raw(raw) }.expect("raw ownership recovery");
+
+        assert_nested_box_unwind_cleanup(recovered, &drops, before);
+    }
+
+    #[test]
+    fn box_unwinding_zero_sized_drop_does_not_free_storage() {
+        #[repr(align(4096))]
+        struct PanickingZeroSized;
+
+        impl Drop for PanickingZeroSized {
+            fn drop(&mut self) {
+                std::panic!("intentional zero-sized drop failure");
+            }
+        }
+
+        let _exclusive = region::TEST_LOCK.lock();
+        ralloc::reset_for_tests();
+        let before = instrumentation::snapshot();
+        let value = RallocBox::try_new(PanickingZeroSized).expect("zero-sized owner");
+        assert_eq!(value.as_ptr().addr() % 4096, 0);
+        let outcome = catch_unwind(AssertUnwindSafe(|| drop(value)));
+        assert_eq!(
+            outcome
+                .expect_err("zero-sized destructor must unwind")
+                .downcast_ref::<&str>(),
+            Some(&"intentional zero-sized drop failure"),
+        );
+        assert_eq!(instrumentation::snapshot(), before, "zero-sized values do not reach the allocator");
+    }
+
+    #[test]
+    fn box_zero_sized_ownership_transfer_defers_drop_until_the_final_owner() {
+        static DROPS: AtomicUsize = AtomicUsize::new(0);
+        struct ZeroSized;
+
+        impl Drop for ZeroSized {
+            fn drop(&mut self) {
+                DROPS.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+
+        let _exclusive = region::TEST_LOCK.lock();
+        ralloc::reset_for_tests();
+        let before = instrumentation::snapshot();
+        DROPS.store(0, Ordering::SeqCst);
+
+        let owned = RallocBox::try_new(ZeroSized).expect("zero-sized allocation");
+        assert_eq!(DROPS.load(Ordering::SeqCst), 0, "construction transfers, rather than drops, the value");
+        drop(owned);
+        assert_eq!(DROPS.load(Ordering::SeqCst), 1);
+
+        let owned = RallocBox::try_new(ZeroSized).expect("zero-sized allocation");
+        let inner = owned.into_inner();
+        assert_eq!(DROPS.load(Ordering::SeqCst), 1, "moving out preserves ownership");
+        drop(inner);
+        assert_eq!(DROPS.load(Ordering::SeqCst), 2);
+
+        let owned = RallocBox::try_new(ZeroSized).expect("zero-sized allocation");
+        let raw = owned.into_raw();
+        assert_eq!(DROPS.load(Ordering::SeqCst), 2, "raw handoff does not drop the value");
+        // SAFETY: The pointer retains sole ownership of the initialized
+        // zero-sized value and has not been reclaimed or freed elsewhere.
+        let recovered = unsafe { RallocBox::from_raw(raw) }.expect("zero-sized ownership recovery");
+        drop(recovered);
+        assert_eq!(DROPS.load(Ordering::SeqCst), 3);
+        assert_eq!(instrumentation::snapshot(), before, "zero-sized ownership does not allocate");
     }
 }

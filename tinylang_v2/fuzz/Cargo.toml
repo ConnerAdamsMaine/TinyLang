@@ -1,0 +1,29 @@
+[package]
+name = "tinylang-v2-abi-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+tinylang-v2-abi = { path = ".." }
+
+[[bin]]
+name = "frame"
+path = "fuzz_targets/frame.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "artifact"
+path = "fuzz_targets/artifact.rs"
+test = false
+doc = false
+bench = false
+
+[workspace]
+members = ["."]

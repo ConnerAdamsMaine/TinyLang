@@ -1,6 +1,6 @@
 use crate::runtime::value_codec::{self, ENCODED_VALUE_BYTES};
 use crate::tiny_allocator::RallocBytes;
-use crate::{Op, Result, TinyOneError, Value, checked_div_int, runtime_add_int, runtime_mul_int, runtime_sub_int};
+use crate::{Op, Result, TinyOneError, Value, runtime_add_int, runtime_sub_int};
 
 /// VM locals/globals backed by Ralloc-owned storage.
 ///
@@ -136,18 +136,14 @@ impl TinyMemory {
         value_codec::div_i64(self.slot_bytes(slot)?, value)
     }
 
-    pub(crate) fn mul_int_assign(&mut self, slot: usize, value: i64) -> Result<()> {
-        if value_codec::mul_i64_in_place(self.slot_bytes_mut(slot)?, value)? {
-            return Ok(());
-        }
-        self.update_int_slot(slot, value, runtime_mul_int)
+    /// `None` leaves a non-I64 slot untouched for the caller's generic fallback.
+    pub(crate) fn try_mul_int_assign(&mut self, slot: usize, value: i64) -> Result<Option<()>> {
+        Ok(value_codec::mul_i64_in_place(self.slot_bytes_mut(slot)?, value)?.then_some(()))
     }
 
-    pub(crate) fn div_int_assign(&mut self, slot: usize, value: i64) -> Result<()> {
-        if value_codec::div_i64_in_place(self.slot_bytes_mut(slot)?, value)? {
-            return Ok(());
-        }
-        self.update_int_slot(slot, value, checked_div_int)
+    /// `None` leaves a non-I64 slot untouched for the caller's generic fallback.
+    pub(crate) fn try_div_int_assign(&mut self, slot: usize, value: i64) -> Result<Option<()>> {
+        Ok(value_codec::div_i64_in_place(self.slot_bytes_mut(slot)?, value)?.then_some(()))
     }
 
     /// Creates a snapshot of the current memory state, returning a vector of all

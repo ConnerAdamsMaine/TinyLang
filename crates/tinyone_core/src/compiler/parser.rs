@@ -1,6 +1,11 @@
+mod decorators;
+
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
+use std::sync::Arc;
 
+use crate::decorators::Decorator;
+use crate::source::bytecode::{BytecodeSource, SourceOffset};
 use crate::{
     BUILTINS,
     EnumVariantDef,
@@ -42,10 +47,12 @@ enum ReadSlot {
 }
 
 pub(crate) struct Compiler {
-    tokens:                 Vec<Token>,
-    index:                  usize,
+    // Own the lexer's allocation, but only expose/consume its unparsed suffix.
+    tokens:                 std::vec::IntoIter<Token>,
     eof_token:              Token,
-    source_map:             SourceMap,
+    source_map:             Arc<SourceMap>,
+    source_offsets:         Vec<SourceOffset>,
+    last_source_offset:     SourceOffset,
     filename:               String,
     resolver:               Option<Resolver>,
     module_mode:            bool,
@@ -53,6 +60,7 @@ pub(crate) struct Compiler {
     module_qualified_name:  Option<String>,
     module_imports:         Vec<ModuleImportDef>,
     namespaces:             HashMap<String, ModuleInfo>,
+    extension_aliases:      HashMap<String, &'static str>,
     accept_imports:         bool,
     symbols:                SymbolTable,
     code:                   Vec<Instr>,
@@ -82,8 +90,8 @@ impl Compiler {
         let source = source.into();
         let filename = filename.into();
         let source_len = source.len();
-        let source_map = SourceMap::new(source.clone(), filename.clone());
-        let tokens = Lexer::new(source, filename.clone()).tokenize()?;
+        let source_map = Arc::new(SourceMap::new(source, filename.clone()));
+        let tokens = Lexer::new(&source_map).tokenize()?;
         let mut module_filename = None;
         let mut module_qualified_name = None;
         if module_mode {
@@ -115,8 +123,7 @@ impl Compiler {
             module_qualified_name = Some(name);
         }
         Ok(Self {
-            tokens,
-            index: 0,
+            tokens: tokens.into_iter(),
             eof_token: Token {
                 kind: TokenKind::Eof,
                 text: String::new(),
@@ -124,6 +131,8 @@ impl Compiler {
                 end:  source_len,
             },
             source_map,
+            source_offsets: Vec::new(),
+            last_source_offset: SourceOffset(source_len),
             filename,
             resolver,
             module_mode,
@@ -131,6 +140,7 @@ impl Compiler {
             module_qualified_name,
             module_imports: Vec::new(),
             namespaces: HashMap::new(),
+            extension_aliases: HashMap::new(),
             accept_imports: true,
             symbols: SymbolTable::new(),
             code: Vec::new(),
@@ -149,8 +159,8 @@ impl Compiler {
     }
 
     /// Applies the project policy to the root compilation unit. Nested module
-    /// compilers only contribute definitions to the shared state, so their
-    /// temporary Program values never become executable artifacts.
+    /// compilers only contribute definitions to the shared state; only the
+    /// final owner assembles a Program.
     pub(crate) fn with_runtime_policy(
         mut self,
         root_capabilities: ModuleCapabilities,
@@ -162,13 +172,49 @@ impl Compiler {
         self
     }
 
-    pub(crate) fn compile(&mut self) -> Result<Program> {
+    pub(crate) fn compile(mut self) -> Result<Program> {
+        self.compile_unit()?;
+        self.emit_at(Op::Halt, 0, 0, self.eof_token.pos);
+        // Imported units have finished and dropped their shared-state handles.
+        // Finalization transfers ownership; it must not drain a live compiler
+        // or silently fall back to cloning the complete program tables.
+        let state = Rc::try_unwrap(self.shared)
+            .map_err(|_| TinyOneError::compile("Internal compiler state still has active owners"))?
+            .into_inner();
+        // Preserve the old snapshot's compact extents without cloning its
+        // elements. Moving growable builders directly retained excess capacity
+        // in every function's local-name table and in the final shared tables.
+        Ok(Program {
+            code:              self.code.into_boxed_slice().into_vec(),
+            source:            Some(BytecodeSource::new(self.source_map, self.source_offsets)),
+            slot_count:        self.symbols.slot_count(),
+            names:             self.symbols.names.into_boxed_slice().into_vec(),
+            functions:         state.functions.into_boxed_slice().into_vec(),
+            strings:           state.strings.into_boxed_slice().into_vec(),
+            structs:           state.structs.into_boxed_slice().into_vec(),
+            fields:            state.fields.into_boxed_slice().into_vec(),
+            modules:           state.module_defs.into_boxed_slice().into_vec(),
+            enum_variants:     state.enum_variants.into_boxed_slice().into_vec(),
+            root_capabilities: self.root_capabilities,
+            root_permissions:  self.root_permissions,
+            policy_trusted:    true,
+            vm_settings:       self.vm_settings,
+        })
+    }
+
+    /// Compile one source unit into its owned code and the session's shared
+    /// definitions. Imported units have no executable main chunk to assemble.
+    fn compile_unit(&mut self) -> Result<()> {
         while self.current().kind != TokenKind::Eof {
             match self.current().kind {
+                TokenKind::At => {
+                    self.accept_imports = false;
+                    self.decorated_declaration()?;
+                }
                 TokenKind::Import => self.import_statement()?,
                 TokenKind::Export => {
                     self.accept_imports = false;
-                    self.export_declaration()?;
+                    self.export_declaration(Vec::new())?;
                 }
                 TokenKind::Struct => {
                     self.accept_imports = false;
@@ -180,7 +226,7 @@ impl Compiler {
                 }
                 TokenKind::Fn => {
                     self.accept_imports = false;
-                    self.function_definition(false)?;
+                    self.function_definition(false, Vec::new())?;
                 }
                 _ => {
                     if self.module_mode {
@@ -194,31 +240,14 @@ impl Compiler {
                 }
             }
         }
-        self.emit(Op::Halt, 0, 0);
-        self.finalize_module()?;
-        let state = self.shared.borrow();
-        Ok(Program {
-            code:              self.code.clone(),
-            slot_count:        self.symbols.slot_count(),
-            names:             self.symbols.names.clone(),
-            functions:         state.functions.clone(),
-            strings:           state.strings.clone(),
-            structs:           state.structs.clone(),
-            fields:            state.fields.clone(),
-            modules:           state.module_defs.clone(),
-            enum_variants:     state.enum_variants.clone(),
-            root_capabilities: self.root_capabilities,
-            root_permissions:  self.root_permissions.clone(),
-            policy_trusted:    true,
-            vm_settings:       self.vm_settings,
-        })
+        self.finalize_module()
     }
 
-    fn export_declaration(&mut self) -> Result<()> {
+    fn export_declaration(&mut self, decorators: Vec<Decorator>) -> Result<()> {
         let token = self.eat(TokenKind::Export)?;
         match self.current().kind {
             TokenKind::Struct => self.struct_definition(true),
-            TokenKind::Fn => self.function_definition(true),
+            TokenKind::Fn => self.function_definition(true, decorators),
             _ => Err(self.error("Expected function or struct declaration after export", token)),
         }
     }
@@ -257,6 +286,10 @@ impl Compiler {
 
     fn statement(&mut self) -> Result<()> {
         match self.current().kind {
+            TokenKind::At => {
+                Err(self
+                    .error("Decorators are only allowed on top level function declarations", self.current().clone()))
+            }
             TokenKind::Let => self.let_statement(),
             TokenKind::Print => self.print_statement(),
             TokenKind::While => self.while_statement(),
@@ -301,7 +334,7 @@ impl Compiler {
     fn let_statement(&mut self) -> Result<()> {
         self.eat(TokenKind::Let)?;
         let name_token = self.eat(TokenKind::Ident)?;
-        if self.namespaces.contains_key(&name_token.text) {
+        if self.has_namespace(&name_token.text) {
             return Err(self.error_at(
                 format!("Variable {:?} conflicts with an imported namespace", name_token.text),
                 name_token.pos,
@@ -313,7 +346,7 @@ impl Compiler {
         let slot = self.symbols.define_current(&name_token.text).ok_or_else(|| {
             self.error(format!("Variable {:?} is already defined in this scope", name_token.text), name_token.clone())
         })?;
-        self.emit(Op::Store, slot as i64, 0);
+        self.emit_at(Op::Store, slot as i64, 0, name_token.pos);
         Ok(())
     }
 
@@ -333,20 +366,20 @@ impl Compiler {
 
     fn assignment_statement(&mut self) -> Result<()> {
         let name_token = self.eat(TokenKind::Ident)?;
-        if self.namespaces.contains_key(&name_token.text) {
+        if self.has_namespace(&name_token.text) {
             return Err(self.error(format!("Cannot assign to import namespace {:?}", name_token.text), name_token));
         }
         let slot = self.get_assignment_slot(&name_token)?;
         self.eat(TokenKind::Equal)?;
         self.expression()?;
-        self.emit(Op::Store, slot as i64, 0);
+        self.emit_at(Op::Store, slot as i64, 0, name_token.pos);
         Ok(())
     }
 
     fn print_statement(&mut self) -> Result<()> {
-        self.eat(TokenKind::Print)?;
+        let token = self.eat(TokenKind::Print)?;
         self.expression()?;
-        self.emit(Op::Print, 0, 0);
+        self.emit_at(Op::Print, 0, 0, token.pos);
         Ok(())
     }
 
@@ -423,9 +456,9 @@ impl Compiler {
         if !self.in_function {
             return Err(self.error("Return outside function", self.current().clone()));
         }
-        self.eat(TokenKind::Return)?;
+        let token = self.eat(TokenKind::Return)?;
         self.expression()?;
-        self.emit(Op::Return, 0, 0);
+        self.emit_at(Op::Return, 0, 0, token.pos);
         Ok(())
     }
 
@@ -435,22 +468,22 @@ impl Compiler {
         self.emit_load_name(&name_token)?;
 
         if self.current().kind == TokenKind::LBracket {
-            self.eat(TokenKind::LBracket)?;
+            let token = self.eat(TokenKind::LBracket)?;
             self.expression()?;
             self.eat(TokenKind::RBracket)?;
             self.eat(TokenKind::Equal)?;
             self.expression()?;
-            self.emit(Op::SetIndex, 0, 0);
+            self.emit_at(Op::SetIndex, 0, 0, token.pos);
             return Ok(());
         }
 
         if self.current().kind == TokenKind::Dot {
             self.eat(TokenKind::Dot)?;
-            let field = self.eat(TokenKind::Ident)?.text;
-            let field_index = self.intern_field(&field);
+            let field = self.eat(TokenKind::Ident)?;
+            let field_index = self.intern_field(&field.text);
             self.eat(TokenKind::Equal)?;
             self.expression()?;
-            self.emit(Op::SetField, field_index as i64, 0);
+            self.emit_at(Op::SetField, field_index as i64, 0, field.pos);
             return Ok(());
         }
 
@@ -471,18 +504,23 @@ impl Compiler {
         } else {
             (default_import_alias(&path_token.text), path_token.pos)
         };
+        if self.has_namespace(&alias) || self.symbols.contains(&alias) {
+            return Err(self.error_at(format!("Import namespace {alias:?} is already defined"), alias_pos));
+        }
+        if builtin_index(&alias).is_some() {
+            return Err(self.error_at(format!("Import namespace {alias:?} conflicts with a builtin"), alias_pos));
+        }
+
+        if let Some(namespace) = crate::decorators::registry::DecoratorRegistry::extension_namespace(&path_token.text) {
+            self.extension_aliases.insert(alias, namespace);
+            return Ok(());
+        }
         let resolver = self
             .resolver
             .as_ref()
             .ok_or_else(|| self.error("Imports require compiling from a source file", path_token.clone()))?;
         let resolved_module = resolver.borrow_mut().resolve_import(&self.filename, &path_token.text)?;
         let module_filename = resolved_module.filename;
-        if self.namespaces.contains_key(&alias) || self.symbols.contains(&alias) {
-            return Err(self.error_at(format!("Import namespace {alias:?} is already defined"), alias_pos));
-        }
-        if builtin_index(&alias).is_some() {
-            return Err(self.error_at(format!("Import namespace {alias:?} conflicts with a builtin"), alias_pos));
-        }
 
         let needs_load = {
             let state = self.shared.borrow();
@@ -506,7 +544,7 @@ impl Compiler {
                     resolved_module.permissions,
                     Rc::clone(&self.shared),
                 )?;
-                compiler.compile().map(|_| ())
+                compiler.compile_unit()
             })();
             self.shared.borrow_mut().loading_modules.remove(&module_filename);
             compile_result?;
@@ -536,7 +574,7 @@ impl Compiler {
         self.eat(TokenKind::Struct)?;
         let name_token = self.eat(TokenKind::Ident)?;
         let name = name_token.text.clone();
-        if self.namespaces.contains_key(&name) {
+        if self.has_namespace(&name) {
             return Err(self.error(format!("Struct {name:?} conflicts with an imported namespace"), name_token));
         }
         if self.local_struct_indexes.contains_key(&name) {
@@ -581,8 +619,8 @@ impl Compiler {
             let index = state.structs.len();
             state.struct_indexes.insert(full_name.clone(), index);
             state.structs.push(StructDef {
-                name: full_name,
-                fields,
+                name:   full_name,
+                fields: fields.into_boxed_slice().into_vec(),
             });
             index
         };
@@ -610,7 +648,7 @@ impl Compiler {
         self.eat(TokenKind::Enum)?;
         let name_token = self.eat(TokenKind::Ident)?;
         let name = name_token.text.clone();
-        if self.namespaces.contains_key(&name) {
+        if self.has_namespace(&name) {
             return Err(self.error(format!("Enum {name:?} conflicts with an imported namespace"), name_token));
         }
         if self.local_enum_names.contains(&name) {
@@ -671,7 +709,7 @@ impl Compiler {
                         enum_name: full_name.clone(),
                         variant_name: variant_token.text,
                         tag,
-                        fields,
+                        fields: fields.into_boxed_slice().into_vec(),
                     });
                 }
                 tag += 1;
@@ -688,11 +726,11 @@ impl Compiler {
         Ok(())
     }
 
-    fn function_definition(&mut self, exported: bool) -> Result<()> {
+    fn function_definition(&mut self, exported: bool, decorators: Vec<Decorator>) -> Result<()> {
         self.eat(TokenKind::Fn)?;
         let name_token = self.eat(TokenKind::Ident)?;
         let name = name_token.text.clone();
-        if self.namespaces.contains_key(&name) {
+        if self.has_namespace(&name) {
             return Err(self.error(format!("Function {name:?} conflicts with an imported namespace"), name_token));
         }
         if self.local_function_indexes.contains_key(&name) {
@@ -756,6 +794,7 @@ impl Compiler {
         let global_slots = self.symbols.top_level_slots();
         let previous_symbols = std::mem::replace(&mut self.symbols, function_symbols);
         let previous_code = std::mem::take(&mut self.code);
+        let previous_source_offsets = std::mem::take(&mut self.source_offsets);
         let previous_in_function = self.in_function;
         let previous_function_globals = std::mem::replace(&mut self.function_globals, global_slots);
         self.in_function = true;
@@ -765,15 +804,21 @@ impl Compiler {
             self.emit(Op::Return, 0, 0);
             Ok(Function {
                 name: full_name,
-                generic_params,
+                decorators,
+                generic_params: generic_params.into_boxed_slice().into_vec(),
                 param_count,
-                code: self.code.clone(),
+                code: std::mem::take(&mut self.code).into_boxed_slice().into_vec(),
+                source: Some(BytecodeSource::new(
+                    Arc::clone(&self.source_map),
+                    std::mem::take(&mut self.source_offsets),
+                )),
                 slot_count: self.symbols.slot_count(),
-                names: self.symbols.names.clone(),
+                names: std::mem::take(&mut self.symbols.names).into_boxed_slice().into_vec(),
             })
         })();
         let function_symbols = std::mem::replace(&mut self.symbols, previous_symbols);
         self.code = previous_code;
+        self.source_offsets = previous_source_offsets;
         self.in_function = previous_in_function;
         self.function_globals = previous_function_globals;
         drop(function_symbols);
@@ -892,9 +937,9 @@ impl Compiler {
         parse_operand(self)?;
         while let Some(op) = op_lookup(self.current().kind) {
             let kind = self.current().kind;
-            self.eat(kind)?;
+            let token = self.eat(kind)?;
             parse_operand(self)?;
-            self.emit(op, 0, 0);
+            self.emit_at(op, 0, 0, token.pos);
         }
         Ok(())
     }
@@ -904,10 +949,10 @@ impl Compiler {
         loop {
             match self.current().kind {
                 TokenKind::LBracket => {
-                    self.eat(TokenKind::LBracket)?;
+                    let token = self.eat(TokenKind::LBracket)?;
                     self.expression()?;
                     self.eat(TokenKind::RBracket)?;
-                    self.emit(Op::Index, 0, 0);
+                    self.emit_at(Op::Index, 0, 0, token.pos);
                 }
                 TokenKind::Dot => {
                     self.eat(TokenKind::Dot)?;
@@ -922,10 +967,9 @@ impl Compiler {
     }
 
     fn primary(&mut self) -> Result<()> {
-        let token = self.current().clone();
-        match token.kind {
+        match self.current().kind {
             TokenKind::Int => {
-                self.eat(TokenKind::Int)?;
+                let token = self.eat(TokenKind::Int)?;
                 let value = token
                     .text
                     .parse::<i64>()
@@ -933,7 +977,7 @@ impl Compiler {
                 self.emit(Op::PushInt, value, 0);
             }
             TokenKind::Float => {
-                self.eat(TokenKind::Float)?;
+                let token = self.eat(TokenKind::Float)?;
                 let value = token
                     .text
                     .parse::<f64>()
@@ -945,7 +989,7 @@ impl Compiler {
                 self.emit(Op::PushFloat, value.to_bits() as i64, 0);
             }
             TokenKind::String => {
-                self.eat(TokenKind::String)?;
+                let token = self.eat(TokenKind::String)?;
                 let index = self.intern_string(&token.text);
                 self.emit(Op::PushString, index as i64, 0);
             }
@@ -962,7 +1006,7 @@ impl Compiler {
                 self.emit(Op::PushBool, 0, 0);
             }
             TokenKind::LBracket => {
-                self.eat(TokenKind::LBracket)?;
+                let token = self.eat(TokenKind::LBracket)?;
                 let mut count = 0i64;
                 if self.current().kind != TokenKind::RBracket {
                     loop {
@@ -975,7 +1019,7 @@ impl Compiler {
                     }
                 }
                 self.eat(TokenKind::RBracket)?;
-                self.emit(Op::MakeArray, count, 0);
+                self.emit_at(Op::MakeArray, count, 0, token.pos);
             }
             TokenKind::Ident => {
                 if self.is_qualified_call() {
@@ -1000,9 +1044,9 @@ impl Compiler {
                 self.eat(TokenKind::RParen)?;
             }
             TokenKind::Minus => {
-                self.eat(TokenKind::Minus)?;
+                let token = self.eat(TokenKind::Minus)?;
                 self.factor()?;
-                self.emit(Op::Neg, 0, 0);
+                self.emit_at(Op::Neg, 0, 0, token.pos);
             }
             TokenKind::Bang => {
                 self.eat(TokenKind::Bang)?;
@@ -1021,17 +1065,16 @@ impl Compiler {
                 self.unsafe_depth -= 1;
                 result?;
             }
-            _ => return Err(self.error("Expected expression", token)),
+            _ => return Err(self.error("Expected expression", self.current().clone())),
         }
         Ok(())
     }
 
     fn is_qualified_call(&self) -> bool {
         self.current().kind == TokenKind::Ident
-            && self.index + 3 < self.tokens.len()
-            && self.tokens[self.index + 1].kind == TokenKind::Dot
-            && self.tokens[self.index + 2].kind == TokenKind::Ident
-            && self.tokens[self.index + 3].kind == TokenKind::LParen
+            && self.peek_kind(1) == Some(TokenKind::Dot)
+            && self.peek_kind(2) == Some(TokenKind::Ident)
+            && self.peek_kind(3) == Some(TokenKind::LParen)
     }
 
     fn is_expression_start(&self) -> bool {
@@ -1054,7 +1097,7 @@ impl Compiler {
 
     fn call_expression(&mut self, name: &Token) -> Result<()> {
         if let Some(struct_index) = self.local_struct_indexes.get(&name.text).copied() {
-            return self.constructor_call(&name.text, struct_index);
+            return self.constructor_call(&name.text, struct_index, name.pos);
         }
         if let Some(builtin_index) = builtin_index(&name.text) {
             return self.builtin_call(&name.text, builtin_index, name.pos);
@@ -1063,7 +1106,7 @@ impl Compiler {
             self.emit_load_name(name)?;
             self.eat(TokenKind::LParen)?;
             let arg_count = self.argument_list()?;
-            self.emit(Op::CallValue, arg_count as i64, 0);
+            self.emit_at(Op::CallValue, arg_count as i64, 0, name.pos);
             return Ok(());
         }
         let function_index = self
@@ -1073,7 +1116,7 @@ impl Compiler {
             .ok_or_else(|| self.error_at(format!("Undefined function or constructor {:?}", name.text), name.pos))?;
         self.eat(TokenKind::LParen)?;
         let arg_count = self.argument_list()?;
-        self.emit(Op::Call, function_index as i64, arg_count as i64);
+        self.emit_at(Op::Call, function_index as i64, arg_count as i64, name.pos);
         Ok(())
     }
 
@@ -1086,12 +1129,12 @@ impl Compiler {
                 self.error_at(format!("Unknown module namespace {:?}", namespace.text), namespace.pos)
             })?;
         if let Some(struct_index) = info.struct_exports.get(&member.text).copied() {
-            return self.constructor_call(&format!("{}.{}", namespace.text, member.text), struct_index);
+            return self.constructor_call(&format!("{}.{}", namespace.text, member.text), struct_index, member.pos);
         }
         if let Some(function_index) = info.function_exports.get(&member.text).copied() {
             self.eat(TokenKind::LParen)?;
             let arg_count = self.argument_list()?;
-            self.emit(Op::Call, function_index as i64, arg_count as i64);
+            self.emit_at(Op::Call, function_index as i64, arg_count as i64, member.pos);
             return Ok(());
         }
         if info.all_functions.contains(&member.text) || info.all_structs.contains(&member.text) {
@@ -1102,7 +1145,7 @@ impl Compiler {
         Err(self.error_at(format!("Module {:?} has no exported member {:?}", namespace.text, member.text), member.pos))
     }
 
-    fn constructor_call(&mut self, name: &str, struct_index: usize) -> Result<()> {
+    fn constructor_call(&mut self, name: &str, struct_index: usize, pos: usize) -> Result<()> {
         let field_count = self.shared.borrow().structs[struct_index].fields.len();
         self.eat(TokenKind::LParen)?;
         let arg_count = self.argument_list()?;
@@ -1112,7 +1155,7 @@ impl Compiler {
                 self.current().pos,
             ));
         }
-        self.emit(Op::MakeStruct, struct_index as i64, arg_count as i64);
+        self.emit_at(Op::MakeStruct, struct_index as i64, arg_count as i64, pos);
         Ok(())
     }
 
@@ -1140,7 +1183,7 @@ impl Compiler {
                 self.current().pos,
             ));
         }
-        self.emit(Op::MakeEnum, variant_index as i64, arg_count as i64);
+        self.emit_at(Op::MakeEnum, variant_index as i64, arg_count as i64, member.pos);
         Ok(())
     }
 
@@ -1162,7 +1205,7 @@ impl Compiler {
         if builtin.requires_unsafe && self.unsafe_depth == 0 {
             return Err(self.error_at(format!("Builtin {name:?} requires unsafe syntax"), pos));
         }
-        self.emit(Op::Builtin, builtin_index as i64, arg_count as i64);
+        self.emit_at(Op::Builtin, builtin_index as i64, arg_count as i64, pos);
         Ok(())
     }
 
@@ -1183,29 +1226,36 @@ impl Compiler {
     }
 
     fn current(&self) -> &Token {
-        self.tokens.get(self.index).unwrap_or(&self.eof_token)
+        self.tokens.as_slice().first().unwrap_or(&self.eof_token)
     }
 
     fn peek_kind(&self, offset: usize) -> Option<TokenKind> {
-        self.tokens.get(self.index + offset).map(|token| token.kind)
+        self.tokens.as_slice().get(offset).map(|token| token.kind)
     }
 
     fn eat(&mut self, kind: TokenKind) -> Result<Token> {
-        let token = self.current().clone();
+        let token = self.current();
         if token.kind != kind {
-            return Err(self.error(format!("Expected {}, got {}", kind.name(), token.kind.name()), token));
+            return Err(self.error(format!("Expected {}, got {}", kind.name(), token.kind.name()), token.clone()));
         }
-        self.index += 1;
+        let token = self.tokens.next().unwrap_or_else(|| self.eof_token.clone());
+        self.last_source_offset = SourceOffset(token.pos);
         Ok(token)
     }
 
     fn emit(&mut self, op: Op, arg: i64, arg2: i64) {
         self.code.push(Instr::new(op, arg, arg2));
+        self.source_offsets.push(self.last_source_offset);
+    }
+
+    fn emit_at(&mut self, op: Op, arg: i64, arg2: i64, pos: usize) {
+        self.code.push(Instr::new(op, arg, arg2));
+        self.source_offsets.push(SourceOffset(pos));
     }
 
     fn emit_placeholder(&mut self, op: Op) -> usize {
         let index = self.code.len();
-        self.code.push(Instr::new(op, -1, 0));
+        self.emit(op, -1, 0);
         index
     }
 
@@ -1243,8 +1293,8 @@ impl Compiler {
 
     fn emit_load_name(&mut self, token: &Token) -> Result<()> {
         match self.get_read_slot(token)? {
-            ReadSlot::Local(slot) => self.emit(Op::Load, slot as i64, 0),
-            ReadSlot::Global(slot) => self.emit(Op::LoadGlobal, slot as i64, 0),
+            ReadSlot::Local(slot) => self.emit_at(Op::Load, slot as i64, 0, token.pos),
+            ReadSlot::Global(slot) => self.emit_at(Op::LoadGlobal, slot as i64, 0, token.pos),
         }
         Ok(())
     }
@@ -1306,4 +1356,339 @@ fn term_op(kind: TokenKind) -> Option<Op> {
         TokenKind::Slash => Op::Div,
         _ => return None,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use std::cell::RefCell;
+    use std::fmt::Write as _;
+    use std::mem::{size_of, size_of_val};
+
+    use super::*;
+    use crate::CompilerSharedState;
+
+    fn compiler(source: &str) -> Compiler {
+        Compiler::new(
+            source,
+            "tokens.to",
+            None,
+            false,
+            "",
+            ModulePermissions::from_capabilities(ModuleCapabilities::all()),
+            Rc::new(RefCell::new(CompilerSharedState::default())),
+        )
+        .expect("lex compiler fixture")
+    }
+
+    #[test]
+    fn program_finishing_moves_contents_and_compacts_completed_buffers() {
+        let mut compiler = compiler(
+            "struct Pair { left, right }\nenum Choice { None, Some(value) }\n\
+             fn identity<T>(value: T) -> T { return value }\nlet root = \"payload\"",
+        );
+        compiler.struct_definition(false).expect("parse struct");
+        compiler.enum_definition(false).expect("parse enum");
+        compiler.function_definition(false, Vec::new()).expect("parse function");
+        compiler.let_statement().expect("parse root variable");
+        let mut module = Compiler::new(
+            "export fn answer() { return 42 }",
+            "library.to",
+            None,
+            true,
+            "library",
+            ModulePermissions::from_capabilities(ModuleCapabilities::none()),
+            Rc::clone(&compiler.shared),
+        )
+        .expect("construct module");
+        module.export_declaration(Vec::new()).expect("parse module export");
+        module.finalize_module().expect("finish module metadata");
+        drop(module);
+
+        let names = compiler.symbols.names[0].as_ptr();
+        let (functions, strings, structs, fields, modules, variants, function_code, function_names) = {
+            let state = compiler.shared.borrow();
+            (
+                state.functions[0].name.as_ptr(),
+                state.strings[0].as_ptr(),
+                state.structs[0].name.as_ptr(),
+                state.fields[0].as_ptr(),
+                state.module_defs[0].name.as_ptr(),
+                state.enum_variants[0].enum_name.as_ptr(),
+                state.functions[0].code.as_ptr(),
+                state.functions[0].names.as_ptr(),
+            )
+        };
+        let program = compiler.compile().expect("finish program");
+        assert_eq!(program.names[0].as_ptr(), names);
+        assert_eq!(program.functions[0].name.as_ptr(), functions);
+        assert_eq!(program.strings[0].as_ptr(), strings);
+        assert_eq!(program.structs[0].name.as_ptr(), structs);
+        assert_eq!(program.fields[0].as_ptr(), fields);
+        assert_eq!(program.modules[0].name.as_ptr(), modules);
+        assert_eq!(program.enum_variants[0].enum_name.as_ptr(), variants);
+        assert_eq!(program.functions[0].code.as_ptr(), function_code);
+        assert_eq!(program.functions[0].names.as_ptr(), function_names);
+        assert_eq!(program.functions[0].generic_params, ["T"]);
+        assert_eq!(program.names, ["root"]);
+        assert_eq!(program.strings, ["payload"]);
+        assert_eq!(program.modules[0].exported_functions, ["answer"]);
+        for (length, capacity) in [
+            (program.code.len(), program.code.capacity()),
+            (program.names.len(), program.names.capacity()),
+            (program.functions.len(), program.functions.capacity()),
+            (program.strings.len(), program.strings.capacity()),
+            (program.structs.len(), program.structs.capacity()),
+            (program.fields.len(), program.fields.capacity()),
+            (program.modules.len(), program.modules.capacity()),
+            (program.enum_variants.len(), program.enum_variants.capacity()),
+            (program.functions[0].code.len(), program.functions[0].code.capacity()),
+            (program.functions[0].names.len(), program.functions[0].names.capacity()),
+            (program.functions[0].generic_params.len(), program.functions[0].generic_params.capacity()),
+            (program.structs[0].fields.len(), program.structs[0].fields.capacity()),
+            (program.enum_variants[1].fields.len(), program.enum_variants[1].fields.capacity()),
+        ] {
+            assert_eq!(capacity, length, "finished buffer retains no spare capacity");
+        }
+        crate::BytecodeVerifier::verify(&program).expect("transferred metadata remains valid");
+    }
+
+    #[test]
+    fn program_finishing_rejects_live_shared_owners_without_draining_them() {
+        let compiler = compiler("fn retained() { return 1 }");
+        let shared = Rc::clone(&compiler.shared);
+        let error = compiler.compile().expect_err("another compiler still owns the session");
+        assert_eq!(error.to_string(), "Internal compiler state still has active owners");
+        assert_eq!(shared.borrow().functions.len(), 1);
+        assert_eq!(shared.borrow().functions[0].name, "retained");
+    }
+
+    #[test]
+    fn imported_unit_contributes_definitions_without_a_main_buffer() {
+        let shared = Rc::new(RefCell::new(CompilerSharedState::default()));
+        let mut module = Compiler::new(
+            "fn hidden() { return 41 }\nexport fn answer() { return hidden() + 1 }",
+            "library.to",
+            None,
+            true,
+            "library",
+            ModulePermissions::from_capabilities(ModuleCapabilities::none()),
+            Rc::clone(&shared),
+        )
+        .expect("construct imported unit");
+        module.compile_unit().expect("contribute module definitions");
+        assert_eq!(module.code.capacity(), 0);
+        assert_eq!(shared.borrow().functions.len(), 2);
+        assert_eq!(shared.borrow().module_defs.len(), 1);
+        assert_eq!(shared.borrow().module_defs[0].exported_functions, ["answer"]);
+        drop(module);
+
+        let root = Compiler::new(
+            "print 42",
+            "main.to",
+            None,
+            false,
+            "",
+            ModulePermissions::from_capabilities(ModuleCapabilities::all()),
+            shared,
+        )
+        .expect("construct final owner");
+        let program = root.compile().expect("finish shared session");
+        assert_eq!(program.functions.len(), 2);
+        assert_eq!(program.modules.len(), 1);
+        crate::BytecodeVerifier::verify(&program).expect("contributed definitions remain valid");
+    }
+
+    #[test]
+    fn function_body_error_restores_enclosing_compiler_buffers() {
+        let mut compiler = compiler("fn broken(value) { let inside = value return");
+        assert_eq!(compiler.symbols.define_current("outer"), Some(0));
+        compiler.emit(Op::PushInt, 7, 0);
+        compiler.emit(Op::Store, 0, 0);
+        compiler.function_globals.insert("previous".to_string(), 3);
+        let code = compiler.code.as_ptr();
+        let names = compiler.symbols.names.as_ptr();
+
+        let error = compiler
+            .function_definition(false, Vec::new())
+            .expect_err("missing return expression");
+        assert!(error.to_string().contains("Expected expression"));
+        assert_eq!(compiler.code.as_ptr(), code);
+        assert_eq!(compiler.code, [Instr::new(Op::PushInt, 7, 0), Instr::new(Op::Store, 0, 0)]);
+        assert_eq!(compiler.symbols.names.as_ptr(), names);
+        assert_eq!(compiler.symbols.names, ["outer"]);
+        assert_eq!(compiler.symbols.get("outer"), Some(0));
+        assert_eq!(compiler.function_globals.get("previous"), Some(&3));
+        assert!(!compiler.in_function);
+    }
+
+    #[test]
+    #[ignore = "diagnostic compiler output storage; run alone with --ignored --nocapture"]
+    fn report_compiler_output_storage() {
+        for count in [1, 32, 256] {
+            let mut source = String::new();
+            for index in 0..count {
+                writeln!(source, "fn sample_{index}(value) {{ let copy = value return copy + {index} }}")
+                    .expect("write declaration fixture");
+            }
+            source.push_str("print sample_0(1)\n");
+            for optimized in [false, true] {
+                let verified = if optimized {
+                    crate::compile_source_verified(&source)
+                } else {
+                    crate::compile_source_unoptimized_verified(&source)
+                }
+                .expect("compile storage fixture");
+                let program = verified.program();
+                let code_live: usize = program
+                    .functions
+                    .iter()
+                    .map(|function| size_of_val(&*function.code))
+                    .sum();
+                let code_reserved: usize = program
+                    .functions
+                    .iter()
+                    .map(|function| function.code.capacity() * size_of::<Instr>())
+                    .sum();
+                let names_reserved: usize = program
+                    .functions
+                    .iter()
+                    .map(|function| function.names.capacity() * size_of::<String>())
+                    .sum();
+                eprintln!(
+                    "functions={count} optimized={optimized}: verified_bytes={} function_code_live={code_live} \
+                     function_code_reserved={code_reserved} function_name_headers_reserved={names_reserved}",
+                    verified.retained_bytes(),
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn compiler_retains_incoming_source_without_copying_it() {
+        let mut source = String::with_capacity(1024);
+        source.push_str("print 42\n");
+        let allocation = source.as_ptr();
+        let compiler = Compiler::new(
+            source,
+            "owned.to",
+            None,
+            false,
+            "",
+            ModulePermissions::from_capabilities(ModuleCapabilities::all()),
+            Rc::new(RefCell::new(CompilerSharedState::default())),
+        )
+        .expect("lex owned source");
+        assert_eq!(compiler.source_map.source().as_ptr(), allocation);
+        assert_eq!(compiler.source_map.source(), "print 42\n");
+        assert_eq!(compiler.compile().expect("compile owned source").slot_count, 0);
+    }
+
+    #[test]
+    fn consuming_token_moves_its_text_allocation() {
+        let mut compiler = compiler("original_identifier next_identifier");
+        let allocation = compiler.current().text.as_ptr();
+        let token = compiler.eat(TokenKind::Ident).expect("consume identifier");
+
+        assert_eq!(token.text, "original_identifier");
+        assert_eq!(token.text.as_ptr(), allocation);
+        assert_eq!((token.pos, token.end), (0, 19));
+        assert_eq!(compiler.current().text, "next_identifier");
+    }
+
+    #[test]
+    fn mismatched_token_preserves_cursor_and_diagnostic() {
+        let mut compiler = compiler("# tokens\nalpha");
+        let allocation = compiler.current().text.as_ptr();
+        let error = compiler
+            .eat(TokenKind::Int)
+            .expect_err("identifier is not an integer token");
+
+        assert_eq!(error.to_string(), "tokens.to:2:1: Expected INT, got IDENT\nalpha\n^^^^^");
+        assert_eq!(compiler.current().text.as_ptr(), allocation);
+        assert_eq!(compiler.peek_kind(0), Some(TokenKind::Ident));
+        assert_eq!(compiler.peek_kind(1), Some(TokenKind::Eof));
+        assert_eq!(compiler.eat(TokenKind::Ident).expect("retry correct kind").text, "alpha");
+    }
+
+    #[test]
+    fn lookahead_tracks_remaining_tokens_and_end_of_input() {
+        let mut compiler = compiler("skip ns.call(1) item.field");
+        assert!(!compiler.is_qualified_call());
+        compiler.eat(TokenKind::Ident).expect("consume prefix");
+        assert!(compiler.is_qualified_call());
+        assert_eq!(compiler.peek_kind(2), Some(TokenKind::Ident));
+
+        for kind in [
+            TokenKind::Ident,
+            TokenKind::Dot,
+            TokenKind::Ident,
+            TokenKind::LParen,
+            TokenKind::Int,
+            TokenKind::RParen,
+        ] {
+            compiler.eat(kind).expect("consume qualified call");
+        }
+        assert_eq!(compiler.current().text, "item");
+        assert!(!compiler.is_qualified_call());
+        for kind in [TokenKind::Ident, TokenKind::Dot, TokenKind::Ident, TokenKind::Eof] {
+            compiler.eat(kind).expect("consume field and explicit EOF");
+        }
+
+        assert_eq!(compiler.current().kind, TokenKind::Eof);
+        assert_eq!((compiler.current().pos, compiler.current().end), (26, 26));
+        assert_eq!(compiler.peek_kind(0), None);
+        assert_eq!(compiler.peek_kind(3), None);
+        assert!(!compiler.is_qualified_call());
+        let error = compiler.eat(TokenKind::Int).expect_err("integer missing at EOF");
+        assert_eq!(
+            error.to_string(),
+            "tokens.to:1:27: Expected INT, got EOF\nskip ns.call(1) item.field\n                          ^"
+        );
+        assert_eq!(compiler.eat(TokenKind::Eof).expect("stable EOF sentinel").kind, TokenKind::Eof);
+    }
+
+    #[test]
+    fn primary_errors_retain_consumed_literal_and_source_span() {
+        let mut compiler = compiler("\n999999999999999999999999\n");
+        let error = compiler.primary().expect_err("oversized integer literal");
+        assert_eq!(
+            error.to_string(),
+            "tokens.to:2:1: Integer literal \"999999999999999999999999\" is out of range\n999999999999999999999999\n^^^^^^^^^^^^^^^^^^^^^^^^"
+        );
+        assert_eq!(compiler.current().kind, TokenKind::Eof);
+    }
+
+    #[test]
+    #[ignore = "diagnostic token storage; run alone with --ignored --nocapture"]
+    fn token_stream_storage_diagnostic() {
+        let source = "let value = 42\nprint value\n".repeat(256);
+        let source_map = SourceMap::new(source, "tokens.to");
+        let tokens = Lexer::new(&source_map).tokenize().expect("lex diagnostic");
+        let token_count = tokens.len();
+        let backing_bytes = tokens.capacity() * size_of::<Token>();
+        let text_bytes: usize = tokens.iter().map(|token| token.text.capacity()).sum();
+        let allocation = tokens.as_ptr();
+        let mut compiler = compiler("");
+        compiler.tokens = tokens.into_iter();
+        assert_eq!(compiler.tokens.as_slice().as_ptr(), allocation);
+
+        let mut consumed = 0;
+        while compiler.current().kind != TokenKind::Eof {
+            let kind = compiler.current().kind;
+            let allocation = compiler.current().text.as_ptr();
+            let token = compiler.eat(kind).expect("consume diagnostic token");
+            assert_eq!(token.text.as_ptr(), allocation);
+            consumed += 1;
+        }
+        assert_eq!(consumed + 1, token_count);
+        assert_eq!(compiler.tokens.as_slice().len(), 1);
+        assert_eq!(compiler.tokens.as_slice()[0].text.capacity(), 0);
+        eprintln!(
+            "token storage: tokens={token_count}, backing_bytes={backing_bytes}, original_text_bytes={text_bytes}, \
+             consumed={consumed}, remaining_text_bytes=0, former_cursor_bytes={}, owning_cursor_bytes={}, token_bytes={}",
+            size_of::<Vec<Token>>() + size_of::<usize>(),
+            size_of_val(&compiler.tokens),
+            size_of::<Token>(),
+        );
+    }
 }

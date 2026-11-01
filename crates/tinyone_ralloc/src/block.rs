@@ -37,12 +37,6 @@ impl BlockHeader {
         self.size_and_flags & ALLOCATED_FLAG != 0
     }
 
-    pub(crate) fn payload_ptr(&self) -> *mut u8 {
-        let header = core::ptr::from_ref(self).cast::<u8>().cast_mut();
-        // SAFETY: Payload starts HEADER_SIZE bytes after a valid block header.
-        unsafe { header.add(HEADER_SIZE) }
-    }
-
     pub(crate) fn split_sizes(block_size: usize, requested_size: usize) -> Option<(usize, usize)> {
         if requested_size > block_size {
             return None;

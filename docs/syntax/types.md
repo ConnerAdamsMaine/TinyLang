@@ -19,8 +19,12 @@ code can explicitly materialize unsigned `u8`, `u16`, and `u32` values with the
 matching constructors.
 
 **Created by:** integer literals (`42`, `-7`), `i64(value)`, `u8(value)`,
-`u16(value)`, `u32(value)`, arithmetic expressions, comparison expressions
-(produce `0` or `1`), sized buffer reads, and most builtin return values.
+`u16(value)`, `u32(value)`, arithmetic expressions, sized buffer reads,
+and most builtin return values.
+
+Integer comparisons produce `bool`, not `int`. Native code may represent
+Bool internally as machine `0`/`1`, but that does not permit implicit integer
+arithmetic or integer return conversion.
 
 **Widths:** `type_of(1)` returns `i64`; `type_of(u8(1))` returns `u8`;
 `read8`, `read16`, and `read32` return `u8`, `u16`, and `u32` respectively.
@@ -54,8 +58,8 @@ the host index type, and invalid string slice bounds. Bounds are checked at
 runtime; the compiler does not prove string or array indexes safe.
 
 **Ownership:** copying a string variable aliases the same heap object.
-Strings are not freed by user code (no `unsafe free` on strings —
-attempting to free a string is a runtime error).
+Free with `unsafe free(text)` when done. Aliases refer to the same object
+and become stale after it is freed.
 
 ---
 

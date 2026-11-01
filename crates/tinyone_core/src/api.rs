@@ -14,6 +14,7 @@ use crate::{
     PeepholeOptimizer,
     Program,
     Result,
+    SourceMap,
     TinyOneError,
     VerifiedProgram,
     compile_cache,
@@ -44,7 +45,8 @@ pub fn compile_source_verified(source: &str) -> Result<VerifiedProgram> {
 ///
 /// Returns [`Err`] if lexing fails on a malformed token.
 pub fn lex_source(source: &str) -> Result<usize> {
-    Ok(Lexer::new(source, "<source>").tokenize()?.len())
+    let source_map = SourceMap::new(source, "<source>");
+    Ok(Lexer::new(&source_map).tokenize()?.len())
 }
 
 /// Compile `source` without peephole optimization.
@@ -85,7 +87,7 @@ pub fn compile_source_unoptimized_verified_with_filename(source: &str, filename:
 
 fn compile_source_unoptimized_program(source: &str, filename: &str) -> Result<Program> {
     let shared = Rc::new(RefCell::new(CompilerSharedState::default()));
-    let mut compiler = Compiler::new(
+    let compiler = Compiler::new(
         source,
         filename,
         None,
@@ -278,7 +280,7 @@ fn compile_module_fragment(
 ) -> Result<(Program, Rc<RefCell<ModuleResolver>>)> {
     let shared = Rc::new(RefCell::new(CompilerSharedState::default()));
     let resolver = Rc::new(RefCell::new(ModuleResolver::new(path)?));
-    let mut compiler = Compiler::new(
+    let compiler = Compiler::new(
         source,
         path.to_string_lossy().to_string(),
         Some(Rc::clone(&resolver)),
@@ -307,7 +309,7 @@ fn compile_canonical_file(
         let resolver = resolver.borrow();
         (resolver.root_capabilities(), resolver.vm_settings())
     };
-    let mut compiler = Compiler::new(
+    let compiler = Compiler::new(
         source.clone(),
         path.to_string_lossy().to_string(),
         Some(Rc::clone(&resolver)),

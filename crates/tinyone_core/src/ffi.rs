@@ -3,8 +3,10 @@ use std::io::{Read, Write};
 use std::os::raw::c_char;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::Path;
-use std::process::{Command, Stdio};
-use std::time::{Duration, Instant};
+use std::process::Command;
+use std::time::Duration;
+
+mod sandbox;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Value as JsonValue, json};
@@ -206,54 +208,12 @@ fn run_sandboxed(request: SandboxRequest) -> Result<JsonValue> {
     let request = serde_json::to_vec(&request)
         .map_err(|error| TinyOneError::runtime(format!("sandbox request serialization failed: {error}")))?;
     let worker = sandbox_worker_path()?;
-    let mut child = Command::new(worker)
-        .arg("--tinyone-sandbox-worker")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-        .map_err(|error| TinyOneError::runtime(format!("sandbox worker could not start: {error}")))?;
-
-    // Taking and dropping stdin after the write tells the worker that the
-    // complete request has arrived.
-    child
-        .stdin
-        .take()
-        .ok_or_else(|| TinyOneError::runtime("sandbox worker stdin was unavailable"))?
-        .write_all(&request)
-        .map_err(|error| TinyOneError::runtime(format!("sandbox request failed: {error}")))?;
-
-    let deadline = Instant::now() + SANDBOX_TIMEOUT;
-    loop {
-        if child
-            .try_wait()
-            .map_err(|error| TinyOneError::runtime(format!("sandbox wait failed: {error}")))?
-            .is_some()
-        {
-            break;
-        }
-        if Instant::now() >= deadline {
-            let _ = child.kill();
-            let _ = child.wait();
-            return Err(TinyOneError::runtime(format!(
-                "sandbox execution exceeded {} seconds",
-                SANDBOX_TIMEOUT.as_secs()
-            )));
-        }
-        std::thread::sleep(Duration::from_millis(5));
-    }
-
-    let mut output = Vec::new();
-    child
-        .stdout
-        .take()
-        .ok_or_else(|| TinyOneError::runtime("sandbox worker stdout was unavailable"))?
-        .take((MAX_SANDBOX_RESPONSE_BYTES + 1) as u64)
-        .read_to_end(&mut output)
-        .map_err(|error| TinyOneError::runtime(format!("sandbox response read failed: {error}")))?;
-    if output.len() > MAX_SANDBOX_RESPONSE_BYTES {
-        return Err(TinyOneError::runtime("sandbox response exceeded byte limit"));
-    }
+    let output = sandbox::exchange(
+        Command::new(worker).arg("--tinyone-sandbox-worker"),
+        &request,
+        SANDBOX_TIMEOUT,
+        MAX_SANDBOX_RESPONSE_BYTES,
+    )?;
     let response: JsonValue = serde_json::from_slice(&output)
         .map_err(|error| TinyOneError::runtime(format!("sandbox response was invalid JSON: {error}")))?;
     if response.get("ok").and_then(JsonValue::as_bool) == Some(true) {
@@ -440,8 +400,28 @@ fn read_inputs(value: *const c_char) -> Result<Vec<String>> {
 }
 
 fn program_payload(program: VerifiedProgram) -> Result<JsonValue> {
+    // The frozen v1 response cannot represent declaration decorators. Refuse
+    // lossy export; the Rust artifact APIs preserve the complete metadata.
+    if program
+        .program()
+        .functions()
+        .iter()
+        .any(|function| !function.decorators().is_empty())
+    {
+        return Err(TinyOneError::compile(
+            "Decorator metadata requires the Rust artifact API; the frozen C v1 compile response cannot represent it",
+        ));
+    }
+    let mut artifact = program.program().to_artifact();
+    if let Some(functions) = artifact.get_mut("functions").and_then(JsonValue::as_array_mut) {
+        for function in functions {
+            if let Some(function) = function.as_object_mut() {
+                function.remove("decorators");
+            }
+        }
+    }
     Ok(json!({
-        "artifact": program.program().to_artifact(),
+        "artifact": artifact,
         "fingerprint": program.fingerprint(),
     }))
 }

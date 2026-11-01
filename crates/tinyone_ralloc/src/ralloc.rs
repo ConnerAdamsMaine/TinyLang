@@ -77,6 +77,9 @@ pub(crate) fn allocate_aligned(size: usize, align: usize) -> *mut c_void {
         return ptr::null_mut();
     }
 
+    #[cfg(any(test, feature = "testing-hooks"))]
+    crate::instrumentation::record_request(size, align);
+
     for (index, arena) in ARENAS.iter().enumerate() {
         let Some(mut state) = arena.try_lock() else {
             continue;
@@ -101,6 +104,8 @@ pub(crate) fn allocate_aligned(size: usize, align: usize) -> *mut c_void {
         }
     }
 
+    #[cfg(any(test, feature = "testing-hooks"))]
+    crate::instrumentation::record_allocation_failure();
     ptr::null_mut()
 }
 
@@ -128,6 +133,8 @@ fn reallocate(ptr: *mut c_void, size: usize) -> *mut c_void {
 }
 
 pub(crate) fn reallocate_aligned(ptr: *mut c_void, size: usize, align: usize) -> *mut c_void {
+    #[cfg(any(test, feature = "testing-hooks"))]
+    crate::instrumentation::record_reallocation();
     if ptr.is_null() {
         return allocate_aligned(size, align);
     }

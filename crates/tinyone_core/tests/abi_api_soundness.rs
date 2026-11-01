@@ -57,6 +57,22 @@ fn ffi_abi_version_matches_declared_header_contract() {
     assert_eq!(unsafe { tinyone_abi_version() }, 1);
 }
 
+#[test]
+fn frozen_c_compile_responses_preserve_function_shape_and_refuse_lossy_decorator_export() {
+    let source = cstring("fn identity(x) { return x }");
+    // SAFETY: CString owns the NUL-terminated input until the FFI call returns.
+    let response = take_ffi_json(unsafe { tinyone_compile_source_json(source.as_ptr()) });
+    let value = assert_ffi_ok(&response);
+    assert_exact_object_keys(
+        &value["artifact"]["functions"][0],
+        &["name", "generic_params", "param_count", "code", "slot_count", "names"],
+    );
+    let source = cstring("import \"stdx\" as stdx\n@stdx.coprocessor(Arduino)\nfn work() { return 1 }");
+    // SAFETY: CString owns the NUL-terminated input until the FFI call returns.
+    let response = take_ffi_json(unsafe { tinyone_compile_source_json(source.as_ptr()) });
+    assert_ffi_error(response, "compile", "frozen C v1 compile response");
+}
+
 struct TestDir {
     _temp: tempfile::TempDir,
     path:  PathBuf,
@@ -364,6 +380,33 @@ fn ffi_text_parameters_are_length_bounded() {
         "compile",
         "exceeds byte limit",
     );
+}
+
+#[test]
+fn ffi_large_stdout_response_is_drained_before_worker_exit() {
+    let chunk = "x".repeat(4096);
+    let source = cstring(format!("let chunk = \"{chunk}\" let i = 0 while i < 512 {{ print chunk i = i + 1 }}"));
+    for mode in ["vm", "jit"] {
+        let mode = cstring(mode);
+        // SAFETY: both CStrings own their NUL-terminated inputs until the call returns.
+        let response =
+            take_ffi_json(unsafe { tinyone_run_source_json(source.as_ptr(), mode.as_ptr(), std::ptr::null()) });
+        assert_eq!(response["ok"], true, "large stdout failed: {:?}", response.get("error"));
+        let output = response["value"]["stdout"].as_str().expect("stdout string");
+        assert_eq!(output.len(), 2_097_664);
+        assert_eq!(output.lines().count(), 512);
+        assert!(output.lines().all(|line| line == chunk));
+    }
+}
+
+#[test]
+fn ffi_oversized_stdout_response_returns_byte_limit_error() {
+    let chunk = "x".repeat(8192);
+    let source = cstring(format!("let chunk = \"{chunk}\" let i = 0 while i < 2048 {{ print chunk i = i + 1 }}"));
+    let mode = cstring("vm");
+    // SAFETY: both CStrings own their NUL-terminated inputs until the call returns.
+    let response = take_ffi_json(unsafe { tinyone_run_source_json(source.as_ptr(), mode.as_ptr(), std::ptr::null()) });
+    assert_ffi_error(response, "runtime", "sandbox response exceeded byte limit");
 }
 
 #[test]

@@ -39,3 +39,31 @@ fn command_plans_use_current_repo_paths() {
     assert!(tools.iter().any(|cmd| cmd.contains("tools/hash.py")));
     assert!(tools.iter().any(|cmd| cmd.contains("tools/loc.py")));
 }
+
+#[test]
+fn formatting_commands_select_nightly_without_changing_other_cargo_tasks() {
+    let expected = vec![
+        "rustup run nightly cargo fmt --manifest-path crates/xtask/Cargo.toml --all --check",
+        "rustup run nightly cargo fmt --manifest-path crates/tinyone_core/Cargo.toml --all --check",
+        "rustup run nightly cargo fmt --manifest-path crates/tinyone_ralloc/Cargo.toml --all --check",
+    ];
+    assert_eq!(plan_for(Task::FmtCheck).render_commands(), expected);
+
+    let release = plan_for(Task::ReleaseGate);
+    let release_fmt = release
+        .steps
+        .iter()
+        .find(|step| step.label == "fmt-check")
+        .expect("format stage");
+    let commands: Vec<_> = release_fmt.commands.iter().map(|command| command.render()).collect();
+    assert_eq!(commands, expected);
+
+    for task in [Task::Check, Task::Test, Task::TestHooks, Task::Clippy, Task::BenchSmoke] {
+        assert!(
+            plan_for(task)
+                .render_commands()
+                .iter()
+                .all(|command| command.starts_with("cargo "))
+        );
+    }
+}

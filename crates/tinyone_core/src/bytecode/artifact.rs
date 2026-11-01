@@ -1,6 +1,9 @@
 use serde_json::{Value as JsonValue, json};
 
+use crate::decorators::{MAX_ARGUMENTS, MAX_DECORATOR_TEXT_BYTES, MAX_DECORATORS, MAX_PATH_SEGMENTS};
 use crate::{
+    Decorator,
+    DecoratorArgument,
     Function,
     Instr,
     ModuleCapabilities,
@@ -65,6 +68,7 @@ impl Program {
             "functions": self.functions.iter().map(|function| json!({
                 "name": function.name,
                 "generic_params": function.generic_params,
+                "decorators": encode_decorators(&function.decorators),
                 "param_count": function.param_count,
                 "code": encode_code(&function.code),
                 "slot_count": function.slot_count,
@@ -166,6 +170,7 @@ impl Program {
             }
         };
         let mut total_code_ops = 0usize;
+        let mut decorator_text_bytes = 0usize;
         let functions = raw_functions
             .iter()
             .map(|item| {
@@ -189,8 +194,10 @@ impl Program {
                         .map(|value| expect_string_list_limited(Some(value), "generic_params", MAX_NAMES))
                         .transpose()?
                         .unwrap_or_default(),
+                    decorators: decode_decorators(obj.get("decorators"), &mut decorator_text_bytes)?,
                     param_count,
                     code: func_code,
+                    source: None,
                     slot_count: func_slot_count,
                     names: func_names,
                 })
@@ -203,6 +210,7 @@ impl Program {
         reject_over_limit("total code", total_code_ops, MAX_TOTAL_CODE_OPS)?;
         let program = Program {
             code,
+            source: None,
             slot_count: main_slot_count,
             names: main_names,
             functions,
@@ -324,6 +332,74 @@ fn encode_code(code: &[Instr]) -> Vec<JsonValue> {
     code.iter()
         .map(|instr| json!({"op": instr.op.name(), "arg": instr.arg, "arg2": instr.arg2}))
         .collect()
+}
+
+fn encode_decorators(decorators: &[Decorator]) -> Vec<JsonValue> {
+    decorators
+        .iter()
+        .map(|decorator| {
+            json!({
+                "path": decorator.path,
+                "arguments": decorator.arguments.iter().map(|argument| {
+                    match argument {
+                        DecoratorArgument::String(value) => json!({"kind": "string", "value": value}),
+                        DecoratorArgument::Integer(value) => json!({"kind": "integer", "value": value}),
+                        DecoratorArgument::Bool(value) => json!({"kind": "bool", "value": value}),
+                        DecoratorArgument::Identifier(value) => json!({"kind": "identifier", "value": value}),
+                    }
+                }).collect::<Vec<_>>(),
+            })
+        })
+        .collect()
+}
+
+fn decode_decorator_text(value: Option<&JsonValue>, total_bytes: &mut usize) -> Result<String> {
+    let value = value
+        .and_then(JsonValue::as_str)
+        .ok_or_else(|| TinyOneError::compile("Artifact decorator text must be a string"))?;
+    *total_bytes = total_bytes
+        .checked_add(value.len())
+        .ok_or_else(|| TinyOneError::compile("Artifact decorator text overflow"))?;
+    reject_over_limit("decorator text", *total_bytes, MAX_DECORATOR_TEXT_BYTES)?;
+    Ok(value.to_owned())
+}
+
+fn decode_decorators(value: Option<&JsonValue>, total_bytes: &mut usize) -> Result<Vec<Decorator>> {
+    let items = optional_array_limited(value, "decorators", MAX_DECORATORS)?;
+    let mut decorators = Vec::with_capacity(items.len());
+    for item in items {
+        let object = item
+            .as_object()
+            .ok_or_else(|| TinyOneError::compile("Artifact decorator must be an object"))?;
+        if object.len() != 2 {
+            return Err(TinyOneError::compile("Artifact decorator requires only path and arguments"));
+        }
+        let raw_path = expect_array_limited(object.get("path"), "decorator path", MAX_PATH_SEGMENTS)?;
+        let mut path = Vec::with_capacity(raw_path.len());
+        for segment in raw_path {
+            path.push(decode_decorator_text(Some(segment), total_bytes)?);
+        }
+        let raw_arguments = expect_array_limited(object.get("arguments"), "decorator arguments", MAX_ARGUMENTS)?;
+        let mut arguments = Vec::with_capacity(raw_arguments.len());
+        for argument in raw_arguments {
+            let argument = argument
+                .as_object()
+                .ok_or_else(|| TinyOneError::compile("Artifact decorator argument must be an object"))?;
+            if argument.len() != 2 {
+                return Err(TinyOneError::compile("Artifact decorator argument requires only kind and value"));
+            }
+            let value = argument.get("value");
+            arguments.push(match argument.get("kind").and_then(JsonValue::as_str) {
+                Some("string") => DecoratorArgument::String(decode_decorator_text(value, total_bytes)?),
+                Some("integer") => DecoratorArgument::Integer(expect_i64(value, "decorator integer argument")?),
+                Some("bool") => DecoratorArgument::Bool(expect_bool(value, "decorator boolean argument")?),
+                Some("identifier") => DecoratorArgument::Identifier(decode_decorator_text(value, total_bytes)?),
+                _ => return Err(TinyOneError::compile("Artifact invalid decorator argument kind")),
+            });
+        }
+        decorators.push(Decorator { path, arguments });
+    }
+    Ok(decorators)
 }
 
 fn encode_permissions(permissions: &ModulePermissions) -> JsonValue {
@@ -486,6 +562,69 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    #[test]
+    fn json_decorators_preserve_order_and_typed_arguments() {
+        let decorators = vec![
+            Decorator {
+                path:      vec!["extension".into(), "first".into()],
+                arguments: vec![
+                    DecoratorArgument::String("x".into()),
+                    DecoratorArgument::Integer(i64::MIN),
+                    DecoratorArgument::Bool(false),
+                    DecoratorArgument::Identifier("Device".into()),
+                ],
+            },
+            Decorator {
+                path:      vec!["second".into()],
+                arguments: Vec::new(),
+            },
+        ];
+        let encoded = JsonValue::Array(encode_decorators(&decorators));
+        assert_eq!(decode_decorators(Some(&encoded), &mut 0).expect("decode"), decorators);
+        assert!(
+            decode_decorators(None, &mut 0)
+                .expect("legacy omitted metadata")
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn json_decorator_decoder_rejects_malformed_values_and_bounds_resources() {
+        let valid = json!({"path": ["extension", "name"], "arguments": []});
+        for value in [
+            JsonValue::Null,
+            json!([false]),
+            json!([{"path": [], "arguments": [], "target": "Arduino"}]),
+            json!([{"path": [4], "arguments": []}]),
+            json!([{"path": ["x"], "arguments": [{"kind": "bogus", "value": 1}]}]),
+            json!([{"path": ["x"], "arguments": [{"kind": "integer", "value": 1.5}]}]),
+            json!([{"path": ["x"], "arguments": [{"kind": "bool", "value": 1}]}]),
+            json!([{"path": ["x"], "arguments": [{"kind": "identifier", "value": false}]}]),
+            JsonValue::Array(vec![valid.clone(); MAX_DECORATORS + 1]),
+            json!([{"path": vec!["x"; MAX_PATH_SEGMENTS + 1], "arguments": []}]),
+            json!([{"path": ["x"], "arguments": vec![json!({"kind": "bool", "value": true}); MAX_ARGUMENTS + 1]}]),
+        ] {
+            assert!(decode_decorators(Some(&value), &mut 0).is_err(), "accepted {value}");
+        }
+        let mut budget = MAX_DECORATOR_TEXT_BYTES - 1;
+        assert!(decode_decorators(Some(&json!([valid])), &mut budget).is_err());
+    }
+
+    #[test]
+    fn json_coprocessor_roundtrip_preserves_metadata_without_granting_authority() {
+        let mut function =
+            Function::new("multiply", 0, vec![Instr::new(Op::PushInt, 1, 0), Instr::new(Op::Return, 0, 0)], 0);
+        function.decorators.push(Decorator {
+            path:      vec!["stdx".into(), "coprocessor".into()],
+            arguments: vec![DecoratorArgument::String("Arduino".into())],
+        });
+        let program = Program::new(vec![Instr::new(Op::Halt, 0, 0)], 0).with_functions(vec![function]);
+        let restored = VerifiedProgram::from_artifact(program.to_artifact()).expect("untrusted JSON roundtrip");
+        assert_eq!(restored.program().functions()[0].coprocessor_target(), Some("Arduino"));
+        assert_eq!(restored.fingerprint(), program.fingerprint());
+        assert!(!restored.program().policy_trusted);
+    }
 
     fn minimal() -> JsonValue {
         json!({

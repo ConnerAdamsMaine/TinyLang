@@ -19,6 +19,7 @@ use tinyone::{
     TinyMemory,
     TinyOneError,
     TypeKind,
+    VerifiedProgram,
     compile_file,
     compile_file_cached_verified_with_status,
     compile_source,
@@ -480,13 +481,15 @@ fn jit_quickens_hot_back_edges_after_warm_runs() {
     assert!(stats.quickened_ops > 0);
 
     let listing = cache.compile(&program).expect("jit compile").listing();
-    assert!(listing.contains("add.int"));
+    // The old load/load/add/store sequence is one direct scalar operation.
+    // Back-edge and compare quickening must still occur around that operation.
+    assert!(listing.contains("binary.add.slots.store"));
     assert!(listing.contains("slot.cmp.lt.i.jz.hot"));
     assert!(listing.contains("jmp.hot"));
 }
 
 #[test]
-fn quickened_slot_ops_fall_back_for_unsigned_and_float_values() {
+fn stable_unsigned_and_float_sites_do_not_select_i64_specialization() {
     for (source, expected) in [
         (
             r#"
@@ -535,9 +538,10 @@ fn quickened_slot_ops_fall_back_for_unsigned_and_float_values() {
             .run(&mut quickened_stdout, Vec::new())
             .expect("quickened JIT fallback source should run");
         assert_eq!(expected, String::from_utf8(quickened_stdout).expect("UTF-8"));
-        assert!(quickened.listing().contains("slot.cmp.lt.i.jz.hot"));
-        assert!(quickened.listing().contains("slot.mul.i.hot"));
-        assert!(quickened.listing().contains("slot.div.i.hot"));
+        assert!(quickened.listing().contains("generic.slot.cmp.lt.i.jz"));
+        assert!(!quickened.listing().contains("slot.cmp.lt.i.jz.hot"));
+        assert!(!quickened.listing().contains("slot.mul.i.hot"));
+        assert!(!quickened.listing().contains("slot.div.i.hot"));
     }
 }
 
@@ -545,7 +549,7 @@ fn quickened_slot_ops_fall_back_for_unsigned_and_float_values() {
 fn jit_profiles_dispatch_stack_traffic_and_reuses_operand_stacks() {
     let verified = compile_source_verified(
         r#"
-        let seed = 7
+        let seed = i64(7)
         let value = seed
         while value < 12 {
           value = value * 2
@@ -679,9 +683,14 @@ fn quickened_in_place_slot_arithmetic_preserves_checked_error_parity() {
         let mut quickened =
             JitProgram::compile_verified_with_options(&verified, JitOptions::new().with_hot_back_edge_threshold(1))
                 .expect("quickened JIT should compile");
-        let quickened_result = quickened.run(&mut Vec::new(), Vec::new());
-        assert!(quickened_result.is_err(), "{name}: quickened JIT should fail, got {quickened_result:?}");
-        assert_error_contains(quickened_result, expected_error);
+        // These always-failing sites cannot collect successful warm-up runs.
+        // Repeated attempts must observe their actual inputs before selecting
+        // the same checked handler; errors and cleanup must remain identical.
+        for _ in 0..10 {
+            let quickened_result = quickened.run(&mut Vec::new(), Vec::new());
+            assert!(quickened_result.is_err(), "{name}: quickened JIT should fail, got {quickened_result:?}");
+            assert_error_contains(quickened_result, expected_error);
+        }
         assert!(quickened.listing().contains(hot_op), "{name}");
     }
 }
@@ -713,7 +722,7 @@ fn quickened_slot_zero_jump_and_floor_division_match_vm_for_all_numeric_paths() 
             print value
             "#,
             "0\n",
-            "slot.jz.hot",
+            "generic.slot.jz",
         ),
         (
             r#"
@@ -724,7 +733,7 @@ fn quickened_slot_zero_jump_and_floor_division_match_vm_for_all_numeric_paths() 
             print value
             "#,
             "0.0\n",
-            "slot.jz.hot",
+            "generic.slot.jz",
         ),
     ];
 
@@ -744,11 +753,13 @@ fn quickened_slot_zero_jump_and_floor_division_match_vm_for_all_numeric_paths() 
         let mut quickened =
             JitProgram::compile_verified_with_options(&verified, JitOptions::new().with_hot_back_edge_threshold(1))
                 .expect("quickened JIT should compile");
-        let mut quickened_stdout = Vec::new();
-        quickened
-            .run(&mut quickened_stdout, Vec::new())
-            .expect("quickened JIT should run");
-        assert_eq!(expected.as_bytes(), quickened_stdout.as_slice());
+        for _ in 0..10 {
+            let mut quickened_stdout = Vec::new();
+            quickened
+                .run(&mut quickened_stdout, Vec::new())
+                .expect("quickened JIT should run");
+            assert_eq!(expected.as_bytes(), quickened_stdout.as_slice());
+        }
         assert!(quickened.listing().contains(hot_op));
     }
 }
@@ -1193,6 +1204,68 @@ fn imports_and_artifact_roundtrip() {
 }
 
 #[test]
+fn nested_imports_assemble_once_and_incremental_fragments_retain_dependencies() {
+    let temp = TestDir::new("compiler-assembly");
+    fs::write(
+        temp.path().join("leaf.to"),
+        "export struct Pair { left, right }\n\
+         export fn identity<T>(value: T) -> T { return value }\n\
+         fn hidden(value) { return value + 1 }\n\
+         export fn amount() { return hidden(20) }\n",
+    )
+    .expect("write shared dependency");
+    let left_path = temp.path().join("left.to");
+    fs::write(&left_path, "import \"leaf.to\" as leaf\nexport fn amount() { return leaf.amount() }\n")
+        .expect("write first importer");
+    fs::write(
+        temp.path().join("right.to"),
+        "import \"leaf.to\" as first\nimport \"leaf.to\" as second\n\
+         export fn amount() { return first.identity(second.amount()) }\n",
+    )
+    .expect("write repeated dependency aliases");
+    let main_path = temp.path().join("main.to");
+    let main_source = format!(
+        "import \"left.to\" as left\nimport \"right.to\" as right\nimport \"leaf.to\" as leaf\n\
+         let pair = leaf.Pair(left.amount(), right.amount())\nprint pair.left + pair.right\n{}",
+        "# source padding for the disk-cache size policy\n".repeat(1600),
+    );
+    fs::write(&main_path, main_source).expect("write diamond import root");
+
+    let (first, first_status) = compile_file_cached_verified_with_status(&main_path).expect("assemble source graph");
+    assert_eq!(first_status, CompileCacheStatus::Miss);
+    assert_eq!(first.program().modules().len(), 3);
+    assert_eq!(first.program().functions().len(), 5);
+    assert_eq!(first.program().structs().len(), 1);
+    let generic = first
+        .program()
+        .functions()
+        .iter()
+        .find(|function| function.name() == "leaf.identity")
+        .expect("shared generic declaration");
+    assert_eq!(generic.generic_params(), ["T"]);
+
+    fs::write(&left_path, "import \"leaf.to\" as leaf\nexport fn amount() { return leaf.amount() + 1 }\n")
+        .expect("change one importing module without changing its topology");
+    let (changed, changed_status) =
+        compile_file_cached_verified_with_status(&main_path).expect("assemble incremental fragment with imports");
+    assert_eq!(changed_status, CompileCacheStatus::Incremental);
+    assert_eq!(changed.program().modules().len(), 3);
+    assert_eq!(changed.program().functions().len(), 5);
+    assert_eq!(changed.program().structs().len(), 1);
+    assert_ne!(first.fingerprint(), changed.fingerprint());
+    for (program, expected) in [(&first, "42\n"), (&changed, "43\n")] {
+        for mode in ["vm", "jit"] {
+            let mut stdout = Vec::new();
+            run_verified_program(program, mode, &mut stdout, Vec::new()).expect("run independent assembled program");
+            assert_eq!(String::from_utf8(stdout).expect("UTF-8 output"), expected);
+        }
+    }
+    let (cached, status) = compile_file_cached_verified_with_status(&main_path).expect("reuse incremental result");
+    assert_eq!(status, CompileCacheStatus::Hit);
+    assert_eq!(cached.fingerprint(), changed.fingerprint());
+}
+
+#[test]
 fn binary_artifact_roundtrips_modules_and_runs_both_backends() {
     let temp = TestDir::new("binary-artifact");
     fs::write(temp.path().join("math.to"), "export fn answer() { return 42 }\n").expect("write module");
@@ -1207,6 +1280,122 @@ fn binary_artifact_roundtrips_modules_and_runs_both_backends() {
     assert!(fs::metadata(&artifact_path).expect("metadata").len() > 8);
     for mode in ["vm", "jit"] {
         assert_eq!("42\n", run_compiled(&loaded, mode, Vec::new()).expect("run artifact").0);
+    }
+}
+
+#[test]
+fn disk_compile_cache_preserves_source_locations_through_incremental_rebuilds() {
+    fn assert_location(program: &VerifiedProgram, path: &Path, line: usize) {
+        let location = format!("{}:{line}:15:", path.canonicalize().expect("canonical source path").display());
+        let mut reference = None;
+        for mode in ["vm", "jit"] {
+            let error = run_verified_program(program, mode, &mut Vec::new(), Vec::new()).expect_err("division failure");
+            let message = error.to_string();
+            assert!(message.starts_with(&location), "{mode}: {message}");
+            assert!(message.contains("Division by zero"), "{message}");
+            match &reference {
+                Some(expected) => assert_eq!(&message, expected),
+                None => reference = Some(message),
+            }
+        }
+    }
+
+    let temp = TestDir::new("cache-source-locations");
+    let leaf = temp.path().join("leaf.to");
+    let middle = temp.path().join("middle.to");
+    let root = temp.path().join("main.to");
+    fs::write(&leaf, "export fn fail(value) {\n    return 42 / value\n}\n").expect("write failing module");
+    fs::write(
+        &middle,
+        "import \"leaf.to\" as leaf\nexport fn call() { return leaf.fail(0) }\nexport fn unused() { return 1 }\n",
+    )
+    .expect("write importing module");
+    fs::write(
+        &root,
+        format!("import \"middle.to\" as middle\nprint middle.call()\n{}", "# source padding\n".repeat(400)),
+    )
+    .expect("write root above tiny-cache bypass size");
+
+    for status in [CompileCacheStatus::Miss, CompileCacheStatus::Hit] {
+        let (program, actual) = compile_file_cached_verified_with_status(&root).expect("compile source graph");
+        assert_eq!(actual, status);
+        assert_location(&program, &leaf, 2);
+    }
+    fs::write(
+        &middle,
+        "import \"leaf.to\" as leaf\nexport fn call() { return leaf.fail(0) }\nexport fn unused() { return 2 }\n",
+    )
+    .expect("change importer without changing the failing dependency");
+    for status in [CompileCacheStatus::Incremental, CompileCacheStatus::Hit] {
+        let (program, actual) = compile_file_cached_verified_with_status(&root).expect("rebuild importer");
+        assert_eq!(actual, status);
+        assert_location(&program, &leaf, 2);
+    }
+    fs::write(&leaf, "\nexport fn fail(value) {\n    return 84 / value\n}\n")
+        .expect("move and change failing operation");
+    for status in [CompileCacheStatus::Incremental, CompileCacheStatus::Hit] {
+        let (program, actual) = compile_file_cached_verified_with_status(&root).expect("rebuild failing module");
+        assert_eq!(actual, status);
+        assert_location(&program, &leaf, 3);
+    }
+}
+
+#[test]
+fn disk_compile_cache_repairs_missing_corrupt_and_stale_root_origins() {
+    let temp = TestDir::new("cache-origin-repair");
+    let root = temp.path().join("main.to");
+    let padding = "# cache padding\n".repeat(400);
+    fs::write(&root, format!("print 1 / 0\n{padding}")).expect("write cacheable root");
+    let filename = root.canonicalize().expect("canonical source path");
+    let assert_location = |program: &VerifiedProgram, line| {
+        let expected = format!("{}:{line}:9: Division by zero", filename.display());
+        for mode in ["vm", "jit"] {
+            let error = run_verified_program(program, mode, &mut Vec::new(), Vec::new()).expect_err("division");
+            assert!(error.to_string().starts_with(&expected), "{mode}: {error}");
+        }
+    };
+    let (original, status) = compile_file_cached_verified_with_status(&root).expect("initial compile");
+    assert_eq!(status, CompileCacheStatus::Miss);
+    assert_location(&original, 1);
+    let origins = fs::read_dir(temp.path().join(".tinyone-cache"))
+        .expect("cache directory")
+        .map(|entry| entry.expect("cache entry").path())
+        .find(|path| path.extension().is_some_and(|extension| extension == "origins"))
+        .expect("source-origin sidecar");
+    let bytes = fs::read(&origins).expect("original origins");
+    let mut corrupt = bytes.clone();
+    corrupt[0] ^= 1;
+    let mut extended = bytes.clone();
+    extended.push(0);
+    for damaged in [
+        None,
+        Some(Vec::new()),
+        Some(bytes[..bytes.len() - 1].to_vec()),
+        Some(corrupt),
+        Some(extended),
+    ] {
+        match damaged {
+            Some(bytes) => fs::write(&origins, bytes).expect("damage test sidecar"),
+            None => fs::remove_file(&origins).expect("remove test sidecar"),
+        }
+        for expected in [CompileCacheStatus::Miss, CompileCacheStatus::Hit] {
+            let (program, status) = compile_file_cached_verified_with_status(&root).expect("repair/reuse cache");
+            assert_eq!(status, expected);
+            assert_eq!(program.fingerprint(), original.fingerprint());
+            assert_location(&program, 1);
+        }
+    }
+
+    fs::write(&root, format!("\nprint 1 / 0\n{padding}")).expect("move root operation without changing bytecode");
+    let (moved, status) = compile_file_cached_verified_with_status(&root).expect("recompile moved source");
+    assert_eq!(status, CompileCacheStatus::Miss);
+    assert_eq!(moved.fingerprint(), original.fingerprint());
+    assert_location(&moved, 2);
+    fs::write(&origins, bytes).expect("restore stale origins alongside the new source snapshot");
+    for expected in [CompileCacheStatus::Miss, CompileCacheStatus::Hit] {
+        let (program, status) = compile_file_cached_verified_with_status(&root).expect("repair stale origins");
+        assert_eq!(status, expected);
+        assert_location(&program, 2);
     }
 }
 

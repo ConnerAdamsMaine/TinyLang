@@ -17,6 +17,36 @@ pub(crate) const MAX_ARRAY_LENGTH: usize = 65_536;
 pub(crate) const MAX_BUFFER_BYTES: usize = 1024 * 1024;
 pub(crate) const VALUE_BYTES: usize = std::mem::size_of::<RuntimeValue>();
 
+/// Validated per-VM limits. These can only tighten the runtime hard caps.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct VmExecutionLimits {
+    pub(crate) heap_bytes: usize,
+    pub(crate) heap_objects: usize,
+    pub(crate) call_depth: usize,
+}
+
+impl VmExecutionLimits {
+    /// Construct a bounded execution policy.
+    ///
+    /// # Errors
+    /// Rejects zero values and limits exceeding the runtime hard caps.
+    pub fn new(heap_bytes: usize, heap_objects: usize, call_depth: usize) -> crate::Result<Self> {
+        if heap_bytes == 0 || heap_bytes > MAX_HEAP_BYTES
+            || heap_objects == 0 || heap_objects > MAX_HEAP_OBJECTS
+            || call_depth == 0 || call_depth > MAX_CALL_DEPTH
+        {
+            return Err(crate::TinyOneError::runtime("VM execution limits exceed supported bounds"));
+        }
+        Ok(Self { heap_bytes, heap_objects, call_depth })
+    }
+}
+
+impl Default for VmExecutionLimits {
+    fn default() -> Self {
+        Self { heap_bytes: MAX_HEAP_BYTES, heap_objects: MAX_HEAP_OBJECTS, call_depth: MAX_CALL_DEPTH }
+    }
+}
+
 /// Per-program VM policy persisted in bytecode artifacts.
 ///
 /// Limits can only tighten the runtime's hard safety ceiling. Keeping the

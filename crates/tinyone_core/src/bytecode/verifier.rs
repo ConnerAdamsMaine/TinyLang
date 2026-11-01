@@ -1,5 +1,9 @@
 use std::collections::{HashMap, HashSet};
+use std::num::NonZeroU32;
 
+use super::certificate::{ChunkCertificate, PermissionSetId, VerificationCertificate};
+use super::control_flow::{BlockStarts, InstructionFlow, StackDepth};
+use crate::decorators::registry::DecoratorRegistry;
 use crate::{BUILTINS, EnumVariantDef, Function, Instr, Op, Program, Result, StructDef, TinyOneError};
 
 const MAX_VERIFIER_STEPS: usize = 10_000_000;
@@ -199,8 +203,28 @@ impl BytecodeVerifier {
     /// graph cannot be built, or any chunk fails its static checks (e.g.
     /// invalid opcodes, stack/slot misuse, or capability ownership violations).
     pub fn verify(program: &Program) -> Result<()> {
+        Self::verify_with_certificate(program).map(drop)
+    }
+
+    pub(crate) fn verify_with_certificate(program: &Program) -> Result<VerificationCertificate> {
         Self::verify_program_budget(program)?;
         let modules = ModuleGraph::build(program)?;
+        let registry = DecoratorRegistry::default();
+        for (index, function) in program.functions.iter().enumerate() {
+            if function.decorators.is_empty() {
+                continue;
+            }
+            let (capabilities, permissions) = modules.function_owners[index].map_or(
+                (program.root_capabilities, &program.root_permissions),
+                |owner| {
+                    let module = &program.modules[owner];
+                    (module.capabilities, &module.permissions)
+                },
+            );
+            registry
+                .validate_permissions(&function.decorators, capabilities, permissions)
+                .map_err(|error| TinyOneError::compile(format!("Verifier: function {:?}: {error}", function.name)))?;
+        }
         let context = VerificationContext {
             functions: &program.functions,
             strings: &program.strings,
@@ -210,18 +234,22 @@ impl BytecodeVerifier {
             global_slot_count: program.slot_count,
             modules,
         };
-        Self::verify_chunk("main", &program.code, program.slot_count, &context, Op::Halt, None)?;
+        let mut chunks = Vec::with_capacity(program.functions.len() + 1);
+        chunks.push(Self::verify_chunk("main", &program.code, program.slot_count, &context, Op::Halt, None)?);
         for (index, function) in program.functions.iter().enumerate() {
-            Self::verify_chunk(
+            chunks.push(Self::verify_chunk(
                 &format!("function {:?} (index {index})", function.name),
                 &function.code,
                 function.slot_count,
                 &context,
                 Op::Return,
                 Some(index),
-            )?;
+            )?);
         }
-        Ok(())
+        Ok(VerificationCertificate {
+            chunks:             chunks.into_boxed_slice(),
+            denied_permissions: crate::ModulePermissions::none(),
+        })
     }
 
     fn verify_program_budget(program: &Program) -> Result<()> {
@@ -238,7 +266,14 @@ impl BytecodeVerifier {
             )));
         }
         let mut total_ops = program.code.len();
+        let registry = DecoratorRegistry::default();
+        let mut decorator_text_bytes = 0usize;
         for function in &program.functions {
+            let function_decorator_bytes = registry.validate_function(&function.name, &function.decorators)?;
+            decorator_text_bytes = decorator_text_bytes
+                .checked_add(function_decorator_bytes)
+                .ok_or_else(|| TinyOneError::compile("Verifier: decorator text byte count overflow"))?;
+            reject_over_limit("decorator text bytes", decorator_text_bytes, MAX_VERIFIER_TEXT_BYTES)?;
             reject_over_limit(
                 &format!("function {:?} name bytes", function.name),
                 function.name.len(),
@@ -343,7 +378,7 @@ impl BytecodeVerifier {
         context: &VerificationContext<'_>,
         final_op: Op,
         caller_function: Option<usize>,
-    ) -> Result<()> {
+    ) -> Result<ChunkCertificate> {
         if code.last().map(|instr| instr.op) != Some(final_op) {
             let got = code.last().map_or("nothing", |instr| instr.op.name());
             return Err(TinyOneError::compile(format!(
@@ -351,14 +386,19 @@ impl BytecodeVerifier {
                 final_op.name()
             )));
         }
+        let mut block_starts = BlockStarts::new(code.len())?;
         for (pc, instr) in code.iter().copied().enumerate() {
-            Self::verify_instruction_operands(chunk_name, code, slot_count, context, caller_function, pc, instr)?;
+            let flow =
+                Self::verify_instruction_operands(chunk_name, code, slot_count, context, caller_function, pc, instr)?;
+            block_starts.record(pc, flow)?;
         }
-        let mut seen: HashMap<usize, i64> = HashMap::new();
+        let mut seen = vec![None; code.len()];
         let mut todo = Vec::new();
-        visit(&mut seen, &mut todo, code, 0, 0, 0, chunk_name)?;
+        visit(&mut seen, &mut todo, code, 0, StackDepth::ZERO, 0, chunk_name)?;
         let mut steps: usize = 0;
+        let mut max_stack_depth = 0;
         while let Some((pc, depth)) = todo.pop() {
+            max_stack_depth = max_stack_depth.max(depth.0.get() - 1);
             steps += 1;
             if steps > MAX_VERIFIER_STEPS {
                 return Err(TinyOneError::compile(format!(
@@ -371,31 +411,8 @@ impl BytecodeVerifier {
             let op = instr.op;
             let arg = instr.arg;
             let arg2 = instr.arg2;
-            if matches!(op, Op::Load | Op::Store) && checked_index(arg, slot_count).is_err() {
-                return Err(TinyOneError::compile(format!(
-                    "Verifier: invalid slot {arg} at instruction {pc} in {chunk_name}"
-                )));
-            }
-            if op == Op::LoadGlobal && checked_index(arg, context.global_slot_count).is_err() {
-                return Err(TinyOneError::compile(format!(
-                    "Verifier: invalid global slot {arg} at instruction {pc} in {chunk_name}"
-                )));
-            }
-            if op == Op::PushString && checked_index(arg, context.strings.len()).is_err() {
-                return Err(TinyOneError::compile(format!(
-                    "Verifier: invalid string index {arg} at instruction {pc} in {chunk_name}"
-                )));
-            }
-            if op == Op::PushFunction && checked_index(arg, context.functions.len()).is_err() {
-                return Err(TinyOneError::compile(format!(
-                    "Verifier: invalid function index {arg} at instruction {pc} in {chunk_name}"
-                )));
-            }
-            if matches!(op, Op::GetField | Op::SetField) && checked_index(arg, context.fields.len()).is_err() {
-                return Err(TinyOneError::compile(format!(
-                    "Verifier: invalid field index {arg} at instruction {pc} in {chunk_name}"
-                )));
-            }
+            // All immutable operands and arities, including unreachable
+            // instructions, were checked by the preceding static pass.
             match op {
                 Op::Jump => visit(&mut seen, &mut todo, code, arg, depth, pc, chunk_name)?,
                 Op::JumpIfZero => {
@@ -403,24 +420,7 @@ impl BytecodeVerifier {
                     visit(&mut seen, &mut todo, code, arg, depth, pc, chunk_name)?;
                     visit(&mut seen, &mut todo, code, next_pc(pc)?, depth, pc, chunk_name)?;
                 }
-                Op::Call => {
-                    let function_index = checked_index(arg, context.functions.len()).map_err(|_| {
-                        TinyOneError::compile(format!(
-                            "Verifier: invalid function index {arg} at instruction {pc} in {chunk_name}"
-                        ))
-                    })?;
-                    let arg_count = usize::try_from(arg2).map_err(|_| {
-                        TinyOneError::compile(format!(
-                            "Verifier: invalid function arity {arg2} at instruction {pc} in {chunk_name}"
-                        ))
-                    })?;
-                    let function = &context.functions[function_index];
-                    if arg_count != function.param_count {
-                        return Err(TinyOneError::compile(format!(
-                            "Function {:?} expects {} argument(s), got {arg2} at instruction {pc} in {chunk_name}",
-                            function.name, function.param_count
-                        )));
-                    }
+                Op::Call | Op::MakeStruct | Op::MakeEnum | Op::Builtin => {
                     visit(
                         &mut seen,
                         &mut todo,
@@ -432,35 +432,20 @@ impl BytecodeVerifier {
                     )?;
                 }
                 Op::CallValue => {
-                    let arg_count = usize::try_from(arg).map_err(|_| {
-                        TinyOneError::compile(format!(
-                            "Verifier: invalid call arity {arg} at instruction {pc} in {chunk_name}"
-                        ))
-                    })?;
-                    // The callee occupies one stack slot in addition to the
-                    // arguments; the call result replaces the whole group.
+                    let inputs = arg
+                        .checked_add(1)
+                        .ok_or_else(|| TinyOneError::compile("Verifier: call arity overflow"))?;
                     visit(
                         &mut seen,
                         &mut todo,
                         code,
                         next_pc(pc)?,
-                        next_depth_after_popping_to_one(
-                            pc,
-                            depth,
-                            i64::try_from(arg_count + 1)
-                                .map_err(|_| TinyOneError::compile("Verifier: call arity overflow"))?,
-                            chunk_name,
-                        )?,
+                        next_depth_after_popping_to_one(pc, depth, inputs, chunk_name)?,
                         pc,
                         chunk_name,
                     )?;
                 }
                 Op::MakeArray => {
-                    if arg < 0 {
-                        return Err(TinyOneError::compile(format!(
-                            "Verifier: negative array arity {arg} at instruction {pc} in {chunk_name}"
-                        )));
-                    }
                     visit(
                         &mut seen,
                         &mut todo,
@@ -471,96 +456,15 @@ impl BytecodeVerifier {
                         chunk_name,
                     )?;
                 }
-                Op::MakeStruct => {
-                    let struct_index = checked_index(arg, context.structs.len()).map_err(|_| {
-                        TinyOneError::compile(format!(
-                            "Verifier: invalid struct index {arg} at instruction {pc} in {chunk_name}"
-                        ))
-                    })?;
-                    let field_count = usize::try_from(arg2).map_err(|_| {
-                        TinyOneError::compile(format!(
-                            "Verifier: invalid struct arity {arg2} at instruction {pc} in {chunk_name}"
-                        ))
-                    })?;
-                    let struct_def = &context.structs[struct_index];
-                    let expected = struct_def.fields.len();
-                    if field_count != expected {
-                        return Err(TinyOneError::compile(format!(
-                            "Struct {:?} expects {expected} field value(s), got {arg2} at instruction {pc} in {chunk_name}",
-                            struct_def.name
-                        )));
-                    }
-                    visit(
-                        &mut seen,
-                        &mut todo,
-                        code,
-                        next_pc(pc)?,
-                        next_depth_after_popping_to_one(pc, depth, arg2, chunk_name)?,
-                        pc,
-                        chunk_name,
-                    )?;
-                }
-                Op::MakeEnum => {
-                    let variant_index = checked_index(arg, context.enum_variants.len()).map_err(|_| {
-                        TinyOneError::compile(format!(
-                            "Verifier: invalid enum variant index {arg} at instruction {pc} in {chunk_name}"
-                        ))
-                    })?;
-                    let field_count = usize::try_from(arg2).map_err(|_| {
-                        TinyOneError::compile(format!(
-                            "Verifier: invalid enum variant arity {arg2} at instruction {pc} in {chunk_name}"
-                        ))
-                    })?;
-                    let variant_def = &context.enum_variants[variant_index];
-                    let expected = variant_def.fields.len();
-                    if field_count != expected {
-                        return Err(TinyOneError::compile(format!(
-                            "Enum variant {:?}.{:?} expects {expected} field value(s), got {arg2} at instruction {pc} in {chunk_name}",
-                            variant_def.enum_name, variant_def.variant_name
-                        )));
-                    }
-                    visit(
-                        &mut seen,
-                        &mut todo,
-                        code,
-                        next_pc(pc)?,
-                        next_depth_after_popping_to_one(pc, depth, arg2, chunk_name)?,
-                        pc,
-                        chunk_name,
-                    )?;
-                }
-                Op::Builtin => {
-                    let builtin_index = checked_index(arg, BUILTINS.len()).map_err(|_| {
-                        TinyOneError::compile(format!(
-                            "Verifier: invalid builtin index {arg} at instruction {pc} in {chunk_name}"
-                        ))
-                    })?;
-                    let builtin = BUILTINS[builtin_index];
-                    if arg2 < builtin.min_args as i64 || arg2 > builtin.max_args as i64 {
-                        return Err(TinyOneError::compile(format!(
-                            "Builtin {:?} expects {}..{} argument(s), got {arg2} at instruction {pc} in {chunk_name}",
-                            builtin.name, builtin.min_args, builtin.max_args
-                        )));
-                    }
-                    visit(
-                        &mut seen,
-                        &mut todo,
-                        code,
-                        next_pc(pc)?,
-                        next_depth_after_popping_to_one(pc, depth, arg2, chunk_name)?,
-                        pc,
-                        chunk_name,
-                    )?;
-                }
                 Op::Return => {
-                    if depth != 1 {
+                    if depth.value() != 1 {
                         return Err(TinyOneError::compile(format!(
                             "Verifier: RETURN in {chunk_name} requires one value, got {depth}"
                         )));
                     }
                 }
                 Op::Halt => {
-                    if depth != 0 {
+                    if depth.value() != 0 {
                         return Err(TinyOneError::compile(format!(
                             "Verifier: HALT in {chunk_name} requires empty stack, got {depth}"
                         )));
@@ -575,14 +479,24 @@ impl BytecodeVerifier {
                         &mut todo,
                         code,
                         next_pc(pc)?,
-                        next_depth(pc, depth, effect, chunk_name)?,
+                        effect.apply(pc, depth, chunk_name)?,
                         pc,
                         chunk_name,
                     )?;
                 }
             }
         }
-        Ok(())
+        // Every resulting depth is visited, including terminal instructions.
+        // The verifier's 65,536 bound is representable on supported targets.
+        let permissions = match context.modules.caller_owner(caller_function) {
+            Some(owner) => PermissionSetId::Module(owner),
+            None => PermissionSetId::Root,
+        };
+        Ok(ChunkCertificate {
+            max_stack_depth: max_stack_depth as usize,
+            permissions,
+            blocks: block_starts.finish(&seen),
+        })
     }
 
     fn verify_instruction_operands(
@@ -593,7 +507,7 @@ impl BytecodeVerifier {
         caller_function: Option<usize>,
         pc: usize,
         instr: Instr,
-    ) -> Result<()> {
+    ) -> Result<InstructionFlow> {
         let op = instr.op;
         let arg = instr.arg;
         let arg2 = instr.arg2;
@@ -632,14 +546,17 @@ impl BytecodeVerifier {
                 "Verifier: negative call arity {arg} at instruction {pc} in {chunk_name}"
             )));
         }
+        if op == Op::CallValue && usize::try_from(arg).is_err() {
+            return Err(TinyOneError::compile(format!(
+                "Verifier: invalid call arity {arg} at instruction {pc} in {chunk_name}"
+            )));
+        }
         if matches!(op, Op::GetField | Op::SetField) && checked_index(arg, context.fields.len()).is_err() {
             return Err(TinyOneError::compile(format!(
                 "Verifier: invalid field index {arg} at instruction {pc} in {chunk_name}"
             )));
         }
-        if matches!(op, Op::Jump | Op::JumpIfZero) && checked_index(arg, code.len()).is_err() {
-            return Err(TinyOneError::compile(format!("Verifier: instruction {pc} in {chunk_name} targets {arg}")));
-        }
+        let flow = InstructionFlow::parse(instr, pc, code.len(), chunk_name)?;
         if op == Op::Call {
             let function_index = checked_index(arg, context.functions.len()).map_err(|_| {
                 TinyOneError::compile(format!(
@@ -700,6 +617,19 @@ impl BytecodeVerifier {
                 let item = &context.enum_variants[variant_index];
                 return Err(module_access_error("enum", &item.enum_name, chunk_name, pc));
             }
+            let field_count = usize::try_from(arg2).map_err(|_| {
+                TinyOneError::compile(format!(
+                    "Verifier: invalid enum variant arity {arg2} at instruction {pc} in {chunk_name}"
+                ))
+            })?;
+            let variant_def = &context.enum_variants[variant_index];
+            let expected = variant_def.fields.len();
+            if field_count != expected {
+                return Err(TinyOneError::compile(format!(
+                    "Enum variant {:?}.{:?} expects {expected} field value(s), got {arg2} at instruction {pc} in {chunk_name}",
+                    variant_def.enum_name, variant_def.variant_name
+                )));
+            }
         }
         if op == Op::Builtin {
             let builtin_index = checked_index(arg, BUILTINS.len()).map_err(|_| {
@@ -715,7 +645,7 @@ impl BytecodeVerifier {
                 )));
             }
         }
-        Ok(())
+        Ok(flow)
     }
 }
 
@@ -799,11 +729,11 @@ fn module_access_error(target_kind: &str, target_name: &str, chunk_name: &str, p
 }
 
 fn visit(
-    seen: &mut HashMap<usize, i64>,
-    todo: &mut Vec<(usize, i64)>,
+    seen: &mut [Option<StackDepth>],
+    todo: &mut Vec<(usize, StackDepth)>,
     code: &[Instr],
     pc: i64,
-    depth: i64,
+    depth: StackDepth,
     origin: usize,
     chunk_name: &str,
 ) -> Result<()> {
@@ -814,21 +744,21 @@ fn visit(
         return Err(TinyOneError::compile(format!("Verifier: instruction {origin} in {chunk_name} targets {pc}")));
     }
     let pc = pc_usize;
-    if let Some(old_depth) = seen.get(&pc) {
-        if *old_depth != depth {
+    if let Some(old_depth) = seen[pc] {
+        if old_depth != depth {
             return Err(TinyOneError::compile(format!(
                 "Verifier: stack depth mismatch at instruction {pc} in {chunk_name}: {old_depth} vs {depth}"
             )));
         }
         return Ok(());
     }
-    seen.insert(pc, depth);
+    seen[pc] = Some(depth);
     todo.push((pc, depth));
     Ok(())
 }
 
-fn next_depth(pc: usize, depth: i64, delta: i64, chunk_name: &str) -> Result<i64> {
-    let depth = depth.checked_add(delta).ok_or_else(|| {
+fn next_depth(pc: usize, depth: StackDepth, delta: i64, chunk_name: &str) -> Result<StackDepth> {
+    let depth = depth.value().checked_add(delta).ok_or_else(|| {
         TinyOneError::compile(format!("Verifier: stack depth overflow at instruction {pc} in {chunk_name}"))
     })?;
     if depth < 0 {
@@ -839,14 +769,18 @@ fn next_depth(pc: usize, depth: i64, delta: i64, chunk_name: &str) -> Result<i64
             "Verifier: stack depth {depth} exceeds limit in {chunk_name} at instruction {pc}"
         )));
     }
-    Ok(depth)
+    let encoded = u32::try_from(depth + 1).ok().and_then(NonZeroU32::new).ok_or_else(|| {
+        TinyOneError::compile(format!("Verifier: stack depth overflow at instruction {pc} in {chunk_name}"))
+    })?;
+    Ok(StackDepth(encoded))
 }
 
-fn next_depth_after_popping_to_one(pc: usize, depth: i64, count: i64, chunk_name: &str) -> Result<i64> {
-    let delta = 1i64.checked_sub(count).ok_or_else(|| {
-        TinyOneError::compile(format!("Verifier: stack effect overflow at instruction {pc} in {chunk_name}"))
-    })?;
-    next_depth(pc, depth, delta, chunk_name)
+fn next_depth_after_popping_to_one(pc: usize, depth: StackDepth, count: i64, chunk_name: &str) -> Result<StackDepth> {
+    StackEffect {
+        inputs:  count,
+        outputs: 1,
+    }
+    .apply(pc, depth, chunk_name)
 }
 
 fn next_pc(pc: usize) -> Result<i64> {
@@ -886,8 +820,29 @@ fn verify_string_list(name: &str, values: &[String], max_count: usize) -> Result
     Ok(())
 }
 
-fn stack_effect(op: Op) -> Option<i64> {
-    Some(match op {
+struct StackEffect {
+    inputs:  i64,
+    outputs: i64,
+}
+
+impl StackEffect {
+    fn apply(self, pc: usize, depth: StackDepth, chunk_name: &str) -> Result<StackDepth> {
+        // A result is pushed only after all inputs have been consumed. A
+        // nonnegative net depth alone would accept ADD with just one operand.
+        if depth.value() < self.inputs {
+            return Err(TinyOneError::compile(format!(
+                "Verifier: stack underflow at instruction {pc} in {chunk_name}"
+            )));
+        }
+        let delta = self.outputs.checked_sub(self.inputs).ok_or_else(|| {
+            TinyOneError::compile(format!("Verifier: stack effect overflow at instruction {pc} in {chunk_name}"))
+        })?;
+        next_depth(pc, depth, delta, chunk_name)
+    }
+}
+
+fn stack_effect(op: Op) -> Option<StackEffect> {
+    let (inputs, outputs) = match op {
         Op::PushInt
         | Op::PushString
         | Op::PushNull
@@ -895,13 +850,400 @@ fn stack_effect(op: Op) -> Option<i64> {
         | Op::PushFloat
         | Op::Load
         | Op::LoadGlobal
-        | Op::PushFunction => 1,
-        Op::Store | Op::Pop => -1,
-        Op::Add | Op::Sub | Op::Mul | Op::Div | Op::Lt | Op::Lte | Op::Gt | Op::Gte | Op::Eq | Op::Ne | Op::Index => -1,
-        Op::Neg | Op::GetField => 0,
-        Op::Print => -1,
-        Op::SetIndex => -3,
-        Op::SetField => -2,
+        | Op::PushFunction => (0, 1),
+        Op::Store | Op::Pop | Op::Print => (1, 0),
+        Op::Add | Op::Sub | Op::Mul | Op::Div | Op::Lt | Op::Lte | Op::Gt | Op::Gte | Op::Eq | Op::Ne | Op::Index => {
+            (2, 1)
+        }
+        Op::Neg | Op::GetField => (1, 1),
+        Op::SetIndex => (3, 0),
+        Op::SetField => (2, 0),
         _ => return None,
-    })
+    };
+    Some(StackEffect { inputs, outputs })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn coprocessor_program() -> Program {
+        let mut function =
+            Function::new("calculate", 0, vec![Instr::new(Op::PushInt, 42, 0), Instr::new(Op::Return, 0, 0)], 0);
+        function.decorators.push(crate::Decorator {
+            path:      vec!["stdx".into(), "coprocessor".into()],
+            arguments: vec![crate::DecoratorArgument::String("Arduino".into())],
+        });
+        Program::new(vec![Instr::new(Op::Halt, 0, 0)], 0).with_functions(vec![function])
+    }
+
+    #[test]
+    fn forged_decorator_shapes_and_signatures_are_rejected() {
+        let malformed = [
+            crate::Decorator {
+                path:      vec![],
+                arguments: vec![],
+            },
+            crate::Decorator {
+                path:      vec!["stdx".into(), "bad-name".into()],
+                arguments: vec![],
+            },
+            crate::Decorator {
+                path:      vec!["stdx".into(); 9],
+                arguments: vec![],
+            },
+            crate::Decorator {
+                path:      vec!["stdx".into(), "unregistered".into()],
+                arguments: vec![],
+            },
+            crate::Decorator {
+                path:      vec!["stdx".into(), "coprocessor".into()],
+                arguments: vec![],
+            },
+            crate::Decorator {
+                path:      vec!["stdx".into(), "coprocessor".into()],
+                arguments: vec![crate::DecoratorArgument::Integer(4)],
+            },
+            crate::Decorator {
+                path:      vec!["stdx".into(), "coprocessor".into()],
+                arguments: vec![crate::DecoratorArgument::Bool(true)],
+            },
+            crate::Decorator {
+                path:      vec!["stdx".into(), "coprocessor".into()],
+                arguments: vec![crate::DecoratorArgument::Identifier("Arduino".into())],
+            },
+            crate::Decorator {
+                path:      vec!["stdx".into(), "coprocessor".into()],
+                arguments: vec![crate::DecoratorArgument::String(String::new())],
+            },
+            crate::Decorator {
+                path:      vec!["stdx".into(), "coprocessor".into()],
+                arguments: vec![crate::DecoratorArgument::String("Arduino".into()); 17],
+            },
+        ];
+        for decorator in malformed {
+            let mut program = coprocessor_program();
+            program.functions[0].decorators = vec![decorator];
+            assert!(matches!(BytecodeVerifier::verify(&program), Err(TinyOneError::Compile(_))));
+        }
+        let mut program = coprocessor_program();
+        let decorator = program.functions[0].decorators[0].clone();
+        program.functions[0].decorators = vec![decorator.clone(), decorator.clone()];
+        assert!(BytecodeVerifier::verify(&program).is_err(), "duplicate placement is invalid");
+        program.functions[0].decorators = vec![decorator; 17];
+        assert!(BytecodeVerifier::verify(&program).is_err(), "declaration count is bounded");
+    }
+
+    #[test]
+    fn decorator_text_is_bounded_across_the_whole_program() {
+        let mut program = coprocessor_program();
+        program.functions[0].decorators[0].arguments = vec![crate::DecoratorArgument::String(
+            "x".repeat(MAX_VERIFIER_TEXT_BYTES / 2),
+        )];
+        let mut second = program.functions[0].clone();
+        second.name = "second".into();
+        program.functions.push(second);
+        let error = BytecodeVerifier::verify(&program).expect_err("aggregate decorator text exceeds budget");
+        assert!(error.to_string().contains("decorator text bytes"), "{error}");
+    }
+
+    #[test]
+    fn placement_requires_owning_hardware_grant_and_detailed_permission() {
+        let mut program = coprocessor_program();
+        BytecodeVerifier::verify(&program).expect("root embedding grant permits placement metadata");
+        program.root_capabilities = crate::ModuleCapabilities::none();
+        program.root_permissions = crate::ModulePermissions::none();
+        assert!(
+            BytecodeVerifier::verify(&program)
+                .expect_err("decorator cannot grant hardware")
+                .to_string()
+                .contains("hardware capability grant")
+        );
+        program.root_capabilities = crate::ModuleCapabilities::all();
+        program.root_permissions = crate::ModulePermissions::none();
+        assert!(BytecodeVerifier::verify(&program).is_err(), "capability bits do not replace detailed permission");
+        program.root_capabilities = crate::ModuleCapabilities::none();
+        program.root_permissions = crate::ModulePermissions::from_capabilities(crate::ModuleCapabilities::all());
+        assert!(BytecodeVerifier::verify(&program).is_err(), "detailed permissions cannot exceed declared grant");
+
+        let mut program = coprocessor_program();
+        program.functions[0].name = "device.calculate".into();
+        program.modules.push(crate::ModuleDef {
+            name:               "device".into(),
+            path:               "device".into(),
+            imports:            vec![],
+            exported_functions: vec!["calculate".into()],
+            exported_structs:   vec![],
+            capabilities:       crate::ModuleCapabilities::none(),
+            permissions:        crate::ModulePermissions::none(),
+        });
+        assert!(BytecodeVerifier::verify(&program).is_err(), "imported function cannot inherit root hardware grant");
+        let hardware = crate::ModuleCapabilities::from_names(&["hardware".into()]).expect("hardware capability");
+        program.modules[0].capabilities = hardware;
+        program.modules[0].permissions = crate::ModulePermissions::from_capabilities(hardware);
+        BytecodeVerifier::verify(&program).expect("owning module has externally established grant");
+    }
+
+    #[test]
+    fn untrusted_placement_metadata_never_grants_effective_hardware_access() {
+        let mut program = coprocessor_program();
+        program.policy_trusted = false;
+        let verified = crate::VerifiedProgram::verify(program).expect("valid metadata remains inspectable");
+        assert_eq!(verified.program().functions[0].coprocessor_target(), Some("Arduino"));
+        assert!(
+            !verified
+                .permissions_for_chunk(1)
+                .expect("function permissions")
+                .hardware_access()
+        );
+        assert!(!verified.program().capabilities_for_function(Some(0)).hardware_access());
+    }
+
+    #[test]
+    fn metadata_text_budget_preserves_count_order_and_utf8_byte_boundaries() {
+        verify_string_list("names", &[], 0).expect("empty list at its count limit");
+        let mut values = vec!["é".repeat(MAX_VERIFIER_TEXT_BYTES / 2)];
+        verify_string_list("names", &values, 1).expect("exact UTF-8 byte budget");
+        values.extend(["é".into(), "later text must not change the first crossing".into()]);
+        assert_eq!(
+            verify_string_list("names", &values, 2)
+                .expect_err("count is checked before text")
+                .to_string(),
+            "Verifier: names 3 exceeds limit 2"
+        );
+        assert_eq!(
+            verify_string_list("names", &values, 3)
+                .expect_err("first cumulative byte crossing")
+                .to_string(),
+            "Verifier: names text bytes 1048578 exceeds limit 1048576"
+        );
+    }
+
+    #[test]
+    fn metadata_budget_labels_preserve_debug_escaping_and_error_order() {
+        let program = Program::new(vec![Instr::new(Op::Halt, 0, 0)], 0).with_functions(vec![Function::new(
+            "odd\"name",
+            0,
+            vec![Instr::new(Op::PushInt, 0, 0), Instr::new(Op::Return, 0, 0)],
+            MAX_VERIFIER_SLOT_COUNT + 1,
+        )]);
+        let error = BytecodeVerifier::verify(&program).expect_err("slot budget precedes invalid identifier");
+        assert!(matches!(error, TinyOneError::Compile(_)));
+        assert_eq!(error.to_string(), "Verifier: function \"odd\\\"name\" slot_count 65537 exceeds limit 65536");
+
+        let program = Program::new(vec![Instr::new(Op::Halt, 0, 0)], 0).with_structs(vec![StructDef::new(
+            "odd\"name",
+            vec![String::new(); MAX_VERIFIER_STRUCT_FIELDS + 1],
+        )]);
+        assert_eq!(
+            BytecodeVerifier::verify(&program)
+                .expect_err("field budget precedes invalid identifier")
+                .to_string(),
+            "Verifier: struct \"odd\\\"name\" fields 257 exceeds limit 256"
+        );
+    }
+
+    #[test]
+    fn metadata_identifier_diagnostics_preserve_qualified_roles() {
+        let modules = HashMap::from([("known", 0)]);
+        assert_eq!(owner_for_name("function", "root", &modules).expect("root owner"), None);
+        assert_eq!(owner_for_name("function", "known.local", &modules).expect("module owner"), Some(0));
+        for (name, expected) in [
+            ("", "Verifier: function name must not be empty"),
+            ("9bad", "Verifier: invalid function name \"9bad\""),
+            ("known.", "Verifier: function local name must not be empty"),
+            (".local", "Verifier: function module qualifier must not be empty"),
+            ("known.bad-name", "Verifier: invalid function local name \"bad-name\""),
+            ("bad-name.local", "Verifier: invalid function module qualifier \"bad-name\""),
+            ("known.a.b", "Verifier: invalid qualified function name \"known.a.b\""),
+            ("missing.local", "Verifier: function \"missing.local\" belongs to unknown module \"missing\""),
+        ] {
+            let error = owner_for_name("function", name, &modules).expect_err("invalid qualified name");
+            assert!(matches!(error, TinyOneError::Compile(_)));
+            assert_eq!(error.to_string(), expected);
+        }
+    }
+
+    #[test]
+    fn unreachable_enum_constructors_must_have_the_declared_arity() {
+        let mut program = Program::new(
+            vec![
+                Instr::new(Op::Jump, 2, 0),
+                Instr::new(Op::MakeEnum, 0, 0),
+                Instr::new(Op::Halt, 0, 0),
+            ],
+            0,
+        );
+        program.enum_variants.push(EnumVariantDef {
+            enum_name:    "Maybe".into(),
+            variant_name: "Some".into(),
+            tag:          0,
+            fields:       vec!["value".into()],
+        });
+        assert_eq!(
+            BytecodeVerifier::verify(&program)
+                .expect_err("invalid unreachable constructor")
+                .to_string(),
+            "Enum variant \"Maybe\".\"Some\" expects 1 field value(s), got 0 at instruction 1 in main"
+        );
+    }
+
+    #[test]
+    fn certificates_preserve_reachable_stack_peaks_for_each_chunk() {
+        let program = Program::new(
+            vec![
+                Instr::new(Op::Jump, 3, 0),
+                Instr::new(Op::PushInt, 99, 0),
+                Instr::new(Op::PushInt, 99, 0),
+                Instr::new(Op::PushInt, 42, 0),
+                Instr::new(Op::Print, 0, 0),
+                Instr::new(Op::Halt, 0, 0),
+            ],
+            0,
+        )
+        .with_functions(vec![Function::new(
+            "sum",
+            0,
+            vec![
+                Instr::new(Op::PushInt, 1, 0),
+                Instr::new(Op::PushInt, 2, 0),
+                Instr::new(Op::Add, 0, 0),
+                Instr::new(Op::Return, 0, 0),
+            ],
+            0,
+        )]);
+        let verified = crate::VerifiedProgram::verify(program).expect("valid program");
+        assert_eq!(verified.chunk_certificate(0).expect("main certificate").max_stack_depth, 1);
+        assert_eq!(
+            verified
+                .chunk_certificate(1)
+                .expect("function certificate")
+                .max_stack_depth,
+            2
+        );
+        assert!(verified.chunk_certificate(2).is_err());
+        let clone = verified.clone();
+        assert!(std::ptr::eq(verified.chunk_certificate(1).unwrap(), clone.chunk_certificate(1).unwrap()));
+    }
+
+    #[test]
+    fn stack_depth_limit_accepts_the_boundary_and_rejects_one_more_value() {
+        for count in [65_536, 65_537] {
+            let mut code = vec![Instr::new(Op::PushInt, 1, 0); count];
+            code.extend([
+                Instr::new(Op::MakeArray, i64::try_from(count).expect("bounded array count"), 0),
+                Instr::new(Op::Pop, 0, 0),
+                Instr::new(Op::Halt, 0, 0),
+            ]);
+            let result = BytecodeVerifier::verify(&Program::new(code, 0));
+            if count == 65_536 {
+                result.expect("maximum stack depth is valid");
+            } else {
+                assert!(
+                    result
+                        .expect_err("one above maximum")
+                        .to_string()
+                        .contains("stack depth 65537 exceeds limit")
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn inconsistent_stack_merges_report_the_join_instruction() {
+        let program = Program::new(
+            vec![
+                Instr::new(Op::PushInt, 0, 0),
+                Instr::new(Op::JumpIfZero, 4, 0),
+                Instr::new(Op::PushInt, 7, 0),
+                Instr::new(Op::Jump, 5, 0),
+                Instr::new(Op::Jump, 5, 0),
+                Instr::new(Op::Print, 0, 0),
+                Instr::new(Op::Halt, 0, 0),
+            ],
+            0,
+        );
+        assert_eq!(
+            BytecodeVerifier::verify(&program)
+                .expect_err("inconsistent merge")
+                .to_string(),
+            "Verifier: stack depth mismatch at instruction 5 in main: 1 vs 0",
+        );
+    }
+
+    #[test]
+    fn unreachable_instructions_still_require_valid_static_operands() {
+        for instruction in [
+            Instr::new(Op::Load, 1, 0),
+            Instr::new(Op::Store, -1, 0),
+            Instr::new(Op::LoadGlobal, 1, 0),
+            Instr::new(Op::PushString, 0, 0),
+            Instr::new(Op::PushFunction, 0, 0),
+            Instr::new(Op::GetField, 0, 0),
+            Instr::new(Op::SetField, 0, 0),
+            Instr::new(Op::Call, 0, 0),
+            Instr::new(Op::Builtin, i64::MAX, 0),
+        ] {
+            let program = Program::new(vec![Instr::new(Op::Jump, 2, 0), instruction, Instr::new(Op::Halt, 0, 0)], 1);
+            assert!(BytecodeVerifier::verify(&program).is_err(), "{:?}", instruction.op);
+        }
+    }
+
+    #[test]
+    fn rejects_missing_inputs_even_when_the_net_stack_depth_is_nonnegative() {
+        let operations = [
+            (Op::Add, 2),
+            (Op::Sub, 2),
+            (Op::Mul, 2),
+            (Op::Div, 2),
+            (Op::Lt, 2),
+            (Op::Lte, 2),
+            (Op::Gt, 2),
+            (Op::Gte, 2),
+            (Op::Eq, 2),
+            (Op::Ne, 2),
+            (Op::Index, 2),
+            (Op::Neg, 1),
+            (Op::GetField, 1),
+        ];
+        for (op, required) in operations {
+            let mut code = vec![Instr::new(Op::PushInt, 1, 0); required - 1];
+            code.push(Instr::new(op, 0, 0));
+            code.push(Instr::new(Op::Halt, 0, 0));
+            let mut program = Program::new(code, 0);
+            program.fields.push("field".into());
+            let error = BytecodeVerifier::verify(&program).expect_err("all input operands must exist");
+            assert!(error.to_string().contains("stack underflow"), "{op:?}: {error}");
+        }
+    }
+
+    #[test]
+    fn rejects_missing_call_and_constructor_inputs_before_the_result_is_pushed() {
+        let builtin = i64::try_from(crate::builtin_index("len").expect("len builtin")).expect("builtin index");
+        for instruction in [
+            Instr::new(Op::Call, 0, 1),
+            Instr::new(Op::CallValue, 0, 0),
+            Instr::new(Op::MakeArray, 1, 0),
+            Instr::new(Op::MakeStruct, 0, 1),
+            Instr::new(Op::MakeEnum, 0, 1),
+            Instr::new(Op::Builtin, builtin, 1),
+        ] {
+            let mut program = Program::new(vec![instruction, Instr::new(Op::Halt, 0, 0)], 0);
+            program.functions.push(Function::new(
+                "identity",
+                1,
+                vec![Instr::new(Op::Load, 0, 0), Instr::new(Op::Return, 0, 0)],
+                1,
+            ));
+            program.structs.push(StructDef::new("Boxed", vec!["value".into()]));
+            program.enum_variants.push(EnumVariantDef {
+                enum_name:    "Maybe".into(),
+                variant_name: "Some".into(),
+                tag:          0,
+                fields:       vec!["value".into()],
+            });
+            let error = BytecodeVerifier::verify(&program).expect_err("result cannot supply an input operand");
+            assert!(error.to_string().contains("stack underflow"), "{:?}: {error}", instruction.op);
+        }
+    }
 }

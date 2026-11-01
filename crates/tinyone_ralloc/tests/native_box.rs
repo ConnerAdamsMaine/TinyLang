@@ -2,27 +2,25 @@ use core::sync::atomic::{AtomicUsize, Ordering};
 
 use ralloc::{RallocBox, RallocError};
 
-static DROP_COUNT: AtomicUsize = AtomicUsize::new(0);
+struct DropCounter<'a>(u32, &'a AtomicUsize);
 
-struct DropCounter(u32);
-
-impl Drop for DropCounter {
+impl Drop for DropCounter<'_> {
     fn drop(&mut self) {
-        DROP_COUNT.fetch_add(1, Ordering::SeqCst);
+        self.1.fetch_add(1, Ordering::SeqCst);
     }
 }
 
 #[test]
 fn box_owns_value_and_drops_it_once() {
-    DROP_COUNT.store(0, Ordering::SeqCst);
+    let drop_count = AtomicUsize::new(0);
 
     {
-        let value = RallocBox::new(DropCounter(17)).expect("box allocation should succeed");
+        let value = RallocBox::new(DropCounter(17, &drop_count)).expect("box allocation should succeed");
         assert_eq!(value.get().0, 17);
-        assert_eq!(DROP_COUNT.load(Ordering::SeqCst), 0);
+        assert_eq!(drop_count.load(Ordering::SeqCst), 0);
     }
 
-    assert_eq!(DROP_COUNT.load(Ordering::SeqCst), 1);
+    assert_eq!(drop_count.load(Ordering::SeqCst), 1);
 }
 
 #[test]
@@ -34,19 +32,18 @@ fn box_mutation_requires_unique_handle() {
     assert_eq!(*value, 42);
 }
 
-// BUG: Intermittent failures (stable-x86_64-unknown-linux-gnu)
 #[test]
 fn box_into_inner_moves_value_out_and_frees_storage() {
-    DROP_COUNT.store(0, Ordering::SeqCst);
+    let drop_count = AtomicUsize::new(0);
 
-    let value = RallocBox::new(DropCounter(99)).expect("box allocation should succeed");
+    let value = RallocBox::new(DropCounter(99, &drop_count)).expect("box allocation should succeed");
     let inner = value.into_inner();
 
     assert_eq!(inner.0, 99);
-    assert_eq!(DROP_COUNT.load(Ordering::SeqCst), 0); // BUG: Occasional failure!
+    assert_eq!(drop_count.load(Ordering::SeqCst), 0);
 
     drop(inner);
-    assert_eq!(DROP_COUNT.load(Ordering::SeqCst), 1);
+    assert_eq!(drop_count.load(Ordering::SeqCst), 1);
 }
 
 #[test]
@@ -73,41 +70,41 @@ fn box_supports_zero_sized_values_without_allocation() {
 }
 
 #[repr(align(64))]
-struct OverAligned(u8);
+struct OverAligned<'a>(u8, &'a AtomicUsize);
 
-impl Drop for OverAligned {
+impl Drop for OverAligned<'_> {
     fn drop(&mut self) {
-        DROP_COUNT.fetch_add(1, Ordering::SeqCst);
+        self.1.fetch_add(1, Ordering::SeqCst);
     }
 }
 
 #[test]
 fn box_supports_over_aligned_values() {
-    DROP_COUNT.store(0, Ordering::SeqCst);
+    let drop_count = AtomicUsize::new(0);
 
     {
-        let value = RallocBox::try_new(OverAligned(7)).expect("over-aligned box should allocate");
+        let value = RallocBox::try_new(OverAligned(7, &drop_count)).expect("over-aligned box should allocate");
         assert_eq!(value.as_ptr().addr() % 64, 0);
         assert_eq!(value.0, 7);
-        assert_eq!(DROP_COUNT.load(Ordering::SeqCst), 0);
+        assert_eq!(drop_count.load(Ordering::SeqCst), 0);
     }
 
-    assert_eq!(DROP_COUNT.load(Ordering::SeqCst), 1);
+    assert_eq!(drop_count.load(Ordering::SeqCst), 1);
 }
 
 #[test]
 fn box_into_inner_works_for_over_aligned_values() {
-    DROP_COUNT.store(0, Ordering::SeqCst);
+    let drop_count = AtomicUsize::new(0);
 
-    let value = RallocBox::try_new(OverAligned(9)).expect("over-aligned box should allocate");
+    let value = RallocBox::try_new(OverAligned(9, &drop_count)).expect("over-aligned box should allocate");
     assert_eq!(value.as_ptr().addr() % 64, 0);
 
     let inner = value.into_inner();
     assert_eq!(inner.0, 9);
-    assert_eq!(DROP_COUNT.load(Ordering::SeqCst), 0);
+    assert_eq!(drop_count.load(Ordering::SeqCst), 0);
 
     drop(inner);
-    assert_eq!(DROP_COUNT.load(Ordering::SeqCst), 1);
+    assert_eq!(drop_count.load(Ordering::SeqCst), 1);
 }
 
 #[test]

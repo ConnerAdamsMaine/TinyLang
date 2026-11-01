@@ -10,14 +10,13 @@
 //! callers (`runtime::heap`) do the `value_codec::encode_value`/
 //! `decode_value` translation.
 //!
-//! Growth is amortized doubling, matching `Vec<T>`'s own strategy — exact-
-//! size-per-push would turn every push-in-a-loop `TinyLang` program into
-//! O(n^2) real Ralloc reallocations. Callers that need to charge a heap
+//! Capacity grows fourfold — exact-size-per-push would turn every
+//! push-in-a-loop `TinyLang` program into O(n^2) real Ralloc reallocations.
+//! Callers that need to charge a heap
 //! byte budget by *logical* length (as `TinyHeap` already does via
 //! `VALUE_BYTES`-per-element accounting) should keep doing so independently
-//! of this type's physical capacity, exactly as they do for `Vec<Value>`
-//! today — `byte_capacity()` is provided only for `TinyAllocator`
-//! bookkeeping, which tracks real physical bytes.
+//! of this type's physical capacity. Tests inspect physical reservation
+//! separately through `byte_capacity()`.
 
 use crate::tiny_allocator::RallocBytes;
 use crate::{Result, TinyOneError};
@@ -49,9 +48,8 @@ impl RallocVec {
         self.bytes.len() / self.stride
     }
 
-    /// Real physical bytes currently reserved (>= `len() * stride`) — for
-    /// `TinyAllocator` bookkeeping, which tracks actual Ralloc arena usage,
-    /// not the logical element count.
+    /// Physical bytes reserved (>= `len() * stride`), for capacity tests;
+    /// this is not the logical payload charged to the heap-byte budget.
     #[cfg(test)]
     pub(crate) fn byte_capacity(&self) -> usize {
         self.bytes.len()
@@ -80,8 +78,8 @@ impl RallocVec {
         element.get(offset..end)
     }
 
-    /// Appends one `stride`-byte element, growing (amortized doubling) if
-    /// the vector is at capacity.
+    /// Appends one `stride`-byte element, growing capacity fourfold when full
+    /// (or reserving four elements when initially empty).
     ///
     /// # Panics
     /// If `elem.len() != stride` — a caller bug, not a runtime condition.
@@ -228,11 +226,55 @@ mod tests {
     }
 
     #[test]
-    fn remove_out_of_bounds_returns_none() {
+    fn remove_out_of_bounds_leaves_length_contents_and_capacity_unchanged() {
         let mut v = RallocVec::with_capacity(4, 4).unwrap();
+        assert_eq!(v.remove(0), None);
         v.push(&elem(1, 4)).unwrap();
+        let capacity_before = v.byte_capacity();
+        assert_eq!(v.remove(1), None);
         assert_eq!(v.remove(5), None);
+        assert_eq!(v.remove(usize::MAX), None);
         assert_eq!(v.len(), 1);
+        assert_eq!(v.get(0), Some(&[1; 4][..]));
+        assert_eq!(v.byte_capacity(), capacity_before);
+    }
+
+    #[test]
+    fn remove_first_last_and_only_element_preserves_capacity() {
+        let mut v = RallocVec::with_capacity(128, 4).unwrap();
+        for byte in 1..=3 {
+            v.push(&[byte; 128]).unwrap();
+        }
+        let capacity_before = v.byte_capacity();
+        assert_eq!(v.remove(0), Some(vec![1; 128]));
+        assert_eq!(v.len(), 2);
+        assert_eq!(v.get(0), Some(&[2; 128][..]));
+        assert_eq!(v.get(1), Some(&[3; 128][..]));
+        assert_eq!(v.remove(1), Some(vec![3; 128]));
+        assert_eq!(v.len(), 1);
+        assert_eq!(v.get(0), Some(&[2; 128][..]));
+        assert_eq!(v.get(1), None);
+        assert_eq!(v.remove(0), Some(vec![2; 128]));
+        assert_eq!(v.len(), 0);
+        assert_eq!(v.get(0), None);
+        assert_eq!(v.remove(0), None);
+        assert_eq!(v.byte_capacity(), capacity_before);
+    }
+
+    #[test]
+    fn removed_storage_is_hidden_and_fully_overwritten_on_push() {
+        let mut v = RallocVec::with_capacity(128, 1).unwrap();
+        v.push(&[0xff; 128]).unwrap();
+        let capacity_before = v.byte_capacity();
+        assert_eq!(v.remove(0), Some(vec![0xff; 128]));
+        assert_eq!(v.get(0), None);
+        assert_eq!(v.get_mut(0), None);
+        assert_eq!(v.get_part(0, 0, 128), None);
+        let replacement = std::array::from_fn::<_, 128, _>(|index| u8::try_from(index).unwrap());
+        v.push(&replacement).unwrap();
+        assert_eq!(v.len(), 1);
+        assert_eq!(v.get(0), Some(&replacement[..]));
+        assert_eq!(v.byte_capacity(), capacity_before);
     }
 
     #[test]

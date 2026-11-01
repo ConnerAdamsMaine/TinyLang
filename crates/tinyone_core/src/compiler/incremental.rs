@@ -213,3 +213,39 @@ fn remap_code(
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{ModuleCapabilities, ModuleDef, ModulePermissions, compile_source_verified};
+
+    fn placement_module(target: &str) -> Program {
+        let mut program = compile_source_verified(&format!(
+            "import \"stdx\" as ext\n@ext.coprocessor({target})\nfn work(x) {{ return x * 2 }}"
+        ))
+        .expect("compile placement fragment")
+        .into_program();
+        program.functions[0].name = "device.work".into();
+        program.modules.push(ModuleDef {
+            name:               "device".into(),
+            path:               "device".into(),
+            imports:            Vec::new(),
+            exported_functions: vec!["work".into()],
+            exported_structs:   Vec::new(),
+            capabilities:       ModuleCapabilities::all(),
+            permissions:        ModulePermissions::from_capabilities(ModuleCapabilities::all()),
+        });
+        program
+    }
+
+    #[test]
+    fn replacing_a_declaration_replaces_placement_metadata() {
+        let before = VerifiedProgram::verify(placement_module("Arduino")).expect("original module");
+        let fingerprint = before.fingerprint().to_owned();
+        let replacement = placement_module("ESP32");
+        let patched = patch_module(before, &replacement, "device").expect("replace whole declaration");
+        assert_eq!(patched.coprocessor_target(0).expect("owning hardware grant"), Some("ESP32"));
+        assert_ne!(patched.fingerprint(), fingerprint);
+        assert_eq!(patched.program().functions[0].decorators, replacement.functions[0].decorators);
+    }
+}

@@ -59,6 +59,58 @@ fn map_basic_operations_match_backends() {
 }
 
 #[test]
+fn map_numeric_key_boundaries_preserve_identity_and_original_key_types() {
+    let source = r"
+    let minimum = -9223372036854775807 - 1
+    let maximum = 9223372036854775807
+    let keys = [u8(255), u16(65535), u32(4294967295), -1, minimum, maximum]
+    let m = map_new()
+    let i = 0
+    while i < len(keys) {
+      let ignored = map_set(m, keys[i], i + 10)
+      i = i + 1
+    }
+    print map_len(m)
+    print map_get(m, 255)
+    print map_get(m, 65535)
+    print map_get(m, 4294967295)
+    print map_get(m, -1)
+    print map_get(m, minimum)
+    print map_get(m, maximum)
+    let updated = map_set(m, 255, 99)
+    print map_get(m, u16(255))
+    let ordered = map_keys(m)
+    print type_of(ordered[0])
+    print type_of(ordered[1])
+    print type_of(ordered[2])
+    print map_len(m)
+    print map_del(m, u32(255))
+    print map_has(m, u8(255))
+    print map_get(m, u32(65535))
+    print map_len(m)
+    let reinserted = map_set(m, u8(255), 77)
+    print map_get(m, 255)
+    ";
+    let expected = b"6\n10\n11\n12\n13\n14\n15\n99\nu8\nu16\nu32\n6\n1\n0\n11\n5\n77\n";
+    let verified = tinyone::compile_source_verified(source).expect("numeric map key fixture");
+    let mut reference = Vec::new();
+    tinyone::run_verified_program(&verified, "vm", &mut reference, Vec::new()).expect("VM execution");
+    assert_eq!(reference, expected);
+    for threshold in [0, 1, 8] {
+        let mut compiled = tinyone::JitProgram::compile_verified_with_options(
+            &verified,
+            tinyone::JitOptions::new().with_hot_back_edge_threshold(threshold),
+        )
+        .expect("JIT lowering");
+        for _ in 0..2 {
+            let mut output = Vec::new();
+            compiled.run(&mut output, Vec::new()).expect("JIT execution");
+            assert_eq!(output, reference, "threshold={threshold}");
+        }
+    }
+}
+
+#[test]
 fn map_keys_and_values_preserve_insertion_order() {
     let source = r"
     let m = map_new()
@@ -96,6 +148,154 @@ fn map_index_handles_content_identity_and_index_shifts() {
     print map_get(m, pointer)
     "#;
     assert_parity(source, "1\n0\n20\n1\n20\n30\n");
+}
+
+fn assert_map_queries_at_thresholds(source: &str, expected: &[u8]) {
+    let verified = tinyone::compile_source_verified(source).expect("map ownership fixture");
+    let mut reference = Vec::new();
+    tinyone::run_verified_program(&verified, "vm", &mut reference, Vec::new()).expect("VM map execution");
+    assert_eq!(reference, expected);
+    for threshold in [0, 1, 8] {
+        let mut compiled = tinyone::JitProgram::compile_verified_with_options(
+            &verified,
+            tinyone::JitOptions::new().with_hot_back_edge_threshold(threshold),
+        )
+        .expect("map lowering");
+        for run in 0..2 {
+            let mut output = Vec::new();
+            compiled.run(&mut output, Vec::new()).expect("JIT map execution");
+            assert_eq!(output, reference, "threshold={threshold}, run={run}");
+        }
+    }
+}
+
+#[test]
+fn map_string_queries_preserve_owned_index_and_original_key_identity() {
+    let source = r#"
+    let m = map_new()
+    let original = str_concat("na", "me")
+    let equal = str_concat("nam", "e")
+    let inserted = map_set(m, original, 10)
+    print map_get(m, equal)
+    print map_set(m, equal, 20)
+    print map_len(m)
+    let before = map_keys(m)
+    print ptr_addr(before[0]) == ptr_addr(original)
+    let freed = unsafe free(original)
+    let i = 0
+    let total = 0
+    while i < 24 {
+      let updated = map_set(m, equal, i)
+      total = total + map_get(m, equal)
+      i = i + 1
+    }
+    print total
+    print map_get(m, equal)
+    print map_del(m, equal)
+    print map_has(m, equal)
+    let reinserted = map_set(m, equal, 77)
+    let after = map_keys(m)
+    print ptr_addr(after[0]) == ptr_addr(equal)
+    let empty = ""
+    let other_empty = str_concat("", "")
+    let empty_inserted = map_set(m, empty, 99)
+    print map_get(m, other_empty)
+    let unicode_inserted = map_set(m, "héllø", 100)
+    print map_get(m, str_concat("hé", "llø"))
+    print map_len(m)
+    "#;
+    assert_map_queries_at_thresholds(source, b"10\n20\n1\ntrue\n276\n23\n1\n0\ntrue\n99\n100\n3\n");
+}
+
+#[test]
+fn map_field_queries_preserve_cast_insensitive_identity_and_insertion_order() {
+    let source = r#"
+    struct Pair { left, right }
+    let pair = Pair(4, 5)
+    let right = fieldptr(pair, "right")
+    let cast = cast_ptr(right, "u8")
+    let left = fieldptr(pair, "left")
+    let m = map_new()
+    let inserted = map_set(m, right, 10)
+    let other_inserted = map_set(m, left, 20)
+    print map_set(m, cast, 30)
+    print map_len(m)
+    print map_get(m, right)
+    print map_get(m, cast)
+    print map_get(m, left)
+    let before = map_keys(m)
+    print ptr_type(before[0])
+    let i = 0
+    let total = 0
+    while i < 24 {
+      let updated = map_set(m, cast, i)
+      total = total + map_get(m, right)
+      i = i + 1
+    }
+    print total
+    print map_del(m, cast)
+    print map_get(m, left)
+    let reinserted = map_set(m, cast, 40)
+    let after = map_keys(m)
+    print ptr_field(after[0])
+    print ptr_type(after[1])
+    print map_get(m, right)
+    "#;
+    assert_map_queries_at_thresholds(source, b"30\n2\n30\n30\n20\nfield\n276\n1\n20\nleft\nu8\n40\n");
+}
+
+#[test]
+fn map_queries_preserve_stored_pointer_validation_and_error_precedence() {
+    for operation in [
+        "map_get(m, \"live\")",
+        "map_has(m, \"live\")",
+        "map_del(m, \"live\")",
+        "map_set(m, \"live\", 21)",
+        "map_set(m, \"new\", 22)",
+        "map_get(m, 7)",
+        "map_set(m, 7, 23)",
+        "map_get(1, field)",
+        "map_set(1, field, 9)",
+    ] {
+        let source = format!(
+            "struct Pair {{ left, right }}\n\
+             let pair = Pair(1, 2)\n\
+             let field = fieldptr(pair, \"right\")\n\
+             let m = map_new()\n\
+             let inserted = map_set(m, field, 10)\n\
+             let other_inserted = map_set(m, \"live\", 20)\n\
+             let freed = unsafe free(pair)\n\
+             let replacement = Pair(3, 4)\n\
+             print 42\n\
+             print {operation}\n"
+        );
+        let verified =
+            tinyone::compile_source_verified_with_filename(&source, "map-queries.to").expect("map error fixture");
+        let mut reference_output = Vec::new();
+        let reference = tinyone::run_verified_program(&verified, "vm", &mut reference_output, Vec::new())
+            .expect_err("stored/query pointer must be stale");
+        assert!(matches!(reference, tinyone::TinyOneError::Runtime(_)));
+        let message = reference.to_string();
+        assert!(message.starts_with("map-queries.to:10:7:"), "{operation}: {message}");
+        assert!(message.contains("Stale heap pointer"), "{operation}: {message}");
+        assert_eq!(reference_output, b"42\n");
+        for threshold in [0, 1, 8] {
+            let mut compiled = tinyone::JitProgram::compile_verified_with_options(
+                &verified,
+                tinyone::JitOptions::new().with_hot_back_edge_threshold(threshold),
+            )
+            .expect("map error lowering");
+            for run in 0..2 {
+                let mut output = Vec::new();
+                let error = compiled
+                    .run(&mut output, Vec::new())
+                    .expect_err("JIT must reject stale pointer");
+                assert!(matches!(error, tinyone::TinyOneError::Runtime(_)));
+                assert_eq!(error.to_string(), message, "{operation}: threshold={threshold}, run={run}");
+                assert_eq!(output, reference_output);
+            }
+        }
+    }
 }
 
 #[test]

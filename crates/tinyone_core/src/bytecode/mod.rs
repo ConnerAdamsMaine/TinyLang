@@ -1,9 +1,12 @@
 pub(crate) mod artifact;
 pub(crate) mod binary;
+pub(crate) mod certificate;
+pub(crate) mod control_flow;
 pub(crate) mod instr;
 pub(crate) mod opcode;
 pub(crate) mod peephole;
 pub(crate) mod program;
+mod retention;
 pub(crate) mod verifier;
 
 pub use instr::Instr;

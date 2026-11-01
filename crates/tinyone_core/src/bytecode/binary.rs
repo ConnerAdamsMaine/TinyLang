@@ -1,4 +1,7 @@
+use crate::decorators::{MAX_ARGUMENTS, MAX_DECORATOR_TEXT_BYTES, MAX_DECORATORS, MAX_PATH_SEGMENTS};
 use crate::{
+    Decorator,
+    DecoratorArgument,
     EnumVariantDef,
     Function,
     Instr,
@@ -17,8 +20,8 @@ use crate::{
 
 pub(crate) const BINARY_ARTIFACT_MAGIC: &[u8; 8] = b"TINYONEB";
 pub(crate) const MAX_BINARY_ARTIFACT_BYTES: usize = 8 * 1024 * 1024;
-// Version 4 adds the fine-grained policy which backs signed module grants.
-const BINARY_ARTIFACT_VERSION: u16 = 4;
+// Version 5 adds ordered, typed function decorator metadata.
+const BINARY_ARTIFACT_VERSION: u16 = 5;
 const MAX_FUNCTIONS: usize = 4_096;
 const MAX_STRUCTS: usize = 4_096;
 const MAX_CODE_OPS: usize = 65_536;
@@ -59,6 +62,7 @@ impl Program {
         for function in &self.functions {
             writer.string(&function.name)?;
             writer.string_list(&function.generic_params)?;
+            writer.decorators(&function.decorators)?;
             writer.usize(function.param_count, "function parameter count")?;
             writer.code(&function.code)?;
             writer.usize(function.slot_count, "function slot count")?;
@@ -152,6 +156,7 @@ impl Program {
         for _ in 0..function_count {
             let name = reader.string("function name")?;
             let generic_params = reader.string_list("generic parameters", MAX_NAMES)?;
+            let decorators = reader.decorators()?;
             let param_count = reader.bounded_usize("parameter count", MAX_SLOT_COUNT)?;
             let function_code = reader.code("function code")?;
             let function_slot_count = reader.bounded_usize("function slot count", MAX_SLOT_COUNT)?;
@@ -159,8 +164,10 @@ impl Program {
             functions.push(Function {
                 name,
                 generic_params,
+                decorators,
                 param_count,
                 code: function_code,
+                source: None,
                 slot_count: function_slot_count,
                 names: function_names,
             });
@@ -219,6 +226,7 @@ impl Program {
         }
         Ok(Self {
             code,
+            source: None,
             slot_count,
             names,
             functions,
@@ -264,7 +272,8 @@ impl VerifiedProgram {
 
 #[derive(Default)]
 struct BinaryWriter {
-    bytes: Vec<u8>,
+    bytes:                Vec<u8>,
+    decorator_text_bytes: usize,
 }
 
 impl BinaryWriter {
@@ -305,6 +314,55 @@ impl BinaryWriter {
         Ok(())
     }
 
+    fn decorator_text(&mut self, value: &str) -> Result<()> {
+        self.decorator_text_bytes = self
+            .decorator_text_bytes
+            .checked_add(value.len())
+            .ok_or_else(|| TinyOneError::compile("Binary artifact decorator text overflow"))?;
+        if self.decorator_text_bytes > MAX_DECORATOR_TEXT_BYTES {
+            return Err(TinyOneError::compile("Binary artifact decorator text limit exceeded"));
+        }
+        self.string(value)
+    }
+
+    fn decorators(&mut self, decorators: &[Decorator]) -> Result<()> {
+        if decorators.len() > MAX_DECORATORS {
+            return Err(TinyOneError::compile("Binary artifact decorator count limit exceeded"));
+        }
+        self.usize(decorators.len(), "decorator count")?;
+        for decorator in decorators {
+            if decorator.path.len() > MAX_PATH_SEGMENTS || decorator.arguments.len() > MAX_ARGUMENTS {
+                return Err(TinyOneError::compile("Binary artifact decorator path or argument limit exceeded"));
+            }
+            self.usize(decorator.path.len(), "decorator path count")?;
+            for segment in &decorator.path {
+                self.decorator_text(segment)?;
+            }
+            self.usize(decorator.arguments.len(), "decorator argument count")?;
+            for argument in &decorator.arguments {
+                match argument {
+                    DecoratorArgument::String(value) => {
+                        self.u8(0);
+                        self.decorator_text(value)?;
+                    }
+                    DecoratorArgument::Integer(value) => {
+                        self.u8(1);
+                        self.i64(*value);
+                    }
+                    DecoratorArgument::Bool(value) => {
+                        self.u8(2);
+                        self.u8(u8::from(*value));
+                    }
+                    DecoratorArgument::Identifier(value) => {
+                        self.u8(3);
+                        self.decorator_text(value)?;
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
     fn code(&mut self, code: &[Instr]) -> Result<()> {
         self.usize(code.len(), "instruction count")?;
         for instruction in code {
@@ -339,9 +397,10 @@ impl BinaryWriter {
 }
 
 struct BinaryReader<'a> {
-    bytes:          &'a [u8],
-    offset:         usize,
-    total_code_ops: usize,
+    bytes:                &'a [u8],
+    offset:               usize,
+    total_code_ops:       usize,
+    decorator_text_bytes: usize,
 }
 
 impl<'a> BinaryReader<'a> {
@@ -350,6 +409,7 @@ impl<'a> BinaryReader<'a> {
             bytes,
             offset: 0,
             total_code_ops: 0,
+            decorator_text_bytes: 0,
         }
     }
 
@@ -427,6 +487,48 @@ impl<'a> BinaryReader<'a> {
             values.push(value);
         }
         Ok(values)
+    }
+
+    fn decorator_text(&mut self) -> Result<String> {
+        let length = self.bounded_usize("decorator text bytes", MAX_DECORATOR_TEXT_BYTES)?;
+        self.decorator_text_bytes = self
+            .decorator_text_bytes
+            .checked_add(length)
+            .ok_or_else(|| TinyOneError::compile("Binary artifact decorator text overflow"))?;
+        if self.decorator_text_bytes > MAX_DECORATOR_TEXT_BYTES {
+            return Err(TinyOneError::compile("Binary artifact decorator text limit exceeded"));
+        }
+        String::from_utf8(self.take(length)?.to_vec())
+            .map_err(|error| TinyOneError::compile(format!("Binary artifact decorator text must be UTF-8: {error}")))
+    }
+
+    fn decorators(&mut self) -> Result<Vec<Decorator>> {
+        let count = self.bounded_usize("decorator count", MAX_DECORATORS)?;
+        let mut decorators = Vec::with_capacity(count);
+        for _ in 0..count {
+            let count = self.bounded_usize("decorator path count", MAX_PATH_SEGMENTS)?;
+            let mut path = Vec::with_capacity(count);
+            for _ in 0..count {
+                path.push(self.decorator_text()?);
+            }
+            let count = self.bounded_usize("decorator argument count", MAX_ARGUMENTS)?;
+            let mut arguments = Vec::with_capacity(count);
+            for _ in 0..count {
+                arguments.push(match self.u8()? {
+                    0 => DecoratorArgument::String(self.decorator_text()?),
+                    1 => DecoratorArgument::Integer(self.i64()?),
+                    2 => DecoratorArgument::Bool(self.boolean("decorator boolean argument")?),
+                    3 => DecoratorArgument::Identifier(self.decorator_text()?),
+                    tag => {
+                        return Err(TinyOneError::compile(format!(
+                            "Binary artifact invalid decorator argument tag {tag}"
+                        )));
+                    }
+                });
+            }
+            decorators.push(Decorator { path, arguments });
+        }
+        Ok(decorators)
     }
 
     fn code(&mut self, name: &str) -> Result<Vec<Instr>> {
@@ -511,5 +613,107 @@ mod tests {
         let mut trailing = bytes;
         trailing.push(0);
         assert!(Program::from_binary_artifact(&trailing).is_err());
+    }
+
+    #[test]
+    fn binary_decorators_preserve_order_and_argument_kinds() {
+        let decorators = vec![
+            Decorator {
+                path:      vec!["extension".into(), "first".into()],
+                arguments: vec![
+                    DecoratorArgument::String("device".into()),
+                    DecoratorArgument::Integer(i64::MIN),
+                    DecoratorArgument::Bool(true),
+                    DecoratorArgument::Identifier("Device".into()),
+                ],
+            },
+            Decorator {
+                path:      vec!["second".into()],
+                arguments: Vec::new(),
+            },
+        ];
+        let mut writer = BinaryWriter::default();
+        writer.decorators(&decorators).expect("encode metadata");
+        let mut reader = BinaryReader::new(&writer.bytes);
+        assert_eq!(reader.decorators().expect("decode metadata"), decorators);
+        assert!(reader.is_empty());
+    }
+
+    #[test]
+    fn binary_decorator_decoder_bounds_counts_and_rejects_tags() {
+        for (bytes, message) in [
+            ((MAX_DECORATORS as u32 + 1).to_le_bytes().to_vec(), "decorator count"),
+            ([1u32.to_le_bytes(), (MAX_PATH_SEGMENTS as u32 + 1).to_le_bytes()].concat(), "decorator path"),
+            (
+                [
+                    1u32.to_le_bytes(),
+                    0u32.to_le_bytes(),
+                    (MAX_ARGUMENTS as u32 + 1).to_le_bytes(),
+                ]
+                .concat(),
+                "decorator argument",
+            ),
+            (
+                [
+                    1u32.to_le_bytes().as_slice(),
+                    0u32.to_le_bytes().as_slice(),
+                    1u32.to_le_bytes().as_slice(),
+                    &[255],
+                ]
+                .concat(),
+                "argument tag",
+            ),
+            (
+                [
+                    1u32.to_le_bytes().as_slice(),
+                    0u32.to_le_bytes().as_slice(),
+                    1u32.to_le_bytes().as_slice(),
+                    &[2, 2],
+                ]
+                .concat(),
+                "boolean",
+            ),
+        ] {
+            let error = BinaryReader::new(&bytes).decorators().expect_err("hostile metadata");
+            assert!(error.to_string().contains(message), "{error}");
+        }
+    }
+
+    #[test]
+    fn binary_decorator_text_budget_is_shared_across_declarations() {
+        let mut writer = BinaryWriter::default();
+        writer
+            .decorator_text(&"x".repeat(MAX_DECORATOR_TEXT_BYTES))
+            .expect("budget boundary");
+        assert!(writer.decorator_text("x").is_err());
+        // A forged length must be rejected before allocating or reading text.
+        writer.u32(1);
+        let mut reader = BinaryReader::new(&writer.bytes);
+        reader.decorator_text().expect("budget boundary");
+        assert!(reader.decorator_text().is_err());
+    }
+
+    #[test]
+    fn binary_coprocessor_metadata_roundtrips_and_old_revision_is_rejected() {
+        let mut function =
+            Function::new("multiply", 0, vec![Instr::new(Op::PushInt, 1, 0), Instr::new(Op::Return, 0, 0)], 0);
+        function.decorators.push(Decorator {
+            path:      vec!["stdx".into(), "coprocessor".into()],
+            arguments: vec![DecoratorArgument::String("Arduino".into())],
+        });
+        let program = Program::new(vec![Instr::new(Op::Halt, 0, 0)], 0).with_functions(vec![function]);
+        let mut bytes = program.to_binary_artifact().expect("encode");
+        assert_eq!(&bytes[8..10], &5u16.to_le_bytes());
+        let verified = VerifiedProgram::from_binary_artifact(&bytes).expect("untrusted roundtrip");
+        assert_eq!(verified.program().functions()[0].coprocessor_target(), Some("Arduino"));
+        assert_eq!(program.fingerprint(), verified.fingerprint());
+        assert!(!verified.program().policy_trusted);
+        bytes[8..10].copy_from_slice(&4u16.to_le_bytes());
+        assert!(
+            Program::from_binary_artifact(&bytes)
+                .expect_err("old revision")
+                .to_string()
+                .contains("version 4")
+        );
     }
 }

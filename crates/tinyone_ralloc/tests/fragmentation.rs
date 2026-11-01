@@ -6,23 +6,24 @@ use ralloc::RallocBuffer;
 /// other one to punch holes of varying sizes, then reallocate into those holes.
 /// Exercises coalesce paths when adjacent free blocks of varying sizes merge.
 #[test]
-#[ignore = ".map conversion panics on 32-bit targets due to usize -> u8 overflow; test is still valid but needs a fix"]
 fn mixed_size_interleave_does_not_exhaust_arena() {
     let sizes = [8usize, 64, 256, 16, 128, 32, 512, 24];
 
     for round in 0..16 {
-        let mut handles: Vec<RallocBuffer> = sizes
+        let mut handles: Vec<(RallocBuffer, u8)> = sizes
             .iter()
             .enumerate()
             .map(|(index, &n): (usize, &usize)| {
                 let mut buffer = RallocBuffer::new(n).expect("initial allocation should succeed");
-                let marker = u8::try_from(round).unwrap_or_else(|_| panic!("round fits in u8 at index {index}"))
-                    ^ u8::try_from(index).unwrap_or_else(|_| panic!("index fits in u8 at index {index}"))
-                    ^ u8::try_from(n).unwrap_or_else(|_| panic!("size (as n) fits in u8 at index {index}"));
+                // Markers intentionally use the low byte; allocation sizes
+                // include 256 and 512 on every target, not just 32-bit hosts.
+                let marker = u8::try_from(round).expect("round fits in u8")
+                    ^ u8::try_from(index).expect("index fits in u8")
+                    ^ n.to_le_bytes()[0];
 
                 buffer.as_mut_slice().fill(marker);
                 assert!(buffer.as_slice().iter().all(|&byte| byte == marker));
-                buffer
+                (buffer, marker)
             })
             .collect();
 
@@ -37,17 +38,16 @@ fn mixed_size_interleave_does_not_exhaust_arena() {
         // Allocate into the freed holes; the arena must not fail.
         for (_index, &n) in sizes.iter().enumerate().skip(1).step_by(2) {
             let mut buf = RallocBuffer::new(n).expect("re-allocation into freed holes should succeed");
-            let marker = 0xa0u8
-                ^ u8::try_from(round).expect("round fits in u8")
-                ^ u8::try_from(n).expect("size (as n) fits in u8");
+            let marker = 0xa0u8 ^ u8::try_from(round).expect("round fits in u8") ^ n.to_le_bytes()[0];
             buf.as_mut_slice().fill(marker);
             assert!(buf.as_slice().iter().all(|&byte| byte == marker));
-            handles.push(buf);
+            handles.push((buf, marker));
         }
 
-        for buffer in &handles {
+        for (buffer, marker) in &handles {
             assert_eq!(buffer.as_ptr().addr() % core::mem::align_of::<usize>(), 0);
             assert_ne!(buffer.as_slice(), []);
+            assert!(buffer.as_slice().iter().all(|byte| byte == marker));
         }
 
         drop(handles);

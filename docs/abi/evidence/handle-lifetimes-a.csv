@@ -1,0 +1,17 @@
+﻿initialization_ns,100
+registry_inline_bytes,512
+workload,sample,iterations,ns_per_cycle
+occupied_0,1,10000000,6.036
+occupied_0,2,10000000,5.270
+occupied_0,3,10000000,5.295
+occupied_0,4,10000000,5.202
+occupied_0,5,10000000,5.149
+occupied_0,6,10000000,5.186
+occupied_0,7,10000000,5.042
+occupied_63,1,10000000,18.119
+occupied_63,2,10000000,19.139
+occupied_63,3,10000000,19.044
+occupied_63,4,10000000,18.491
+occupied_63,5,10000000,18.593
+occupied_63,6,10000000,19.322
+occupied_63,7,10000000,19.091

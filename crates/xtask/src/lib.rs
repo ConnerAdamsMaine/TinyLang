@@ -355,6 +355,12 @@ fn tools_test_step() -> Step {
 }
 
 fn cargo(args: &[&'static str]) -> CommandSpec {
+    if args.first() == Some(&"fmt") {
+        // Match format.yml: the repository rustfmt configuration needs nightly.
+        let mut nightly_args = vec!["run", "nightly", "cargo"];
+        nightly_args.extend_from_slice(args);
+        return CommandSpec::new("rustup", nightly_args);
+    }
     CommandSpec::new("cargo", args.to_vec())
 }
 

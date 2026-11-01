@@ -163,8 +163,22 @@ tinyone::run_program_with_jit_options(
 
 For diagnostic attribution, append `.with_execution_profile(true)` and read
 `JitProgram::execution_profile()` after a run. The returned profile is opt-in
-and reports lowered-opcode dispatches plus operand-stack pushes, pops, and peak
-depth; normal JIT execution leaves it disabled.
+and reports lowered-opcode dispatches, operand-stack pushes/pops/peak depth,
+sampling attempts, specialization hits/misses, and promotions/demotions.
+Encoded arithmetic that fails before returning a guard result is excluded from
+the hit counter; normal JIT execution leaves detailed profiling disabled.
+`JitProgram::feedback_bytes()` reports lazy per-site table backing bytes under
+the shared 64-KiB program budget, excluding owner headers and allocator
+overhead. Cold programs and threshold-zero execution allocate no type tables.
+
+Dynamic-callee feedback is a separate experimental opt-in:
+`JitOptions::new().with_call_feedback(true)`. It is disabled by default pending
+latency acceptance, and threshold zero disables it even when requested.
+Scalar quickening does not require this option. Ordinary and lazy function
+chunks use the same immutable configuration; cloned programs preserve it.
+When detailed profiling is enabled, the profile also reports call samples,
+guard hits/misses, promotions and deoptimizations. The profile is allocated only
+on request and its header is included in `JitProgram::retained_bytes()`.
 
 ---
 
@@ -197,7 +211,9 @@ JSON and preserves the `VerifiedProgram` capability for direct execution.
 
 ### `JitCache`
 
-A fingerprint-keyed cache of compiled `JitProgram` instances. Cache hits reuse already-quickened programs across calls.
+A cache of compiled `JitProgram` instances keyed by content fingerprint and
+policy trust. An untrusted artifact and a trusted source program with identical
+content occupy distinct entries. Cache hits reuse quickened programs across calls.
 
 ```rust
 let program = tinyone::compile_source("let i = 0\nwhile i < 1000 { i = i + 1 }\nprint i")?;
@@ -222,7 +238,40 @@ let cache = tinyone::JitCache::with_options(options)
 ```
 
 Either limit may be zero to disable exact-source retention without disabling
-the fingerprint-keyed compiled JIT cache.
+the compiled JIT cache.
+
+Compiled entries have their own deterministic LRU policy: 128 entries and
+16 MiB of charged retained-entry storage by default. Configure it with
+`with_compiled_cache_limits(max_entries, max_retained_bytes)`. Either zero
+disables compiled retention (both effective limits become zero), independently
+of source caching. Oversized programs still run, but their compiled state is
+not retained. Lazy chunks, feedback and idle operand capacity are accounted
+after both successful and failing runs. A host output panic discards the
+affected entry and resumes the original panic.
+
+The borrowed `compile`/`compile_verified` APIs keep one non-reusable temporary
+result when an entry cannot fit. It is outside the reusable-entry byte limit,
+reported as `transient_bytes`, and cleared by the next mutable cache operation.
+It is not included in `len()` and is not copied by cache cloning. Run methods
+do not keep this temporary result. Use `JitProgram::compile_verified` directly
+when the caller needs to own a standalone compiled result.
+
+`compiled_cache_stats() -> JitCompiledCacheStats` reports resident programs,
+charged `retained_bytes`, `transient_bytes`, `table_capacity`, and lifetime
+hits, misses, successful compilations, evictions and bypasses. Byte charges
+include occupied entry headers, keys, all reachable verified metadata and
+constants, buffer **capacities**, installed lazy code, feedback and idle operand
+buffers. Shared verified data is conservatively charged in full per entry;
+do not add these figures to source-cache bytes as an exclusive-memory total.
+Allocator/Arc overhead, unused hash-table buckets and opaque profiling-tree
+node slack are excluded. This is not RSS or a peak-execution-memory limit.
+`JitProgram::retained_bytes()` exposes the program portion of the same charge.
+
+`clear_compiled_cache()` releases compiled entries, table capacity and any
+temporary result, preserving source entries and lifetime activity counters.
+Reducing limits immediately evicts entries and shrinks the table. Cloning
+recomputes charges because cloned programs have no idle operand pool and their
+cloned instruction vectors may have less spare capacity.
 
 Key methods on `JitCache`:
 
@@ -235,6 +284,10 @@ Key methods on `JitCache`:
 - `cache.source_cache_bytes() -> usize` — retained exact-source text bytes
 - `cache.source_cache_max_entries() -> usize` — configured entry limit
 - `cache.source_cache_byte_limit() -> usize` — configured retained-source byte limit
+- `cache.compiled_cache_max_entries() -> usize` — effective compiled-entry limit
+- `cache.compiled_cache_byte_limit() -> usize` — effective retained-entry byte limit
+- `cache.compiled_cache_stats() -> JitCompiledCacheStats` — retention and lifetime cache activity
+- `cache.clear_compiled_cache()` — release compiled storage without clearing sources
 - `cache.is_empty() -> bool` — true when the cache holds no programs
 - `cache.compile(program: &Program) -> Result<&JitProgram>` — compile and cache without running; verifies the program first
 - `cache.compile_verified(program: &VerifiedProgram) -> Result<&JitProgram>` — compile without duplicate verification or hashing
@@ -245,6 +298,10 @@ Key methods on `JitCache`:
 - `cache.run_source(source, stdout, inputs) -> Result<TinyMemory>` — compile and verify new source, then reuse its verified compilation and JIT state on exact-source hits
 - `cache.run_source_report(source, stdout, inputs) -> Result<TinyRunReport>` — same, with heap statistics
 - `cache.stats() -> JitCacheStats` — aggregate stats across all cached programs
+
+The compiled-program fields in `stats()` aggregate **currently resident**
+entries, not evicted programs or the compile-only temporary result. Use
+`compiled_cache_stats()` for cache-lifetime activity counters.
 
 Source-cache statistics include `source_bytes`, `source_hits`,
 `source_misses`, `source_compilations`, `source_evictions`, and
@@ -269,7 +326,14 @@ continues to verify before lowering.
 
 ### `BytecodeVerifier::verify(program: &Program) -> Result<()>`
 
-Run the BFS stack-depth verifier over all chunks. Enforces resource limits (max functions, ops, slots, strings, structs, modules) before walking any bytecode. Returns `Ok(())` on success.
+Check operand availability, consistent control-flow stack depths and static
+operands across all chunks. Resource limits (functions, ops, slots, strings,
+structs and modules) are enforced before allocating the indexed traversal
+table. Returns `Ok(())` on success.
+
+This compatibility call constructs and drops the immutable verification
+certificate. Use `VerifiedProgram` when the caller needs to retain that proof
+and its metadata for subsequent execution or lowering.
 
 ```rust
 tinyone::BytecodeVerifier::verify(&program)?;
@@ -277,8 +341,10 @@ tinyone::BytecodeVerifier::verify(&program)?;
 
 ### `VerifiedProgram`
 
-A capability wrapper that records that verification has already run. It owns
-an `Arc<Program>` and a shared, lazily initialized fingerprint. Construct it via
+A capability wrapper that records that verification has already run. A single
+shared owner retains an `Arc<Program>`, a lazily initialized fingerprint, and
+immutable per-chunk verification metadata. Cloning the token shares all three
+with one reference-count increment. Construct it via
 `VerifiedProgram::verify(program)` or obtain it from a verified compiler or
 artifact-loader API.
 

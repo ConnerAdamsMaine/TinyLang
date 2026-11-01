@@ -54,10 +54,9 @@ pub(crate) struct RallocBytes(Option<ralloc::VmAllocation>);
 impl RallocBytes {
     /// Allocate `len` zero-initialized bytes.
     pub(crate) fn zeroed(len: usize) -> Result<Self, TinyAllocatorError> {
-        let mut alloc = ralloc::VmAllocator::global()
+        let alloc = ralloc::VmAllocator::global()
             .allocate(len)
             .map_err(|_| TinyAllocatorError::NativeAllocFailed)?;
-        alloc.as_mut_slice().fill(0);
         Ok(Self(Some(alloc)))
     }
 
@@ -89,12 +88,9 @@ impl RallocBytes {
     /// `min(old_len, new_len)` bytes. On failure the original allocation is
     /// left completely untouched.
     ///
-    /// Bytes beyond the old length are **not** zero-initialized (matching
-    /// `ralloc::VmAllocator::reallocate`'s own semantics) — callers that
-    /// grow into this new capacity before writing to it (e.g.
-    /// [`crate::runtime::ralloc_vec::RallocVec`], which tracks a logical
-    /// length separately from physical capacity and never reads past it)
-    /// must not treat unwritten bytes as meaningful.
+    /// Newly added bytes are zero-initialized by Ralloc before safe slices
+    /// expose them. Collection callers still track their logical length
+    /// separately from this physical capacity.
     pub(crate) fn realloc(&mut self, new_len: usize) -> Result<(), TinyAllocatorError> {
         let alloc = self.0.take().expect("RallocBytes accessed after drop");
         match ralloc::VmAllocator::global().reallocate(alloc, new_len) {

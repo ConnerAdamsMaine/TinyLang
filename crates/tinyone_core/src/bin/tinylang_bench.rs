@@ -15,6 +15,15 @@
     clippy::checked_conversions
 )]
 
+#[path = "tinylang_bench/allocation.rs"]
+mod allocation;
+#[path = "tinylang_bench/calls.rs"]
+mod calls;
+#[path = "tinylang_bench/lowering.rs"]
+mod lowering;
+#[path = "tinylang_bench/verifier.rs"]
+mod verifier;
+
 use std::fmt::Write as _;
 use std::hint::black_box;
 use std::io::{self, Write};
@@ -22,7 +31,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
-use std::sync::{Arc, Barrier};
+use std::sync::{Arc, Barrier, OnceLock};
 use std::thread::{self, JoinHandle};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use std::{env, fs};
@@ -45,6 +54,7 @@ use tinyone::{
     compile_file_verified,
     compile_source,
     compile_source_unoptimized,
+    compile_source_verified,
     lex_source,
     optimize_program,
     run_source,
@@ -234,6 +244,87 @@ while i < 4096 {
 print total
 ";
 
+const FLOAT_LOOP_SOURCE: &str = r"
+let i = 0
+let total = 0.25
+while i < 4096 {
+  total = total + 0.5
+  i = i + 1
+}
+print total
+";
+
+const MIXED_LOOP_SOURCE: &str = r"
+let i = 0
+let total = 0
+let value = 1
+while i < 4096 {
+  if i < 2048 { value = 1 } else { value = 0.5 }
+  total = total + value
+  i = i + 1
+}
+print total
+";
+
+const CLOSURE_CALLS_SOURCE: &str = r#"
+fn add(a, b) { return a + b }
+let callback = closure_new("add", [7])
+let i = 0
+let total = 0
+while i < 512 {
+  total = total + callback(i)
+  i = i + 1
+}
+print total
+"#;
+
+const FUNCTION_VALUE_CALLS_SOURCE: &str = r"
+fn add(a, b) { return a + b }
+let callback = add
+let i = 0
+let total = 0
+while i < 512 {
+  total = total + callback(7, i)
+  i = i + 1
+}
+print total
+";
+
+const POLYMORPHIC_CALLS_SOURCE: &str = r"
+fn add(a, b) { return a + b }
+fn subtract(a, b) { return a - b }
+let i = 0
+let total = 0
+let alternate = 0
+while i < 512 {
+  let callback = add
+  if alternate == 1 { callback = subtract }
+  total = total + callback(7, i)
+  alternate = 1 - alternate
+  i = i + 1
+}
+print total
+";
+
+const UNSTABLE_CALLS_SOURCE: &str = r"
+fn add(a, b) { return a + b }
+fn subtract(a, b) { return a - b }
+fn weighted(a, b) { return a + b * 2 }
+let i = 0
+let total = 0
+let selector = 0
+while i < 512 {
+  let callback = add
+  if selector == 1 { callback = subtract }
+  if selector == 2 { callback = weighted }
+  total = total + callback(7, i)
+  selector = selector + 1
+  if selector == 3 { selector = 0 }
+  i = i + 1
+}
+print total
+";
+
 const SLOT_COMPARE_SOURCE: &str = r"
 let i = 0
 while i < 4096 {
@@ -366,6 +457,26 @@ while j < 128 {
 }
 print total
 ";
+
+const MAP_STRING_KEYS_SOURCE: &str = r#"
+let keys = ["alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta"]
+let values = map_new()
+let i = 0
+while i < len(keys) {
+  let ignored = map_set(values, keys[i], i)
+  i = i + 1
+}
+let total = 0
+let j = 0
+let key_index = 0
+while j < 4096 {
+  total = total + map_get(values, keys[key_index])
+  key_index = key_index + 1
+  if key_index == len(keys) { key_index = 0 }
+  j = j + 1
+}
+print total
+"#;
 
 const HEAP_CHURN_SOURCE: &str = r"
 let i = 0
@@ -716,11 +827,12 @@ while i < {count} {{
 
 #[derive(Clone)]
 struct CorrectnessCase {
-    name:     &'static str,
-    source:   &'static str,
-    expected: &'static str,
-    inputs:   Vec<String>,
-    mode:     &'static str,
+    name:        &'static str,
+    source:      &'static str,
+    expected:    &'static str,
+    inputs:      Vec<String>,
+    mode:        &'static str,
+    jit_options: JitOptions,
 }
 
 impl CorrectnessCase {
@@ -731,11 +843,17 @@ impl CorrectnessCase {
             expected,
             inputs: Vec::new(),
             mode: "jit",
+            jit_options: JitOptions::new(),
         }
     }
 
     fn mode(mut self, mode: &'static str) -> Self {
         self.mode = mode;
+        self
+    }
+
+    fn call_feedback(mut self) -> Self {
+        self.jit_options = self.jit_options.with_call_feedback(true);
         self
     }
 
@@ -1331,6 +1449,49 @@ fn automatic_baseline_path(metadata: &JsonValue) -> PathBuf {
         .join(format!("baseline-{short_commit}-{timestamp}.json"))
 }
 
+fn line_heavy_source() -> &'static str {
+    static SOURCE: OnceLock<String> = OnceLock::new();
+    SOURCE.get_or_init(|| {
+        let mut source = "# generated source header\n".repeat(4096);
+        source.push_str("print 42\n");
+        source
+    })
+}
+
+fn declaration_heavy_source() -> &'static str {
+    static SOURCE: OnceLock<String> = OnceLock::new();
+    SOURCE.get_or_init(|| {
+        let mut source = String::new();
+        for index in 0..256 {
+            writeln!(source, "fn sample_{index}(value) {{ let copy = value return copy + {index} }}")
+                .expect("write declaration fixture");
+        }
+        source.push_str("print sample_0(1) + sample_255(1)\n");
+        source
+    })
+}
+
+fn constant_chain_source() -> &'static str {
+    static SOURCE: OnceLock<String> = OnceLock::new();
+    SOURCE.get_or_init(|| format!("print {}1\n", "1 + ".repeat(127)))
+}
+
+fn sparse_feedback_source() -> &'static str {
+    static SOURCE: OnceLock<String> = OnceLock::new();
+    SOURCE.get_or_init(|| {
+        // A code-size attribution fixture: neither padding region executes.
+        // Ordinary loop/call/collection rows remain the realistic guardrails.
+        let padding = "print 0\n".repeat(2048);
+        format!(
+            "fn identity(value) {{ return value }} \
+             if 0 {{ {padding} }} \
+             let value = identity(7) let i = 0 \
+             while i < 4096 {{ value = value * 1 i = i + 1 }} \
+             print value if 0 {{ {padding} }}"
+        )
+    })
+}
+
 fn correctness_cases() -> Vec<CorrectnessCase> {
     vec![
         CorrectnessCase::new("straightline/jit", STRAIGHTLINE_SOURCE, "4\ntrue\n"),
@@ -1339,8 +1500,25 @@ fn correctness_cases() -> Vec<CorrectnessCase> {
         CorrectnessCase::new("loop/vm", LOOP_SOURCE, "24384\n").mode("vm"),
         CorrectnessCase::new("hot-loop/jit", HOT_LOOP_SOURCE, "25159680\n"),
         CorrectnessCase::new("hot-loop/vm", HOT_LOOP_SOURCE, "25159680\n").mode("vm"),
+        CorrectnessCase::new("float-loop/jit", FLOAT_LOOP_SOURCE, "2048.25\n"),
+        CorrectnessCase::new("float-loop/vm", FLOAT_LOOP_SOURCE, "2048.25\n").mode("vm"),
+        CorrectnessCase::new("mixed-loop/jit", MIXED_LOOP_SOURCE, "3072.0\n"),
+        CorrectnessCase::new("mixed-loop/vm", MIXED_LOOP_SOURCE, "3072.0\n").mode("vm"),
+        CorrectnessCase::new("closures/jit", CLOSURE_CALLS_SOURCE, "134400\n"),
+        CorrectnessCase::new("closures/vm", CLOSURE_CALLS_SOURCE, "134400\n").mode("vm"),
+        CorrectnessCase::new("function-values/jit", FUNCTION_VALUE_CALLS_SOURCE, "134400\n"),
+        CorrectnessCase::new("function-values/vm", FUNCTION_VALUE_CALLS_SOURCE, "134400\n").mode("vm"),
+        CorrectnessCase::new("polymorphic-calls/jit", POLYMORPHIC_CALLS_SOURCE, "3328\n"),
+        CorrectnessCase::new("polymorphic-calls/vm", POLYMORPHIC_CALLS_SOURCE, "3328\n").mode("vm"),
+        CorrectnessCase::new("unstable-calls/jit", UNSTABLE_CALLS_SOURCE, "90283\n"),
+        CorrectnessCase::new("unstable-calls/vm", UNSTABLE_CALLS_SOURCE, "90283\n").mode("vm"),
         CorrectnessCase::new("functions/jit", FUNCTION_SOURCE, "2736\n"),
         CorrectnessCase::new("functions/vm", FUNCTION_SOURCE, "2736\n").mode("vm"),
+        CorrectnessCase::new("functions/call-feedback", FUNCTION_SOURCE, "2736\n").call_feedback(),
+        CorrectnessCase::new("closures/call-feedback", CLOSURE_CALLS_SOURCE, "134400\n").call_feedback(),
+        CorrectnessCase::new("function-values/call-feedback", FUNCTION_VALUE_CALLS_SOURCE, "134400\n").call_feedback(),
+        CorrectnessCase::new("polymorphic-calls/call-feedback", POLYMORPHIC_CALLS_SOURCE, "3328\n").call_feedback(),
+        CorrectnessCase::new("unstable-calls/call-feedback", UNSTABLE_CALLS_SOURCE, "90283\n").call_feedback(),
         CorrectnessCase::new("interrupts/jit", CONTROL_INTERRUPT_SOURCE, "4560\n"),
         CorrectnessCase::new("interrupts/vm", CONTROL_INTERRUPT_SOURCE, "4560\n").mode("vm"),
         CorrectnessCase::new("heap/jit", HEAP_SOURCE, "6\n22\n[3, 6, 9, 12, 15]\n"),
@@ -1355,8 +1533,18 @@ fn correctness_cases() -> Vec<CorrectnessCase> {
         CorrectnessCase::new("vec/vm", VEC_SOURCE, "32640\n").mode("vm"),
         CorrectnessCase::new("map/jit", MAP_SOURCE, "24384\n"),
         CorrectnessCase::new("map/vm", MAP_SOURCE, "24384\n").mode("vm"),
+        CorrectnessCase::new("map-strings/jit", MAP_STRING_KEYS_SOURCE, "14336\n"),
+        CorrectnessCase::new("map-strings/vm", MAP_STRING_KEYS_SOURCE, "14336\n").mode("vm"),
         CorrectnessCase::new("heap-churn/jit", HEAP_CHURN_SOURCE, "32640\n"),
         CorrectnessCase::new("heap-churn/vm", HEAP_CHURN_SOURCE, "32640\n").mode("vm"),
+        CorrectnessCase::new("line-heavy/jit", line_heavy_source(), "42\n"),
+        CorrectnessCase::new("line-heavy/vm", line_heavy_source(), "42\n").mode("vm"),
+        CorrectnessCase::new("declarations/jit", declaration_heavy_source(), "257\n"),
+        CorrectnessCase::new("declarations/vm", declaration_heavy_source(), "257\n").mode("vm"),
+        CorrectnessCase::new("constant-chain/jit", constant_chain_source(), "128\n"),
+        CorrectnessCase::new("constant-chain/vm", constant_chain_source(), "128\n").mode("vm"),
+        CorrectnessCase::new("sparse-feedback/jit", sparse_feedback_source(), "7\n"),
+        CorrectnessCase::new("sparse-feedback/vm", sparse_feedback_source(), "7\n").mode("vm"),
     ]
 }
 
@@ -1364,7 +1552,16 @@ fn run_correctness_checks(cases: &[CorrectnessCase]) -> usize {
     let mut failures = 0usize;
     for case in cases {
         let mut stdout = Vec::new();
-        match run_source(case.source, case.mode, &mut stdout, case.inputs.clone()) {
+        let result = compile_source_verified(case.source).and_then(|verified| {
+            tinyone::run_verified_program_with_jit_options(
+                &verified,
+                case.mode,
+                &mut stdout,
+                case.inputs.clone(),
+                case.jit_options,
+            )
+        });
+        match result {
             Ok(_) => {
                 let actual = String::from_utf8(stdout).expect("TinyOne output is UTF-8");
                 if actual == case.expected {
@@ -1443,8 +1640,32 @@ fn runtime_pair(label: &str, source: String, iterations: u64) -> Vec<Benchmark> 
     ]
 }
 
+fn call_feedback_benchmarks() -> Vec<Benchmark> {
+    let mut benchmarks = Vec::new();
+    for (label, source, iterations) in [
+        ("static_calls", FUNCTION_SOURCE, 600),
+        ("function_values_512", FUNCTION_VALUE_CALLS_SOURCE, 100),
+        ("closures_512", CLOSURE_CALLS_SOURCE, 100),
+        ("polymorphic_512", POLYMORPHIC_CALLS_SOURCE, 100),
+        ("unstable_512", UNSTABLE_CALLS_SOURCE, 100),
+    ] {
+        let fixture = make_fixture(source);
+        for (mode, enabled) in [("off", false), ("on", true)] {
+            // Both rows share verified source, scalar quickening and executable
+            // code. Detailed profiling is disabled on both timed paths.
+            let options = JitOptions::new().with_call_feedback(enabled);
+            let mut program = JitProgram::compile_verified_with_options(&fixture.verified, options)
+                .expect("call-feedback benchmark lowering");
+            let name = leak_name(format!("call_feedback.{mode}.{label}"));
+            benchmarks.push(bench(name, iterations, move || run_compiled_jit(&mut program, Vec::new())));
+        }
+    }
+    benchmarks
+}
+
 fn collection_and_heap_benchmarks() -> Vec<Benchmark> {
     let mut benchmarks = Vec::new();
+    benchmarks.extend(runtime_pair("map_string_lookup_4096", MAP_STRING_KEYS_SOURCE.to_owned(), 100));
     for size in COLLECTION_SIZES {
         benchmarks.extend(runtime_pair(
             &format!("vec_push_pop_{size}"),
@@ -1710,19 +1931,24 @@ fn build_benchmarks() -> Vec<Benchmark> {
 
     let mut shared_memory = TinyMemory::new(1024);
 
+    // Short Windows batches otherwise span only a few coarse thread-CPU
+    // accounting updates. Lengthen these rows equally for every variant;
+    // this improves sampling granularity, not allocator speed or gate limits.
+    let short_allocator_sample_scale = if cfg!(windows) { 32 } else { 1 };
+
     let mut benchmarks = vec![
-        bench("allocator.ralloc_buffer_64", 100_000, || {
+        bench("allocator.ralloc_buffer_64", 100_000 * short_allocator_sample_scale, || {
             black_box(RallocBuffer::try_new(64).expect("allocate 64-byte Ralloc buffer"));
         }),
-        bench("allocator.ralloc_buffer_4096", 30_000, || {
+        bench("allocator.ralloc_buffer_4096", 30_000 * short_allocator_sample_scale, || {
             black_box(RallocBuffer::try_new(4096).expect("allocate 4-KiB Ralloc buffer"));
         }),
-        bench("allocator.ralloc_zero_fill_4096", 20_000, || {
+        bench("allocator.ralloc_zero_fill_4096", 20_000 * short_allocator_sample_scale, || {
             let mut buffer = RallocBuffer::try_new(4096).expect("allocate 4-KiB Ralloc buffer");
             buffer.as_mut_slice().fill(0);
             black_box(buffer.as_slice());
         }),
-        bench("allocator.ralloc_resize_64_to_4096", 20_000, || {
+        bench("allocator.ralloc_resize_64_to_4096", 20_000 * short_allocator_sample_scale, || {
             let mut buffer = RallocBuffer::try_new(64).expect("allocate Ralloc buffer");
             buffer.try_resize(4096).expect("grow Ralloc buffer");
             black_box(buffer.as_slice());
@@ -1782,6 +2008,14 @@ fn build_benchmarks() -> Vec<Benchmark> {
         bench("frontend.lex", 10_000, || {
             black_box(lex_source(FUNCTION_SOURCE).expect("lex source"));
         }),
+        bench("frontend.lex_line_heavy_4096", 400, {
+            let source = line_heavy_source();
+            move || {
+                black_box(lex_source(source).expect("lex line-heavy source"));
+            }
+        }),
+        // Historical row name: includes lexing, parsing/emission and mandatory
+        // verification, not isolated bytecode emission. Keep its interval stable.
         bench("compiler.emit_bytecode", 3_000, || {
             black_box(compile_source_unoptimized(FUNCTION_SOURCE).expect("compile raw"));
         }),
@@ -1793,6 +2027,18 @@ fn build_benchmarks() -> Vec<Benchmark> {
         }),
         bench("optimizer.control_flow_passthrough", 20_000, {
             let raw = loop_fixture.raw.clone();
+            move || {
+                black_box(optimize_program(raw.clone()));
+            }
+        }),
+        bench("optimizer.declarations_256", 500, {
+            let raw = compile_source_unoptimized(declaration_heavy_source()).expect("compile raw declarations");
+            move || {
+                black_box(optimize_program(raw.clone()));
+            }
+        }),
+        bench("optimizer.constant_chain_128", 200, {
+            let raw = compile_source_unoptimized(constant_chain_source()).expect("compile raw constant chain");
             move || {
                 black_box(optimize_program(raw.clone()));
             }
@@ -1818,8 +2064,33 @@ fn build_benchmarks() -> Vec<Benchmark> {
                 black_box(());
             }
         }),
+        bench("verifier.declarations_256", 500, {
+            let program =
+                compile_source_unoptimized(declaration_heavy_source()).expect("compile verifier declarations");
+            move || {
+                black_box(BytecodeVerifier::verify(black_box(&program))).expect("verify declarations");
+            }
+        }),
         bench("compile.full_pipeline", 2_000, || {
             black_box(compile_source(FUNCTION_SOURCE).expect("compile full"));
+        }),
+        bench("compile.constant_chain_128", 200, {
+            let source = constant_chain_source();
+            move || {
+                black_box(compile_source(source).expect("compile constant chain"));
+            }
+        }),
+        bench("compile.line_heavy_4096", 200, {
+            let source = line_heavy_source();
+            move || {
+                black_box(compile_source(source).expect("compile line-heavy source"));
+            }
+        }),
+        bench("compile.declarations_256", 50, {
+            let source = declaration_heavy_source();
+            move || {
+                black_box(compile_source(source).expect("compile declaration-heavy source"));
+            }
         }),
         bench("compiler.file_modules_uncached", 1_000, {
             let fixture = FileFixture::new("uncached");
@@ -1871,6 +2142,13 @@ fn build_benchmarks() -> Vec<Benchmark> {
         }),
         bench("jit.codegen_straightline_cold", 5_000, {
             let program = straightline.verified.clone();
+            move || {
+                let mut cache = JitCache::new();
+                compile_jit_verified(&program, &mut cache);
+            }
+        }),
+        bench("jit.codegen_float_loop_cold", 5_000, {
+            let program = compile_source_verified(FLOAT_LOOP_SOURCE).expect("float lowering fixture");
             move || {
                 let mut cache = JitCache::new();
                 compile_jit_verified(&program, &mut cache);
@@ -2048,9 +2326,35 @@ fn build_benchmarks() -> Vec<Benchmark> {
     benchmarks.extend(runtime_pair("slot_compare_immediate_4096", SLOT_COMPARE_SOURCE.to_string(), 100));
     benchmarks.extend(runtime_pair("slot_mul_immediate_4096", SLOT_MUL_SOURCE.to_string(), 100));
     benchmarks.extend(runtime_pair("slot_div_immediate_4096", SLOT_DIV_SOURCE.to_string(), 100));
+    benchmarks.extend(runtime_pair("float_loop_4096", FLOAT_LOOP_SOURCE.to_string(), 100));
+    benchmarks.extend(runtime_pair("mixed_loop_4096", MIXED_LOOP_SOURCE.to_string(), 100));
+    benchmarks.extend(runtime_pair("sparse_feedback_loop_4096", sparse_feedback_source().to_owned(), 100));
+    benchmarks.push(bench("jit.codegen_sparse_feedback_cold", 20, {
+        let verified = compile_source_verified(sparse_feedback_source()).expect("sparse feedback fixture");
+        move || {
+            let mut cache = JitCache::new();
+            compile_jit_verified(&verified, &mut cache);
+        }
+    }));
+    benchmarks.push(bench("jit.cold_run_sparse_feedback", 20, {
+        let verified = compile_source_verified(sparse_feedback_source()).expect("sparse feedback fixture");
+        move || {
+            let mut compiled = JitProgram::compile_verified(&verified).expect("fresh sparse lowering");
+            run_compiled_jit(&mut compiled, Vec::new());
+        }
+    }));
+    benchmarks.extend(runtime_pair("closure_calls_512", CLOSURE_CALLS_SOURCE.to_string(), 100));
+    benchmarks.extend(runtime_pair("function_value_calls_512", FUNCTION_VALUE_CALLS_SOURCE.to_string(), 100));
+    benchmarks.extend(runtime_pair("polymorphic_calls_512", POLYMORPHIC_CALLS_SOURCE.to_string(), 100));
+    benchmarks.extend(runtime_pair("unstable_calls_512", UNSTABLE_CALLS_SOURCE.to_string(), 100));
     benchmarks.extend(module_graph_benchmarks());
     benchmarks.extend(compile_cache_phase_benchmarks());
     benchmarks.extend(jit_attribution_benchmarks());
+    benchmarks.extend(call_feedback_benchmarks());
+    benchmarks.extend(calls::benchmarks());
+    benchmarks.extend(lowering::benchmarks());
+    benchmarks.extend(verifier::benchmarks());
+    benchmarks.extend(allocation::benchmarks());
     benchmarks
 }
 
@@ -2386,6 +2690,18 @@ fn verify_priority_5_gate(results: &[BenchmarkResult], baseline: &[JsonValue]) -
             continue;
         };
 
+        let Some(previous_iterations) = previous.get("iterations").and_then(JsonValue::as_u64) else {
+            failures.push(format!("{label} iteration count is missing or invalid"));
+            continue;
+        };
+        if previous_iterations != current.iterations {
+            failures.push(format!(
+                "{label} iteration count differs (baseline {previous_iterations}, current {})",
+                current.iterations,
+            ));
+            continue;
+        }
+
         let primary_metrics = [
             ("CPU", metric_regression_pct(previous, "mean_cpu_time_per_iter_ns", current.mean_per_iter_cpu_ns())),
             ("cycles", metric_regression_pct(previous, "mean_cycles_per_iter", current.mean_per_iter_cycles())),
@@ -2641,6 +2957,16 @@ mod tests {
             "allocator.ralloc_contention_4x32",
             "memory.reset_1024",
             "memory.snapshot_1024",
+            "frontend.lex_line_heavy_4096",
+            "compile.line_heavy_4096",
+            "compile.declarations_256",
+            "optimizer.declarations_256",
+            "optimizer.constant_chain_128",
+            "compile.constant_chain_128",
+            "verifier.functions_256",
+            "verifier.names_4096",
+            "verifier.struct_fields_256",
+            "verifier.declarations_256",
             "compiler.file_modules_uncached",
             "compiler.file_modules_cache_bypass",
             "compiler.module_graph_small_uncached",
@@ -2655,6 +2981,7 @@ mod tests {
             "compiler.cache_phase.fingerprint_compare",
             "compiler.cache_phase.verification",
             "jit.codegen_straightline_cold",
+            "jit.codegen_float_loop_cold",
             "jit.codegen_dispatch_cold",
             "jit.codegen_heap_cold",
             "jit.codegen_builtin_cold",
@@ -2681,6 +3008,8 @@ mod tests {
             "runtime.jit_vec_clear_256",
             "runtime.vm_map_set_get",
             "runtime.jit_map_set_get",
+            "runtime.vm_map_string_lookup_4096",
+            "runtime.jit_map_string_lookup_4096",
             "runtime.vm_map_set_get_16",
             "runtime.jit_map_set_get_4096",
             "runtime.jit_map_hit_256",
@@ -2699,6 +3028,27 @@ mod tests {
             "runtime.jit_heap_slot_reuse_256",
             "runtime.jit_slot_compare_immediate_4096",
             "runtime.jit_slot_mul_immediate_4096",
+            "runtime.vm_float_loop_4096",
+            "runtime.jit_float_loop_4096",
+            "runtime.vm_mixed_loop_4096",
+            "runtime.jit_mixed_loop_4096",
+            "runtime.vm_sparse_feedback_loop_4096",
+            "runtime.jit_sparse_feedback_loop_4096",
+            "jit.codegen_sparse_feedback_cold",
+            "jit.cold_run_sparse_feedback",
+            "jit.codegen_dead_stores_1024_cold",
+            "jit.codegen_dead_stores_65536_cold",
+            "jit.codegen_copy_stores_32768_cold",
+            "jit.codegen_expression_chain_65536_cold",
+            "jit.codegen_stored_expression_chain_65536_cold",
+            "runtime.vm_closure_calls_512",
+            "runtime.jit_closure_calls_512",
+            "runtime.vm_function_value_calls_512",
+            "runtime.jit_function_value_calls_512",
+            "runtime.vm_polymorphic_calls_512",
+            "runtime.jit_polymorphic_calls_512",
+            "runtime.vm_unstable_calls_512",
+            "runtime.jit_unstable_calls_512",
             "runtime.jit_slot_div_immediate_4096",
             "api.run_source_jit_cold",
             "api.run_source_jit_warm",
@@ -2714,8 +3064,84 @@ mod tests {
     }
 
     #[test]
-    fn correctness_surface_remains_the_expected_22_vm_jit_checks() {
-        assert_eq!(correctness_cases().len(), 22);
+    fn correctness_surface_includes_compiler_and_runtime_vm_jit_checks() {
+        let cases = correctness_cases();
+        assert_eq!(cases.len(), 49);
+        assert_eq!(
+            cases
+                .iter()
+                .filter(|case| case.jit_options.call_feedback_enabled())
+                .count(),
+            5
+        );
+        let attribution: Vec<_> = cases
+            .into_iter()
+            .filter(|case| {
+                [
+                    "constant-chain/",
+                    "float-loop/",
+                    "mixed-loop/",
+                    "closures/",
+                    "function-values/",
+                    "polymorphic-calls/",
+                    "unstable-calls/",
+                    "sparse-feedback/",
+                    "map-strings/",
+                ]
+                .iter()
+                .any(|prefix| case.name.starts_with(prefix))
+            })
+            .collect();
+        assert_eq!(attribution.len(), 22);
+        assert_eq!(run_correctness_checks(&attribution), 0);
+    }
+
+    #[test]
+    fn call_feedback_pairs_use_equal_work_and_preserve_the_static_guardrail() {
+        let benchmarks = call_feedback_benchmarks();
+        assert_eq!(benchmarks.len(), 10);
+        let (pairs, remainder) = benchmarks.as_chunks::<2>();
+        assert!(remainder.is_empty());
+        for [off, on] in pairs {
+            let off_label = off.name.strip_prefix("call_feedback.off.").expect("disabled row");
+            let on_label = on.name.strip_prefix("call_feedback.on.").expect("enabled row");
+            assert_eq!(off_label, on_label);
+            assert_eq!(off.iterations, on.iterations);
+        }
+        assert_eq!(benchmarks[0].name, "call_feedback.off.static_calls");
+    }
+
+    #[test]
+    fn inactive_call_feedback_has_identical_warm_instructions_and_profiles() {
+        for (label, source) in [
+            ("static_calls", FUNCTION_SOURCE),
+            ("polymorphic_512", POLYMORPHIC_CALLS_SOURCE),
+            ("unstable_512", UNSTABLE_CALLS_SOURCE),
+        ] {
+            let fixture = make_fixture(source);
+            let options = JitOptions::new().with_execution_profile(true);
+            let mut ordinary =
+                JitProgram::compile_verified_with_options(&fixture.verified, options).expect("ordinary lowering");
+            let mut experimental =
+                JitProgram::compile_verified_with_options(&fixture.verified, options.with_call_feedback(true))
+                    .expect("experimental lowering");
+            // Match the latency harness's three complete untimed executions.
+            for _ in 0..3 {
+                run_compiled_jit(&mut ordinary, Vec::new());
+                run_compiled_jit(&mut experimental, Vec::new());
+            }
+            ordinary.reset_execution_profile();
+            experimental.reset_execution_profile();
+            run_compiled_jit(&mut ordinary, Vec::new());
+            run_compiled_jit(&mut experimental, Vec::new());
+            assert_eq!(ordinary.listing(), experimental.listing(), "{label}: installed operations");
+            assert_eq!(ordinary.execution_profile(), experimental.execution_profile(), "{label}: executed work");
+            let profile = experimental.execution_profile().expect("profile");
+            assert_eq!(profile.call_feedback_samples, 0);
+            assert_eq!(profile.call_guard_hits, 0);
+            assert_eq!(profile.call_guard_misses, 0);
+            eprintln!("{label}: identical warm listing/profile; dispatches={}", profile.dispatches);
+        }
     }
 
     #[test]
@@ -2844,6 +3270,29 @@ mod tests {
     }
 
     #[test]
+    fn short_allocator_batches_match_the_platform_clock_policy() {
+        let benchmarks = build_benchmarks();
+        let scale = if cfg!(windows) { 32 } else { 1 };
+        for (name, iterations) in [
+            ("allocator.ralloc_buffer_64", 100_000 * scale),
+            ("allocator.ralloc_buffer_4096", 30_000 * scale),
+            ("allocator.ralloc_zero_fill_4096", 20_000 * scale),
+            ("allocator.ralloc_resize_64_to_4096", 20_000 * scale),
+            ("allocator.ralloc_arena_capacity_boundary", 200),
+            ("allocator.ralloc_fragmented_arena_cycle", 500),
+            ("allocator.ralloc_contention_4x32", 1_000),
+            ("memory.reset_1024", 30_000),
+            ("memory.snapshot_1024", 30_000),
+        ] {
+            let benchmark = benchmarks
+                .iter()
+                .find(|benchmark| benchmark.name == name)
+                .expect("registered row");
+            assert_eq!(benchmark.iterations, iterations, "{name}");
+        }
+    }
+
+    #[test]
     fn priority_5_gate_rejects_a_guardrail_regression_above_five_percent() {
         let mut current = [
             result("allocator.ralloc_buffer_64", 100.0, 1.0),
@@ -2852,21 +3301,38 @@ mod tests {
             result("memory.reset_1024", 100.0, 1.0),
             result("memory.snapshot_1024", 100.0, 1.0),
         ];
+        let baseline = current.iter().map(BenchmarkResult::to_json).collect::<Vec<_>>();
         current[0].mean_cpu_ns = Some(105.01);
-        let baseline = json!([
-            {"name": "allocator.ralloc_buffer_64", "mean_per_iter_ns": 100.0, "mean_cpu_time_per_iter_ns": 100.0},
-            {"name": "allocator.ralloc_buffer_4096", "mean_per_iter_ns": 100.0, "mean_cpu_time_per_iter_ns": 100.0},
-            {"name": "allocator.ralloc_resize_64_to_4096", "mean_per_iter_ns": 100.0, "mean_cpu_time_per_iter_ns": 100.0},
-            {"name": "memory.reset_1024", "mean_per_iter_ns": 100.0, "mean_cpu_time_per_iter_ns": 100.0},
-            {"name": "memory.snapshot_1024", "mean_per_iter_ns": 100.0, "mean_cpu_time_per_iter_ns": 100.0},
-        ]);
-        let error = verify_priority_5_gate(&current, baseline.as_array().expect("baseline rows"))
+        let error = verify_priority_5_gate(&current, &baseline)
             .expect_err("a 5.01% CPU regression must fail the guardrail gate");
         assert!(
             error
                 .to_string()
                 .contains("64-byte Ralloc allocation regressed CPU by 5.01%")
         );
+    }
+
+    #[test]
+    fn priority_5_gate_requires_matching_row_iterations() {
+        let current = PRIORITY_5_GUARDRAIL_ROWS.map(|(name, _)| result(name, 100.0, 1.0));
+        let baseline = current.iter().map(BenchmarkResult::to_json).collect::<Vec<_>>();
+        verify_priority_5_gate(&current, &baseline).expect("matching batches");
+
+        for (index, (_, label)) in PRIORITY_5_GUARDRAIL_ROWS.iter().enumerate() {
+            for iterations in [JsonValue::Null, json!(0), json!(32), json!("1")] {
+                let mut changed = baseline.clone();
+                changed[index]["iterations"] = iterations;
+                let error = verify_priority_5_gate(&current, &changed)
+                    .expect_err("different or invalid batch lengths must not pass the gate");
+                assert!(error.to_string().contains(&format!("{label} iteration count")));
+            }
+            let mut missing = baseline.clone();
+            missing[index]
+                .as_object_mut()
+                .expect("baseline row")
+                .remove("iterations");
+            verify_priority_5_gate(&current, &missing).expect_err("missing batch lengths must not pass the gate");
+        }
     }
 
     #[test]

@@ -26,6 +26,18 @@ title: CI/CD
 - `cranelift.yml` is isolated for the same reason (codegen backend affects language performance).
 - GCC pinning matters for C ABI artifacts; do not trust "developer not lazy", pin explicitly and require owner sign-off.
 
+### Rust formatting toolchain
+
+Rust formatting requires an installed nightly toolchain with `rustfmt` because
+`.rustfmt.toml` uses nightly-only options. `format.yml` already selects nightly
+through `RUSTUP_TOOLCHAIN`; the xtask `fmt-check` and `release-gate` commands
+select it explicitly through `rustup run nightly cargo fmt`. Other xtask Cargo
+commands retain the repository's stable toolchain selection.
+
+The matching standalone check is `rustup run nightly cargo fmt --all --check`.
+Bare `cargo fmt` under the pinned stable toolchain ignores those options and
+does not reproduce the CI formatting gate.
+
 ## Paths
 
 - `Makefile.toml` defines `ROOT` (shorthand for `CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY` -- 15+ chars, comment explains), `SCRIPT_DIR = "${ROOT}/scripts"`, `TOOL_DIR = "${ROOT}/tools"`.

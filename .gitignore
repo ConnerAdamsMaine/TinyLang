@@ -72,6 +72,7 @@ Thumbs.db
 
 # Local-only docs
 docs/superpowers/*
+.superpowers/
 
 # Local-only development/preparation
 git-prep/*

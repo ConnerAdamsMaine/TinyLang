@@ -1,23 +1,18 @@
 use crate::syntax::token::{Token, TokenKind};
 use crate::{Result, SourceMap, TinyOneError};
 
-pub(crate) struct Lexer {
-    source:     String,
-    source_map: SourceMap,
+pub(crate) struct Lexer<'source> {
+    source_map: &'source SourceMap,
 }
 
-impl Lexer {
-    pub(crate) fn new(source: impl Into<String>, filename: impl Into<String>) -> Self {
-        let source = source.into();
-        let filename = filename.into();
-        Self {
-            source:     source.clone(),
-            source_map: SourceMap::new(source, filename),
-        }
+impl<'source> Lexer<'source> {
+    pub(crate) fn new(source_map: &'source SourceMap) -> Self {
+        Self { source_map }
     }
 
     pub(crate) fn tokenize(&self) -> Result<Vec<Token>> {
-        let bytes = self.source.as_bytes();
+        let source = self.source_map.source();
+        let bytes = source.as_bytes();
         let mut pos = 0usize;
         let mut tokens = Vec::new();
 
@@ -50,7 +45,7 @@ impl Lexer {
                 }
                 tokens.push(Token {
                     kind,
-                    text: self.source[start..pos].to_string(),
+                    text: source[start..pos].to_string(),
                     pos: start,
                     end: pos,
                 });
@@ -69,7 +64,7 @@ impl Lexer {
                         if pos >= bytes.len() {
                             return Err(self.error("Unterminated string escape", start, pos));
                         }
-                        let Some(escaped) = self.source[pos..].chars().next() else {
+                        let Some(escaped) = source[pos..].chars().next() else {
                             return Err(self.error("Unterminated string escape", start, pos));
                         };
                         match escaped {
@@ -87,7 +82,7 @@ impl Lexer {
                         }
                         pos += escaped.len_utf8();
                     } else {
-                        let Some(ch) = self.source[pos..].chars().next() else {
+                        let Some(ch) = source[pos..].chars().next() else {
                             return Err(self.error("Unterminated string literal", start, pos));
                         };
                         text.push(ch);
@@ -114,7 +109,7 @@ impl Lexer {
                 {
                     pos += 1;
                 }
-                let text = self.source[start..pos].to_string();
+                let text = source[start..pos].to_string();
                 let kind = keyword_kind(&text).unwrap_or(TokenKind::Ident);
                 tokens.push(Token {
                     kind,
@@ -166,7 +161,7 @@ impl Lexer {
     }
 }
 
-fn keyword_kind(text: &str) -> Option<TokenKind> {
+pub(crate) fn keyword_kind(text: &str) -> Option<TokenKind> {
     Some(match text {
         "let" => TokenKind::Let,
         "print" => TokenKind::Print,
@@ -206,6 +201,7 @@ fn two_char_token(text: &str) -> Option<TokenKind> {
 
 fn single_char_token(ch: u8) -> Option<TokenKind> {
     Some(match ch {
+        b'@' => TokenKind::At,
         b'+' => TokenKind::Plus,
         b'-' => TokenKind::Minus,
         b'*' => TokenKind::Star,
@@ -225,4 +221,47 @@ fn single_char_token(ch: u8) -> Option<TokenKind> {
         b':' => TokenKind::Colon,
         _ => return None,
     })
+}
+
+#[cfg(test)]
+mod decorator_tests {
+    use super::*;
+
+    #[test]
+    fn decorators_use_generic_tokens_and_preserve_offsets() {
+        let source = SourceMap::new("@foo\n@foo.bar\n@foo.bar(1, \"x\", true, Device)", "lexer.to");
+        let tokens = Lexer::new(&source).tokenize().expect("decorator tokens");
+        let kinds = tokens.iter().map(|token| token.kind).collect::<Vec<_>>();
+        assert_eq!(
+            kinds,
+            [
+                TokenKind::At,
+                TokenKind::Ident,
+                TokenKind::At,
+                TokenKind::Ident,
+                TokenKind::Dot,
+                TokenKind::Ident,
+                TokenKind::At,
+                TokenKind::Ident,
+                TokenKind::Dot,
+                TokenKind::Ident,
+                TokenKind::LParen,
+                TokenKind::Int,
+                TokenKind::Comma,
+                TokenKind::String,
+                TokenKind::Comma,
+                TokenKind::True,
+                TokenKind::Comma,
+                TokenKind::Ident,
+                TokenKind::RParen,
+                TokenKind::Eof
+            ]
+        );
+        assert_eq!(tokens[0].text, "@");
+        assert_eq!((tokens[0].pos, tokens[0].end), (0, 1));
+        assert_eq!(tokens[2].pos, 5);
+        assert_eq!(TokenKind::At.name(), "AT");
+        assert_eq!(keyword_kind("Arduino"), None);
+        assert_eq!(keyword_kind("coprocessor"), None);
+    }
 }

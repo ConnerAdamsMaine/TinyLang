@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, HashMap};
 use std::io::Write;
 
+use super::compiled_cache::{CompiledPrograms, JitCompiledCacheStats};
 use crate::{
     JitOp,
     JitProgram,
@@ -23,6 +24,7 @@ pub const DEFAULT_SOURCE_CACHE_MAX_BYTES: usize = 8 * 1024 * 1024;
 pub struct JitOptions {
     hot_back_edge_threshold: u16,
     execution_profile:       bool,
+    call_feedback:           bool,
 }
 
 impl JitOptions {
@@ -31,6 +33,7 @@ impl JitOptions {
         Self {
             hot_back_edge_threshold: DEFAULT_HOT_BACK_EDGE_THRESHOLD,
             execution_profile:       false,
+            call_feedback:           false,
         }
     }
 
@@ -57,6 +60,20 @@ impl JitOptions {
     #[must_use]
     pub const fn execution_profile_enabled(self) -> bool {
         self.execution_profile
+    }
+
+    /// Opts into experimental dynamic-callee feedback independently of scalar
+    /// quickening. Disabled by default: general latency acceptance is pending.
+    /// A zero hot-back-edge threshold still disables all adaptive behavior.
+    #[must_use]
+    pub const fn with_call_feedback(mut self, enabled: bool) -> Self {
+        self.call_feedback = enabled;
+        self
+    }
+
+    #[must_use]
+    pub const fn call_feedback_enabled(self) -> bool {
+        self.call_feedback && self.quickening_enabled()
     }
 
     #[must_use]
@@ -87,6 +104,14 @@ pub struct JitStats {
     pub cached_operand_stacks:         usize,
     /// Total capacity of the retained operand stacks.
     pub cached_operand_stack_capacity: usize,
+    /// Nonempty function-frame allocations during executions (main excluded).
+    pub frame_memory_allocations:      u64,
+    /// Reuses of completely cleared function memory within one execution.
+    pub frame_memory_reuses:           u64,
+    /// Maximum simultaneously active TinyOne calls, excluding main.
+    pub peak_call_depth:               usize,
+    /// Peak idle frame memory within any run; no frames survive a run.
+    pub peak_idle_frame_bytes:         usize,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -108,6 +133,10 @@ pub struct JitCacheStats {
     pub operand_stack_reuses:          u64,
     pub cached_operand_stacks:         usize,
     pub cached_operand_stack_capacity: usize,
+    pub frame_memory_allocations:      u64,
+    pub frame_memory_reuses:           u64,
+    pub peak_call_depth:               usize,
+    pub peak_idle_frame_bytes:         usize,
 }
 
 /// Operand-stack traffic attributed to one lowered JIT opcode.
@@ -125,14 +154,35 @@ pub struct JitOpcodeProfile {
 /// includes stack work that a fused operation intentionally eliminates.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct JitExecutionProfile {
-    pub dispatches:              u64,
-    pub operand_stack_pushes:    u64,
-    pub operand_stack_pops:      u64,
-    pub max_operand_stack_depth: usize,
-    pub opcodes:                 BTreeMap<String, JitOpcodeProfile>,
+    pub dispatches:                u64,
+    pub operand_stack_pushes:      u64,
+    pub operand_stack_pops:        u64,
+    pub max_operand_stack_depth:   usize,
+    /// Attempts observed while a site is sampling, including failing ones.
+    pub feedback_samples:          u64,
+    pub specialization_hits:       u64,
+    pub specialization_misses:     u64,
+    pub specialization_promotions: u64,
+    pub specialization_demotions:  u64,
+    /// Successful dynamic entries observed by the bounded call-site sampler.
+    pub call_feedback_samples:     u64,
+    pub call_guard_hits:           u64,
+    pub call_guard_misses:         u64,
+    pub call_specializations:      u64,
+    pub call_deoptimizations:      u64,
+    pub opcodes:                   BTreeMap<String, JitOpcodeProfile>,
 }
 
 impl JitExecutionProfile {
+    pub(super) fn allocation_bytes(&self) -> usize {
+        self.opcodes.keys().fold(
+            self.opcodes
+                .len()
+                .saturating_mul(size_of::<(String, JitOpcodeProfile)>()),
+            |bytes, name| bytes.saturating_add(name.capacity()),
+        )
+    }
+
     pub(crate) fn record(&mut self, op: JitOp, stack_depth: usize) {
         let (pushes, pops) = op.operand_stack_traffic();
         self.dispatches = self.dispatches.saturating_add(1);
@@ -157,7 +207,7 @@ struct SourceCacheEntry {
 
 #[derive(Debug, Clone)]
 pub struct JitCache {
-    cache:                    HashMap<String, JitProgram>,
+    cache:                    CompiledPrograms,
     source_cache:             HashMap<[u8; 16], Vec<SourceCacheEntry>>,
     source_cache_bytes:       usize,
     source_access_clock:      u64,
@@ -174,7 +224,7 @@ pub struct JitCache {
 impl Default for JitCache {
     fn default() -> Self {
         Self {
-            cache:                    HashMap::new(),
+            cache:                    CompiledPrograms::default(),
             source_cache:             HashMap::new(),
             source_cache_bytes:       0,
             source_access_clock:      0,
@@ -213,6 +263,7 @@ impl JitCache {
     /// zero to disable source caching while retaining the compiled JIT cache.
     #[must_use]
     pub fn with_source_cache_limits(mut self, max_entries: usize, max_source_bytes: usize) -> Self {
+        self.cache.clear_transient();
         self.source_cache_max_entries = max_entries;
         self.source_cache_max_bytes = max_source_bytes;
         while self.source_cache_len() > max_entries || self.source_cache_bytes > max_source_bytes {
@@ -221,6 +272,37 @@ impl JitCache {
             }
         }
         self
+    }
+
+    /// Bound reusable compiled entries independently of source caching. Either
+    /// zero disables retention and makes both effective limits zero. Limits
+    /// apply after every compile/run, including failing runs and lazy growth.
+    /// See [`JitCompiledCacheStats`] for the precise byte-accounting boundary.
+    #[must_use]
+    pub fn with_compiled_cache_limits(mut self, max_entries: usize, max_retained_bytes: usize) -> Self {
+        self.cache.set_limits(max_entries, max_retained_bytes);
+        self
+    }
+
+    #[must_use]
+    pub fn compiled_cache_max_entries(&self) -> usize {
+        self.cache.max_entries()
+    }
+
+    #[must_use]
+    pub fn compiled_cache_byte_limit(&self) -> usize {
+        self.cache.byte_limit()
+    }
+
+    #[must_use]
+    pub fn compiled_cache_stats(&self) -> JitCompiledCacheStats {
+        self.cache.stats()
+    }
+
+    /// Release compiled entries, table capacity and any compile-only result.
+    /// Source entries and lifetime activity counters are preserved.
+    pub fn clear_compiled_cache(&mut self) {
+        self.cache.clear();
     }
 
     #[must_use]
@@ -260,28 +342,20 @@ impl JitCache {
     ///
     /// Returns [`Err`] if bytecode verification of `program` fails.
     pub fn compile(&mut self, program: &Program) -> crate::Result<&JitProgram> {
+        self.cache.clear_transient();
         let verified = VerifiedProgram::verify(program.clone())?;
         self.compile_verified(&verified)
     }
 
     /// Lower an already-verified program into a cached JIT-compiled form.
+    /// Oversized/disabled-cache results use one non-reusable temporary slot,
+    /// outside the entry budget, cleared by the next mutable cache operation.
     ///
     /// # Errors
     ///
     /// Returns [`Err`] if JIT lowering of `verified` fails.
     pub fn compile_verified(&mut self, verified: &VerifiedProgram) -> Result<&JitProgram> {
-        Ok(&*self.compile_mut(verified)?)
-    }
-
-    fn compile_mut(&mut self, verified: &VerifiedProgram) -> Result<&mut JitProgram> {
-        let key = verified.fingerprint().to_owned();
-        if !self.cache.contains_key(&key) {
-            let compiled = JitProgram::compile_with_fingerprint(verified, key.clone(), self.options)?;
-            self.cache.insert(key.clone(), compiled);
-        }
-        self.cache
-            .get_mut(&key)
-            .ok_or_else(|| crate::TinyOneError::compile("JIT cache insertion failed"))
+        self.cache.compile(verified, self.options)
     }
 
     #[must_use]
@@ -301,6 +375,10 @@ impl JitCache {
                 stats.operand_stack_reuses += program_stats.operand_stack_reuses;
                 stats.cached_operand_stacks += program_stats.cached_operand_stacks;
                 stats.cached_operand_stack_capacity += program_stats.cached_operand_stack_capacity;
+                stats.frame_memory_allocations += program_stats.frame_memory_allocations;
+                stats.frame_memory_reuses += program_stats.frame_memory_reuses;
+                stats.peak_call_depth = stats.peak_call_depth.max(program_stats.peak_call_depth);
+                stats.peak_idle_frame_bytes = stats.peak_idle_frame_bytes.max(program_stats.peak_idle_frame_bytes);
                 stats
             });
         stats.source_programs = self.source_cache_len();
@@ -324,6 +402,7 @@ impl JitCache {
         stdout: &mut dyn Write,
         inputs: Vec<String>,
     ) -> Result<TinyMemory> {
+        self.cache.clear_transient();
         let verified = VerifiedProgram::verify(program.clone())?;
         self.run_program_unchecked(&verified, stdout, inputs)
     }
@@ -355,6 +434,7 @@ impl JitCache {
         sys_args: Vec<String>,
         sys_env: HashMap<String, String>,
     ) -> Result<TinyMemory> {
+        self.cache.clear_transient();
         let verified = VerifiedProgram::verify(program.clone())?;
         self.run_program_with_env_unchecked(&verified, stdout, inputs, sys_args, sys_env)
     }
@@ -386,6 +466,7 @@ impl JitCache {
         stdout: &mut dyn Write,
         inputs: Vec<String>,
     ) -> Result<TinyRunReport> {
+        self.cache.clear_transient();
         let verified = VerifiedProgram::verify(program.clone())?;
         self.run_program_report_unchecked(&verified, stdout, inputs)
     }
@@ -411,8 +492,8 @@ impl JitCache {
         stdout: &mut dyn Write,
         inputs: Vec<String>,
     ) -> Result<TinyMemory> {
-        let compiled = self.compile_mut(verified)?;
-        compiled.run(stdout, inputs)
+        self.cache
+            .run(verified, self.options, |compiled| compiled.run(stdout, inputs))
     }
 
     pub(crate) fn run_program_with_env_unchecked(
@@ -423,8 +504,8 @@ impl JitCache {
         sys_args: Vec<String>,
         sys_env: HashMap<String, String>,
     ) -> Result<TinyMemory> {
-        let compiled = self.compile_mut(verified)?;
-        compiled.run_with_env(stdout, inputs, sys_args, sys_env)
+        self.cache
+            .run(verified, self.options, |compiled| compiled.run_with_env(stdout, inputs, sys_args, sys_env))
     }
 
     pub(crate) fn run_program_report_unchecked(
@@ -433,8 +514,8 @@ impl JitCache {
         stdout: &mut dyn Write,
         inputs: Vec<String>,
     ) -> Result<TinyRunReport> {
-        let compiled = self.compile_mut(verified)?;
-        compiled.run_report(stdout, inputs)
+        self.cache
+            .run(verified, self.options, |compiled| compiled.run_report(stdout, inputs))
     }
 
     /// Compile `source` (using the exact-source cache) and run it through the JIT.
@@ -468,8 +549,8 @@ impl JitCache {
     }
 
     fn compile_source_cached_with_digest(&mut self, source: &str, digest: [u8; 16]) -> Result<VerifiedProgram> {
-        self.source_access_clock = self.source_access_clock.saturating_add(1);
-        let access = self.source_access_clock;
+        self.cache.clear_transient();
+        let access = self.next_source_access();
         let cached = self.source_cache.get_mut(&digest).and_then(|entries| {
             entries.iter_mut().find(|entry| entry.source == source).map(|entry| {
                 entry.last_used = access;
@@ -486,6 +567,26 @@ impl JitCache {
         self.source_compilations = self.source_compilations.saturating_add(1);
         self.insert_source_cache(digest, source, &program, access);
         Ok(program)
+    }
+
+    fn next_source_access(&mut self) -> u64 {
+        if self.source_access_clock == u64::MAX {
+            // Renumber unique ages across every collision bucket before they can tie.
+            // Only references move; source/program owners and bucket order stay intact.
+            let mut ordered: Vec<_> = self
+                .source_cache
+                .values_mut()
+                .flat_map(|entries| entries.iter_mut())
+                .collect();
+            ordered.sort_unstable_by_key(|entry| entry.last_used);
+            self.source_access_clock = 0;
+            for entry in ordered {
+                self.source_access_clock += 1;
+                entry.last_used = self.source_access_clock;
+            }
+        }
+        self.source_access_clock += 1;
+        self.source_access_clock
     }
 
     fn insert_source_cache(&mut self, digest: [u8; 16], source: &str, program: &VerifiedProgram, last_used: u64) {
@@ -701,6 +802,114 @@ mod tests {
         assert_eq!(stats.source_programs, 2);
         assert_eq!(stats.source_compilations, 4);
         assert_eq!(stats.source_evictions, 2);
+    }
+
+    #[test]
+    fn source_clock_rollover_preserves_lru_with_colliding_digests() {
+        let mut cache = JitCache::new().with_source_cache_limits(2, 1_024);
+        let forced_collision = [0xA5; 16];
+        cache.source_access_clock = u64::MAX - 2;
+
+        for (source, expected) in [
+            ("print 1", b"1\n"),
+            ("print 2", b"2\n"),
+            ("print 1", b"1\n"),
+            ("print 3", b"3\n"),
+            ("print 1", b"1\n"),
+        ] {
+            assert_eq!(run_source_with_digest(&mut cache, source, forced_collision), expected);
+        }
+        let before_reloading_evicted = cache.stats();
+        assert_eq!(before_reloading_evicted.source_hits, 2);
+        assert_eq!(before_reloading_evicted.source_misses, 3);
+        assert_eq!(before_reloading_evicted.source_compilations, 3);
+        assert_eq!(before_reloading_evicted.source_evictions, 1);
+        assert_eq!(before_reloading_evicted.source_bytes, 2 * "print 1".len());
+
+        assert_eq!(run_source_with_digest(&mut cache, "print 2", forced_collision), b"2\n");
+        let stats = cache.stats();
+        assert_eq!(stats.source_programs, 2);
+        assert_eq!(stats.source_compilations, 4);
+        assert_eq!(stats.source_evictions, 2);
+        assert_eq!(cache.len(), 3, "source eviction preserves independent compiled entries");
+    }
+
+    #[test]
+    fn source_clock_rollover_preserves_cross_bucket_byte_limit_lru() {
+        let byte_limit = 3 * "print 1".len();
+        let mut cache = JitCache::new().with_source_cache_limits(8, byte_limit);
+        cache.source_access_clock = u64::MAX - 3;
+
+        for (source, digest, expected) in [
+            ("print 1", [0xF0; 16], b"1\n"),
+            ("print 2", [0xE0; 16], b"2\n"),
+            ("print 3", [0x10; 16], b"3\n"),
+            ("print 4", [0x00; 16], b"4\n"),
+            ("print 5", [0x20; 16], b"5\n"),
+            ("print 6", [0x30; 16], b"6\n"),
+            ("print 4", [0x00; 16], b"4\n"),
+        ] {
+            assert_eq!(run_source_with_digest(&mut cache, source, digest), expected);
+        }
+        let stats = cache.stats();
+        assert_eq!(stats.source_hits, 1);
+        assert_eq!(stats.source_misses, 6);
+        assert_eq!(stats.source_compilations, 6);
+        assert_eq!(stats.source_evictions, 3);
+        assert_eq!(stats.source_programs, 3);
+        assert_eq!(stats.source_bytes, byte_limit);
+        assert_eq!(cache.source_cache.len(), 3, "eviction removes empty digest buckets");
+        assert_eq!(cache.len(), 6);
+    }
+
+    #[test]
+    fn source_clock_rollover_keeps_cloned_cache_recency_independent() {
+        let mut cache = JitCache::new().with_source_cache_limits(2, 1_024);
+        let forced_collision = [0xA5; 16];
+        cache.source_access_clock = u64::MAX - 2;
+        assert_eq!(run_source_with_digest(&mut cache, "print 1", forced_collision), b"1\n");
+        assert_eq!(run_source_with_digest(&mut cache, "print 2", forced_collision), b"2\n");
+        let mut cloned = cache.clone();
+
+        assert_eq!(run_source_with_digest(&mut cache, "print 1", forced_collision), b"1\n");
+        assert_eq!(run_source_with_digest(&mut cache, "print 3", forced_collision), b"3\n");
+        assert_eq!(run_source_with_digest(&mut cache, "print 1", forced_collision), b"1\n");
+        assert_eq!(cache.stats().source_hits, 2);
+        assert_eq!(cloned.source_access_clock, u64::MAX);
+        assert_eq!(cloned.stats().source_hits, 0);
+
+        assert_eq!(run_source_with_digest(&mut cloned, "print 2", forced_collision), b"2\n");
+        assert_eq!(run_source_with_digest(&mut cloned, "print 3", forced_collision), b"3\n");
+        assert_eq!(run_source_with_digest(&mut cloned, "print 2", forced_collision), b"2\n");
+        for stats in [cache.stats(), cloned.stats()] {
+            assert_eq!(stats.source_hits, 2);
+            assert_eq!(stats.source_misses, 3);
+            assert_eq!(stats.source_compilations, 3);
+            assert_eq!(stats.source_evictions, 1);
+            assert_eq!(stats.source_programs, 2);
+            assert_eq!(stats.source_bytes, 2 * "print 1".len());
+        }
+    }
+
+    #[test]
+    fn source_clock_rollover_preserves_empty_cache_error_and_bypass_accounting() {
+        for (max_entries, max_bytes) in [(0, 1_024), (4, 0), (4, "print 1".len() - 1)] {
+            let mut cache = JitCache::new().with_source_cache_limits(max_entries, max_bytes);
+            cache.source_access_clock = u64::MAX;
+            assert!(cache.compile_source_cached("print").is_err());
+            for _ in 0..2 {
+                assert_eq!(run_source_with_digest(&mut cache, "print 1", [0xA5; 16]), b"1\n");
+            }
+            let stats = cache.stats();
+            assert_eq!(stats.source_programs, 0);
+            assert_eq!(stats.source_bytes, 0);
+            assert_eq!(stats.source_hits, 0);
+            assert_eq!(stats.source_misses, 3);
+            assert_eq!(stats.source_compilations, 2);
+            assert_eq!(stats.source_evictions, 0);
+            assert_eq!(stats.source_bypasses, 2);
+            assert_eq!(cache.len(), 1, "bypassed sources still reuse the compiled cache");
+        }
     }
 
     #[test]

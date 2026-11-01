@@ -64,7 +64,7 @@ impl VmAllocator {
         &INSTANCE
     }
 
-    /// Allocates `len` bytes at Ralloc's default native alignment.
+    /// Allocates `len` zero-initialized bytes at Ralloc's default native alignment.
     ///
     /// # Errors
     ///
@@ -76,7 +76,7 @@ impl VmAllocator {
         RallocBuffer::try_new(len).map(|buffer| VmAllocation(ManuallyDrop::new(buffer)))
     }
 
-    /// Allocates `len` bytes with at least `align` byte alignment.
+    /// Allocates `len` zero-initialized bytes with at least `align` byte alignment.
     ///
     /// # Errors
     ///
@@ -100,7 +100,7 @@ impl VmAllocator {
     }
 
     /// Resizes `alloc` to `new_len`, preserving the first `min(old_len,
-    /// new_len)` bytes.
+    /// new_len)` bytes. Newly added bytes are zero-initialized.
     ///
     /// On failure, returns the original `alloc` unchanged alongside the
     /// error — matching `realloc(3)` semantics — so the caller never loses

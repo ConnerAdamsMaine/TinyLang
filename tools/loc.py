@@ -1,16 +1,14 @@
 #!/usr/bin/env python3
-"""Count lines of code and documentation across the git repository.
+"""Count lines of code and documentation across the repository worktree.
 
-Files are discovered with git, so whatever git ignores (via .gitignore,
-.git/info/exclude, and the global excludesfile) is ignored here too. Discovery
-descends into nested git repositories (embedded repos and submodules), and each
-repo's own ignore rules apply within it. Each line is classified as blank,
-comment, or code.
+All regular files below the worktree are discovered, including files ignored by
+git. Git metadata directories and directory symlinks are skipped. Each line is
+classified as blank, comment, or code.
 
-Line classification is deliberately simple. For .py, a line is a comment only
-if it starts with '#'; triple-quoted strings (including docstrings) count as
-code. For .rs/.c/.h, '//' lines and '/* ... */' blocks are comments, the block
-tracked line-by-line. A comment marker inside a string literal can be
+Line classification is deliberately simple. For .py and .to, a line is a
+comment only if it starts with '#'; triple-quoted strings (including docstrings)
+count as code. For .rs/.c/.h, '//' lines and '/* ... */' blocks are comments,
+the block tracked line-by-line. A comment marker inside a string literal can be
 miscounted; that is accurate enough for counting and keeps the tool simple.
 """
 from __future__ import annotations
@@ -24,7 +22,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import NoReturn
 
-SOURCE_EXTENSIONS = (".py", ".rs", ".h", ".c")
+SOURCE_EXTENSIONS = (".py", ".rs", ".h", ".c", ".to")
 DOC_EXTENSIONS = (".md", ".rst")
 DEFAULT_EXTENSIONS = SOURCE_EXTENSIONS
 DEFAULT_TOP_N = 5
@@ -43,8 +41,8 @@ Examples:
   ./loc.py --smallest 3         3 files with the fewest code lines
   ./loc.py --largest --json     JSON output including the largest list
 
-Files are discovered via 'git ls-files --cached --others --exclude-standard',
-recursing into nested git repos. Anything git ignores is ignored here too.
+All regular worktree files are discovered recursively, including files git
+ignores. Git metadata directories and directory symlinks are skipped.
 Run from inside the repository.
 """
 
@@ -154,8 +152,9 @@ def selected_extensions(
 
 
 def ext_of(rel: str, extensions: tuple[str, ...]) -> str:
+    normalized = rel.lower()
     for ext in extensions:
-        if rel.endswith(ext):
+        if normalized.endswith(ext):
             return ext
     return ""
 
@@ -178,47 +177,32 @@ def git_toplevel() -> Path:
     return Path(os.fsdecode(result.stdout).strip())
 
 
-def list_repo_entries(repo_root: Path) -> list[str]:
-    result = run_git(
-        ["ls-files", "--cached", "--others", "--exclude-standard", "-z"], root=repo_root
-    )
-    if result.returncode != 0:
-        detail = result.stderr.decode("utf-8", "replace").strip()
-        print(
-            f"loc.py: warning: skipping repo {repo_root}: {detail or 'git ls-files failed'}",
-            file=sys.stderr,
-        )
-        return []
-    return [os.fsdecode(chunk) for chunk in result.stdout.split(b"\0") if chunk]
-
-
 def discover_files(top_root: Path, extensions: tuple[str, ...]) -> list[str]:
-    """Enumerate target files under top_root, descending into nested repos.
-
-    git ls-files reports a nested repository (embedded repo or submodule) as a
-    single entry rather than its contents, so each such boundary is recursed
-    into with its own ls-files. Paths are accumulated relative to top_root.
-    """
+    """Enumerate target files below top_root, including git-ignored files."""
     rels: list[str] = []
-    seen_repos: set[Path] = set()
 
-    def walk(repo_root: Path, prefix: str) -> None:
-        real = repo_root.resolve()
-        if real in seen_repos:  # guard against symlinked filesystem cycles
-            return
-        seen_repos.add(real)
-        for entry in list_repo_entries(repo_root):
-            name = entry.rstrip("/")
-            candidate = repo_root / name
-            if (candidate / ".git").exists():  # nested repo boundary
-                walk(candidate, f"{prefix}{name}/")
-                continue
-            rel = f"{prefix}{entry}"
-            if rel.endswith(extensions) and (top_root / rel).is_file():
+    def on_walk_error(error: OSError) -> None:
+        print(f"loc.py: warning: skipping {error.filename}: {error}", file=sys.stderr)
+
+    for directory, dirnames, filenames in os.walk(
+        top_root,
+        topdown=True,
+        followlinks=False,
+        onerror=on_walk_error,
+    ):
+        directory_path = Path(directory)
+        dirnames[:] = [
+            name
+            for name in dirnames
+            if name != ".git" and not (directory_path / name).is_symlink()
+        ]
+        for filename in filenames:
+            path = directory_path / filename
+            rel = path.relative_to(top_root).as_posix()
+            if path.is_file() and ext_of(rel, extensions):
                 rels.append(rel)
 
-    walk(top_root, "")
-    return rels
+    return sorted(rels)
 
 
 def classify_python(lines: list[str]) -> tuple[int, int, int]:
@@ -287,7 +271,7 @@ def count_file(
         print(f"loc.py: warning: skipping {rel}: {exc}", file=sys.stderr)
         return None
     lines = text.splitlines()
-    if ext == ".py":
+    if ext in {".py", ".to"}:
         code, comment, blank = classify_python(lines)
     elif ext in {".rs", ".c", ".h"}:
         code, comment, blank = classify_c_like(lines)

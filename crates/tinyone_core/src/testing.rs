@@ -8,6 +8,21 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
 
+pub use crate::compiler::profile::{
+    FrontendMeasurement,
+    FrontendOptimization,
+    FrontendPhase,
+    FrontendProfile,
+    FrontendProfileError,
+    capture_source_compilation,
+};
+pub use crate::jit::preparation_profile::{
+    PreparationMeasurement,
+    PreparationPhase,
+    PreparationProfile,
+    PreparationProfileError,
+    capture_jit_preparation,
+};
 use crate::{Program, Result, RuntimeValue, TinyHeapStats, internal_testing};
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -48,6 +48,11 @@ impl MemoryRegion {
         self.ptr.as_ptr()
     }
 
+    /// Returns the non-null base while preserving the backend's provenance.
+    pub(crate) const fn as_non_null(self) -> NonNull<u8> {
+        self.ptr
+    }
+
     /// Returns the region byte length.
     pub(crate) const fn len(self) -> usize {
         self.len
