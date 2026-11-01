@@ -13,6 +13,40 @@ title: Contributing
 - **cargo-make** (`cargo install cargo-make`) for multi-step build workflows
 - **taplo** (`cargo install taplo-cli`) for TOML formatting (invoked by `cargo make format`)
 
+## Branches and Release Lines
+
+TinyLang v1 is in maintenance while v2 is developed. The support window is
+listed under [Release Lines](../README.md#release-lines).
+
+| Branch | Line | Open PRs here for |
+|--------|------|-------------------|
+| `main` | TinyLang v2 development | New features, language/runtime/JIT changes, the v2 ABI and SDKs, `tinylang_v2/` |
+| `release/v1` | TinyLang v1 maintenance | Bug fixes, security fixes, v1 ABI-conformance fixes, documentation corrections |
+
+Rules for `release/v1`:
+
+- No new syntax, opcodes, builtins, artifact format changes, or exported FFI
+  symbols. `tinylang.h` and `tinyone-response-schema.json` stay frozen, and
+  `tools/abi_manifest.py check` must pass.
+- Fix a v1 defect on `release/v1` first, then forward-port it to `main` with
+  `git cherry-pick -x <commit>` when `main` has the same defect. Open a
+  separate PR instead when the code has diverged too far to cherry-pick.
+- Never merge `main` into `release/v1` or `release/v1` into `main`; move
+  changes between lines only by cherry-pick or a dedicated PR.
+- Tag v1 releases (`v1.x.y`) only from `release/v1`.
+
+Work on both lines side by side with a Git worktree instead of switching
+branches in one checkout. Each worktree keeps its own `target/` directory, so
+neither line rebuilds the other's artifacts:
+
+```sh
+# From the primary checkout on main
+git fetch origin
+git worktree add ../TinyOne-v1 release/v1
+```
+
+Remove it with `git worktree remove ../TinyOne-v1` once its work is pushed.
+
 ## Build System
 
 This repo uses three layers of build tooling:

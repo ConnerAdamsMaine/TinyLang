@@ -19,9 +19,9 @@ optimizer, verifier, portable VM, heap/runtime model, bytecode artifact
 support, adaptive execution support, host integration surfaces, CLI
 tooling, and early allocator-integration scaffolding.
 
-Current crate version: `1.5.1` (the implementation is now managed as the
-public v1 release line while language work proceeds internally under
-v2).
+Current crate version: `1.5.1`. This `release/v1` branch is the TinyLang
+v1 maintenance line and accepts fixes only; TinyLang v2 development
+continues on `main`. See [Release Lines](#release-lines).
 
 The current Rust crate lives in `crates/tinyone_core/` (crate name
 `tinylang`) in this checkout. TinyLang is the durable language identity
@@ -73,6 +73,7 @@ release foundation without creating a separate user-facing language.
   - [Allocator boundary](#allocator-boundary)
 - [Tests and Benchmarks](#tests-and-benchmarks)
 - [Repository Layout](#repository-layout)
+- [Release Lines](#release-lines)
 - [Release Direction](#release-direction)
 - [LICENSE](#license)
 - [Feedback and Community](#feedback-and-community)
@@ -678,6 +679,24 @@ Current state:
     |-- cbindgen.toml, cliff.toml     tool config
     |-- rust-toolchain.toml           toolchain pin
     `-- Config.toml                   TinyOne project policy (compile-cache deps)
+
+<a id="release-lines"></a>
+
+# Release Lines
+
+TinyLang has two active lines in this repository:
+
+| Line | Branch | Status | Accepts |
+| --- | --- | --- | --- |
+| TinyLang v2 | `main` | Active development | New language, runtime, JIT, ABI, and SDK work, including `tinylang_v2/` |
+| TinyLang v1 (TinyOne) | `release/v1` | Maintenance through 2027-01-31 | Bug fixes, security fixes, v1 ABI-conformance fixes, and documentation corrections |
+
+v1 releases are tagged `v1.x.y` from `release/v1`. The v1 C ABI,
+`tinylang.h`, and `tinyone-response-schema.json` stay frozen for the
+whole maintenance window. When the window ends, `release/v1` remains
+available for reference but stops receiving fixes; pin a `v1.x.y` tag if
+you depend on v1. Branch and backport rules are in
+[CONTRIBUTING](docs/CONTRIBUTING.md#branches-and-release-lines).
 
 <a id="release-direction"></a>
 
