@@ -1,5 +1,5 @@
 [package]
-name = "instruction-budget"
+name    = "instruction-budget"
 version = "0.0.0"
 edition = "2024"
 publish = false
@@ -7,13 +7,13 @@ publish = false
 [workspace]
 
 [features]
-default = ["a"]
-baseline = []
-a = []
-b = []
-c = []
+default  = [ "a" ]
+baseline = [  ]
+a        = [  ]
+b        = [  ]
+c        = [  ]
 
 [profile.release]
-opt-level = 3
+opt-level     = 3
 codegen-units = 1
-lto = false
+lto           = false
