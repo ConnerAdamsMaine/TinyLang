@@ -1,5 +1,8 @@
 [![CI](https://github.com/ConnerAdamsMaine/TinyOne/actions/workflows/test.yml/badge.svg)](https://github.com/ConnerAdamsMaine/TinyOne/actions/workflows/test.yml)
 [![License](https://img.shields.io/badge/license-custom-blue.svg)](#license)
+[![TinyLang](https://img.shields.io/crates/v/tinylang-v2)](https://crates.io/crates/tinylang-v2)
+[![TinyLang Ralloc](https://img.shields.io/crates/v/tinylang_ralloc)](https://crates.io/crates/tinylang_ralloc)
+[![TinyLang Test Support](https://img.shields.io/crates/v/tinylang_test_support)](https://crates.io/crates/tinylang_test_support)
 
 TinyLang is a portable systems programming language designed around a
 compact VM, bounded runtime
