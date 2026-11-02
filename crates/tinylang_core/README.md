@@ -13,8 +13,13 @@ run_source("print 42", "vm", &mut output, Vec::new()).unwrap();
 assert_eq!(output, b"42\n");
 ```
 
-The package and Rust library are both named `tinylang`. The command-line
-executable is also `tinylang`; use `tinylang --help` for options.
+The Cargo package is `tinylang-v2`; the Rust library and command-line
+executable remain `tinylang`. Use `tinylang --help` for options.
+
+```toml
+[dependencies]
+tinylang = { package = "tinylang-v2", version = "2.0.0" }
+```
 
 ## C integration
 
@@ -41,10 +46,10 @@ package and ABI versions.
 
 ## Publication status
 
-This source is prepared as version 2.0.0, not evidence of a registry release.
-The `tinylang` crates.io name is currently owned by another account.
-Publication requires owner authorization or an agreed alternative package
-name; do not install the existing registry package expecting this code.
+This source uses the `tinylang-v2` Cargo package name at version 2.0.0.
+The unrelated crates.io package `tinylang` is not this project. Package
+verification does not prove upload authorization or publish a registry
+release; registry publication requires a separate approval.
 
 See the [project documentation](https://github.com/ConnerAdamsMaine/TinyOne/tree/main/docs)
 and [publication checklist](https://github.com/ConnerAdamsMaine/TinyOne/blob/main/docs/CI_CD.md#cratesio-publication).

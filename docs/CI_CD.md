@@ -60,6 +60,14 @@ does not reproduce the CI formatting gate.
 - `ffi.yml` -- cdylib build + consumer_compile + consumer_smoke (3 OS) + setup-gcc pins.
 - `nightly.yml` / `cranelift.yml` -- isolated, dispatch/schedule only.
 
+The allocator C suite builds its feature-specific library under
+`$CARGO_TARGET_DIR/c-suite` (or `target/c-suite`). It must not overwrite the
+parent Cargo test artifacts: doing so invalidates the allocator dependency
+used by subsequent core doctests. The release-artifact test similarly uses
+a temporary target directory, including when its parent test uses the release
+profile or enables additional features. Both tests verify that the parent
+allocator library remains unchanged.
+
 ## CODEOWNERS
 
 - `* @ConnerAdamsMaine @mrdwarf7` (owner first)
@@ -76,6 +84,36 @@ ma ci-gate-fast # check+test
 ma ffi-consumer-compile
 ```
 
+## GitHub binary releases
+
+GitHub binary releases are separate from registry publication. For each of
+Windows x86-64 MSVC and Linux x86-64 GNU, validate the same clean commit:
+
+```sh
+cargo run --locked --manifest-path crates/xtask/Cargo.toml -- release-gate
+cargo test --locked --workspace --all-features -- --test-threads=1
+cargo test --locked --workspace --all-features --release -- --test-threads=1
+cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+cargo build --locked --release -p tinylang-v2 --lib --bins
+```
+
+Run the C/C++/Rust consumer fixtures and native C smoke test on each platform
+as well. Use an actual Linux environment for Linux execution tests, not only
+a Windows cross-compilation.
+
+Package the CLI, `tinylang_bench`, `tinylang-sandbox-worker`, shared library,
+`include/tinylang.h`, `tinylang-response-schema.json`, readme, and license
+together. Windows binaries use `.exe`; include `tinylang.dll.lib` for MSVC
+consumers. Use ZIP for Windows and tar.gz for Linux, preserving Linux executable
+permissions. Do not distribute debug/test binaries or the experimental SDK
+workspace as the core runtime.
+
+Smoke-test the extracted archives from outside the source checkout, including
+VM/JIT execution, bytecode loading, ABI version 2, and the sandbox worker.
+Record the source commit, toolchains, Linux libc requirements, validation
+results, and SHA-256 checksums in the release notes. Upload to a GitHub draft
+for review before publication. No crates.io upload is needed for this step.
+
 ## Crates.io publication
 
 The workspace publishes three crates in dependency order:
@@ -84,7 +122,7 @@ The workspace publishes three crates in dependency order:
 | --- | --- | --- |
 | `tinylang_test_support` | `0.1.0` | Versioned development dependency for packaged tests |
 | `tinylang_ralloc` | `0.2.0` | Runtime allocator (`ralloc` Rust library) |
-| `tinylang` | `2.0.0` | Compiler, runtime, CLI, JSON C API, and sandbox worker |
+| `tinylang-v2` | `2.0.0` | Compiler, runtime, CLI, JSON C API, and sandbox worker |
 
 `tinylang-xtask` is private (`publish = false`). `tinylang_v2/`, its
 experiments, and fuzzing are separate private workspaces, not part of this
@@ -93,11 +131,12 @@ versioned as well as path-based. Shared licensing and repository metadata
 live in the root `[workspace.package]`; do not replace the custom license
 with an unrelated SPDX identifier.
 
-**Ownership prerequisite:** the 2026-11-01 registry preflight lists `era` as
-the owner of `tinylang`, with an existing `0.6.1` release. This source is not
-that registry release. Obtain owner authorization or select and consistently
-apply another package name before any upload. A package check or publish dry
-run verifies contents and builds, not permission to publish.
+**Naming and authorization:** the core package is `tinylang-v2`, while its
+Rust library and CLI remain `tinylang`. The unrelated crates.io package
+`tinylang` is not this project. Keep package selectors, publication checks,
+and header-generation validation aligned with `tinylang-v2`. A package check
+or publish dry run verifies contents and builds, not permission to publish;
+confirm registry ownership and release approval before any upload.
 
 Use a current stable Cargo with workspace packaging/publishing support.
 From a clean checkout:

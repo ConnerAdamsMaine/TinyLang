@@ -23,16 +23,16 @@ Current crate version: `2.0.0` (publication preparation). This `main` branch
 carries TinyLang v2; the v1 release line is maintained on `release/v1`.
 See [Release Lines](#release-lines).
 
-The current Rust crate lives in `crates/tinylang_core/` (crate name
-and Rust library name `tinylang`) in this checkout. The allocator package is
+The current Rust crate lives in `crates/tinylang_core/` (Cargo package
+`tinylang-v2`, Rust library `tinylang`) in this checkout. The allocator package is
 `tinylang_ralloc`, and shared test helpers are `tinylang_test_support`.
 The experimental binary ABI and SDKs remain separate in `tinylang_v2/`
 and are not included in the published core crate.
 
-**Registry status:** the crates.io name `tinylang` is currently owned by
-another account (`era`). A successful local package or dry run does not grant
-permission to upload. Resolve ownership or agree on an alternative package
-name before publishing; the existing registry package is not this release.
+**Registry naming:** use the Cargo package `tinylang-v2` for this project;
+Rust imports remain `tinylang`. The unrelated crates.io package `tinylang`
+is not this release. A successful local package or dry run does not grant
+permission to upload, and preparing a GitHub release does not publish crates.
 See the [publication checklist](docs/CI_CD.md#cratesio-publication).
 
 > **Repository history note:** Multiple recent failed rebases, and
@@ -89,7 +89,7 @@ See the [publication checklist](docs/CI_CD.md#cratesio-publication).
 
 # General Information
 
-- Source crate: `crates/tinylang_core/` (crate: `tinylang`)
+- Source crate: `crates/tinylang_core/` (package: `tinylang-v2`, library: `tinylang`)
 - C FFI header: `crates/tinylang_core/include/tinylang.h`
   (`tinylang.h` at the root forwards to it for source-checkout consumers)
 - Public documentation: `docs/`

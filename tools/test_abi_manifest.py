@@ -141,8 +141,8 @@ class AbiManifestToolTests(unittest.TestCase):
                 textwrap.dedent(
                     """
                     [package]
-                    name = "tinylang"
-                    version = "0.6.0"
+                    name = "tinylang-v2"
+                    version = "2.0.0"
                     edition = "2024"
                     """
                 ),
@@ -173,9 +173,9 @@ class AbiManifestToolTests(unittest.TestCase):
                 "--cbindgen",
                 str(fake_cbindgen),
             )
+            self.assertEqual(result.returncode, 0, result.stderr)
             argv = argv_file.read_text(encoding="utf-8").splitlines()
 
-        self.assertEqual(result.returncode, 0, result.stderr)
         self.assertNotIn("--crate", argv)
         self.assertIn("--config", argv)
         self.assertIn(str(ROOT / "cbindgen.toml"), argv)
@@ -194,8 +194,8 @@ class AbiManifestToolTests(unittest.TestCase):
                 textwrap.dedent(
                     """
                     [package]
-                    name = "tinylang"
-                    version = "0.6.0"
+                    name = "tinylang-v2"
+                    version = "2.0.0"
                     edition = "2024"
                     """
                 ),
@@ -225,8 +225,8 @@ class AbiManifestToolTests(unittest.TestCase):
                 textwrap.dedent(
                     """
                     [package]
-                    name = "tinylang"
-                    version = "0.6.0"
+                    name = "tinylang-v2"
+                    version = "2.0.0"
                     edition = "2024"
                     """
                 ),

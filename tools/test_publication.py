@@ -30,9 +30,9 @@ class PublicationTests(unittest.TestCase):
             if package["publish"] != []
         }
         self.assertEqual(
-            set(packages), {"tinylang", "tinylang_ralloc", "tinylang_test_support"}
+            set(packages), {"tinylang-v2", "tinylang_ralloc", "tinylang_test_support"}
         )
-        core = packages["tinylang"]
+        core = packages["tinylang-v2"]
         libraries = [
             target["name"] for target in core["targets"] if "rlib" in target["kind"]
         ]
@@ -57,7 +57,7 @@ class PublicationTests(unittest.TestCase):
         files = {
             Path(line).as_posix()
             for line in self.cargo(
-                "package", "--package", "tinylang", "--list", "--allow-dirty", "--offline"
+                "package", "--package", "tinylang-v2", "--list", "--allow-dirty", "--offline"
             ).splitlines()
         }
         required = {

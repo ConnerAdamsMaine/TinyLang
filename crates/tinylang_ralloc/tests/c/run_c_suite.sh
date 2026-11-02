@@ -1,15 +1,16 @@
 #!/bin/sh
 set -eu
 
-# Build from workspace root to get proper staticlib output
+# Isolate the feature-specific build from the parent Rust test artifacts.
 repo_root="$(cd "$(dirname "$0")/../../../.." && pwd)"
 target_dir="${CARGO_TARGET_DIR:-$repo_root/target}"
-lib_path="$target_dir/debug/libralloc.a"
+suite_target_dir="$target_dir/c-suite"
+lib_path="$suite_target_dir/debug/libralloc.a"
 binary_path="$target_dir/c-suite/ralloc_c_suite"
 cc="${CC:-cc}"
 
 cd "$repo_root"
-cargo build --package tinylang_ralloc --features cdylib
+cargo build --package tinylang_ralloc --features cdylib --target-dir "$suite_target_dir"
 
 if [ ! -f "$lib_path" ]; then
     echo "ERROR: Could not find $lib_path"

@@ -26,7 +26,7 @@ DEFAULT_GENERATED_HEADER = ROOT / "crates" / "tinylang_core" / "include" / "tiny
 DEFAULT_HEADER = DEFAULT_GENERATED_HEADER
 DEFAULT_CBINDGEN_CONFIG = ROOT / "cbindgen.toml"
 DEFAULT_CBINDGEN_SOURCE = DEFAULT_FFI
-EXPECTED_PACKAGE_NAME = "tinylang"
+EXPECTED_PACKAGE_NAME = "tinylang-v2"
 
 
 RUST_EXPORT_RE = re.compile(
@@ -298,7 +298,7 @@ def parser() -> argparse.ArgumentParser:
         "--crate-dir",
         type=Path,
         default=ROOT / "crates" / "tinylang_core",
-        help="Rust crate directory whose Cargo.toml must identify the tinylang package",
+        help="Rust crate directory whose Cargo.toml must identify the tinylang-v2 package",
     )
     generate.add_argument(
         "--ffi-source",
