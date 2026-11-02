@@ -1,46 +1,46 @@
-﻿ M crates/tinyone_core/src/api.rs
- M crates/tinyone_core/src/bin/tinylang_bench.rs
- M crates/tinyone_core/src/bytecode/artifact.rs
- M crates/tinyone_core/src/bytecode/binary.rs
- M crates/tinyone_core/src/bytecode/mod.rs
- M crates/tinyone_core/src/bytecode/peephole.rs
- M crates/tinyone_core/src/bytecode/program.rs
- M crates/tinyone_core/src/bytecode/verifier.rs
- M crates/tinyone_core/src/compile_cache.rs
- M crates/tinyone_core/src/compiler/incremental.rs
- M crates/tinyone_core/src/compiler/mod.rs
- M crates/tinyone_core/src/compiler/parser.rs
- M crates/tinyone_core/src/ffi.rs
- M crates/tinyone_core/src/jit/cache.rs
- M crates/tinyone_core/src/jit/chunk.rs
- M crates/tinyone_core/src/jit/mod.rs
- M crates/tinyone_core/src/jit/op.rs
- M crates/tinyone_core/src/jit/program.rs
- M crates/tinyone_core/src/jit/vm.rs
- M crates/tinyone_core/src/lib.rs
- M crates/tinyone_core/src/runtime/heap.rs
- M crates/tinyone_core/src/runtime/memory.rs
- M crates/tinyone_core/src/runtime/ralloc_vec.rs
- M crates/tinyone_core/src/runtime/vm.rs
- M crates/tinyone_core/src/source.rs
- M crates/tinyone_core/src/syntax/lexer.rs
- M crates/tinyone_core/src/syntax/token.rs
- M crates/tinyone_core/src/testing.rs
- M crates/tinyone_core/src/tiny_allocator.rs
- M crates/tinyone_core/tests/abi_api_soundness.rs
- M crates/tinyone_core/tests/module_sandbox.rs
- M crates/tinyone_core/tests/runtime_parity.rs
- M crates/tinyone_core/tests/stdlib_parity.rs
- M crates/tinyone_ralloc/src/arena.rs
- M crates/tinyone_ralloc/src/backend.rs
- M crates/tinyone_ralloc/src/block.rs
- M crates/tinyone_ralloc/src/buffer.rs
- M crates/tinyone_ralloc/src/instrumentation.rs
- M crates/tinyone_ralloc/src/ralloc.rs
- M crates/tinyone_ralloc/src/testing.rs
- M crates/tinyone_ralloc/src/vm.rs
- M crates/tinyone_ralloc/tests/fragmentation.rs
- M crates/tinyone_ralloc/tests/native_box.rs
+﻿ M crates/tinylang_core/src/api.rs
+ M crates/tinylang_core/src/bin/tinylang_bench.rs
+ M crates/tinylang_core/src/bytecode/artifact.rs
+ M crates/tinylang_core/src/bytecode/binary.rs
+ M crates/tinylang_core/src/bytecode/mod.rs
+ M crates/tinylang_core/src/bytecode/peephole.rs
+ M crates/tinylang_core/src/bytecode/program.rs
+ M crates/tinylang_core/src/bytecode/verifier.rs
+ M crates/tinylang_core/src/compile_cache.rs
+ M crates/tinylang_core/src/compiler/incremental.rs
+ M crates/tinylang_core/src/compiler/mod.rs
+ M crates/tinylang_core/src/compiler/parser.rs
+ M crates/tinylang_core/src/ffi.rs
+ M crates/tinylang_core/src/jit/cache.rs
+ M crates/tinylang_core/src/jit/chunk.rs
+ M crates/tinylang_core/src/jit/mod.rs
+ M crates/tinylang_core/src/jit/op.rs
+ M crates/tinylang_core/src/jit/program.rs
+ M crates/tinylang_core/src/jit/vm.rs
+ M crates/tinylang_core/src/lib.rs
+ M crates/tinylang_core/src/runtime/heap.rs
+ M crates/tinylang_core/src/runtime/memory.rs
+ M crates/tinylang_core/src/runtime/ralloc_vec.rs
+ M crates/tinylang_core/src/runtime/vm.rs
+ M crates/tinylang_core/src/source.rs
+ M crates/tinylang_core/src/syntax/lexer.rs
+ M crates/tinylang_core/src/syntax/token.rs
+ M crates/tinylang_core/src/testing.rs
+ M crates/tinylang_core/src/tiny_allocator.rs
+ M crates/tinylang_core/tests/abi_api_soundness.rs
+ M crates/tinylang_core/tests/module_sandbox.rs
+ M crates/tinylang_core/tests/runtime_parity.rs
+ M crates/tinylang_core/tests/stdlib_parity.rs
+ M crates/tinylang_ralloc/src/arena.rs
+ M crates/tinylang_ralloc/src/backend.rs
+ M crates/tinylang_ralloc/src/block.rs
+ M crates/tinylang_ralloc/src/buffer.rs
+ M crates/tinylang_ralloc/src/instrumentation.rs
+ M crates/tinylang_ralloc/src/ralloc.rs
+ M crates/tinylang_ralloc/src/testing.rs
+ M crates/tinylang_ralloc/src/vm.rs
+ M crates/tinylang_ralloc/tests/fragmentation.rs
+ M crates/tinylang_ralloc/tests/native_box.rs
  M docs/architecture.md
  M docs/bytecode.md
  M docs/ffi/rust-api.md
@@ -51,52 +51,52 @@
  M docs/vm.md
  M tools/loc.py
  M tools/test_loc.py
-?? crates/tinyone_core/src/bin/tinylang_bench/
-?? crates/tinyone_core/src/bytecode/certificate.rs
-?? crates/tinyone_core/src/bytecode/control_flow.rs
-?? crates/tinyone_core/src/bytecode/retention.rs
-?? crates/tinyone_core/src/compile_cache/
-?? crates/tinyone_core/src/compiler/parser/
-?? crates/tinyone_core/src/compiler/profile.rs
-?? crates/tinyone_core/src/decorators.rs
-?? crates/tinyone_core/src/decorators/
-?? crates/tinyone_core/src/jit/call_feedback.rs
-?? crates/tinyone_core/src/jit/compiled_cache.rs
-?? crates/tinyone_core/src/jit/encoding.rs
-?? crates/tinyone_core/src/jit/execution.rs
-?? crates/tinyone_core/src/jit/feedback.rs
-?? crates/tinyone_core/src/jit/frame.rs
-?? crates/tinyone_core/src/jit/local.rs
-?? crates/tinyone_core/src/jit/lowering.rs
-?? crates/tinyone_core/src/jit/lowering/
-?? crates/tinyone_core/src/jit/origins.rs
-?? crates/tinyone_core/src/jit/preparation_profile.rs
-?? crates/tinyone_core/src/jit/scalar.rs
-?? crates/tinyone_core/src/source/
-?? crates/tinyone_core/tests/allocation/
-?? crates/tinyone_core/tests/allocation_failure.rs
-?? crates/tinyone_core/tests/allocation_profile.rs
-?? crates/tinyone_core/tests/cache_retention.rs
-?? crates/tinyone_core/tests/call_feedback.rs
-?? crates/tinyone_core/tests/call_profile.rs
-?? crates/tinyone_core/tests/call_transfer.rs
-?? crates/tinyone_core/tests/decorators.rs
-?? crates/tinyone_core/tests/frontend/
-?? crates/tinyone_core/tests/frontend_profile.rs
-?? crates/tinyone_core/tests/jit_preparation_phases.rs
-?? crates/tinyone_core/tests/jit_preparation_profile.rs
-?? crates/tinyone_core/tests/map_profile.rs
-?? crates/tinyone_core/tests/optimization_boundaries.rs
-?? crates/tinyone_core/tests/preparation/
-?? crates/tinyone_core/tests/retained_allocation_profile.rs
-?? crates/tinyone_core/tests/runtime_locations.rs
-?? crates/tinyone_core/tests/symbolic_lowering.rs
-?? crates/tinyone_core/tests/type_feedback.rs
-?? crates/tinyone_core/tests/verifier/
-?? crates/tinyone_core/tests/verifier_profile.rs
-?? crates/tinyone_ralloc/src/arena/
-?? crates/tinyone_ralloc/tests/initialization.rs
-?? crates/tinyone_ralloc/tests/instrumentation.rs
+?? crates/tinylang_core/src/bin/tinylang_bench/
+?? crates/tinylang_core/src/bytecode/certificate.rs
+?? crates/tinylang_core/src/bytecode/control_flow.rs
+?? crates/tinylang_core/src/bytecode/retention.rs
+?? crates/tinylang_core/src/compile_cache/
+?? crates/tinylang_core/src/compiler/parser/
+?? crates/tinylang_core/src/compiler/profile.rs
+?? crates/tinylang_core/src/decorators.rs
+?? crates/tinylang_core/src/decorators/
+?? crates/tinylang_core/src/jit/call_feedback.rs
+?? crates/tinylang_core/src/jit/compiled_cache.rs
+?? crates/tinylang_core/src/jit/encoding.rs
+?? crates/tinylang_core/src/jit/execution.rs
+?? crates/tinylang_core/src/jit/feedback.rs
+?? crates/tinylang_core/src/jit/frame.rs
+?? crates/tinylang_core/src/jit/local.rs
+?? crates/tinylang_core/src/jit/lowering.rs
+?? crates/tinylang_core/src/jit/lowering/
+?? crates/tinylang_core/src/jit/origins.rs
+?? crates/tinylang_core/src/jit/preparation_profile.rs
+?? crates/tinylang_core/src/jit/scalar.rs
+?? crates/tinylang_core/src/source/
+?? crates/tinylang_core/tests/allocation/
+?? crates/tinylang_core/tests/allocation_failure.rs
+?? crates/tinylang_core/tests/allocation_profile.rs
+?? crates/tinylang_core/tests/cache_retention.rs
+?? crates/tinylang_core/tests/call_feedback.rs
+?? crates/tinylang_core/tests/call_profile.rs
+?? crates/tinylang_core/tests/call_transfer.rs
+?? crates/tinylang_core/tests/decorators.rs
+?? crates/tinylang_core/tests/frontend/
+?? crates/tinylang_core/tests/frontend_profile.rs
+?? crates/tinylang_core/tests/jit_preparation_phases.rs
+?? crates/tinylang_core/tests/jit_preparation_profile.rs
+?? crates/tinylang_core/tests/map_profile.rs
+?? crates/tinylang_core/tests/optimization_boundaries.rs
+?? crates/tinylang_core/tests/preparation/
+?? crates/tinylang_core/tests/retained_allocation_profile.rs
+?? crates/tinylang_core/tests/runtime_locations.rs
+?? crates/tinylang_core/tests/symbolic_lowering.rs
+?? crates/tinylang_core/tests/type_feedback.rs
+?? crates/tinylang_core/tests/verifier/
+?? crates/tinylang_core/tests/verifier_profile.rs
+?? crates/tinylang_ralloc/src/arena/
+?? crates/tinylang_ralloc/tests/initialization.rs
+?? crates/tinylang_ralloc/tests/instrumentation.rs
 ?? docs/abi/evidence/
 ?? docs/abi/v2-artifact-spec.md
 ?? docs/abi/v2-binary-spec.md

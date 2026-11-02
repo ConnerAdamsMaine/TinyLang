@@ -9,16 +9,16 @@ returned on success by each entry point. Error response shapes are
 documented in [`contract.md`](contract.md).
 
 The machine-readable contract is committed at
-[`tinyone-response-schema.json`](../../tinyone-response-schema.json). Consumers
+[`tinylang-response-schema.json`](../../crates/tinylang_core/tinylang-response-schema.json). Consumers
 may validate complete responses against that schema; the Rust ABI tests also
 assert the exact response keys emitted by every current JSON entry point.
 
-All fields and encodings in this document are frozen for ABI version 1.
-Unknown future fields must be ignored by consumers.
+These closed response shapes are retained by ABI version 2. Unknown fields
+are not part of this contract; validate them against the committed schema.
 
 ---
 
-## `tinyone_lex_source_json`
+## `tinylang_lex_source_json`
 
 ```json
 {
@@ -32,12 +32,12 @@ Unknown future fields must be ignored by consumers.
 
 ---
 
-## `tinyone_compile_source_json` / `tinyone_compile_file_json`
+## `tinylang_compile_source_json` / `tinylang_compile_file_json`
 
 ```json
 {
   "artifact": {
-    "format":     "tinyone-bytecode",
+    "format":     "tinylang-bytecode",
     "version":    1,
     "code":       [ {"op": "PUSH_INT", "arg": 42, "arg2": 0} ],
     "slot_count": 0,
@@ -55,13 +55,13 @@ Unknown future fields must be ignored by consumers.
 | Field | Type | Status | Notes |
 | --- | --- | --- | --- |
 | `artifact` | object | STABLE (structure) | Full bytecode artifact; see [bytecode.md](../bytecode.md) for field semantics |
-| `artifact.format` | string | STABLE | Always `"tinyone-bytecode"` |
+| `artifact.format` | string | STABLE | Always `"tinylang-bytecode"` |
 | `artifact.version` | integer | STABLE | Always `1` until a format break |
 | `fingerprint` | string | STABLE | Blake2b512 truncated to 16 hex bytes; matches `Program::fingerprint()` |
 
 ---
 
-## `tinyone_run_source_json` / `tinyone_run_file_json` / `tinyone_run_artifact_json`
+## `tinylang_run_source_json` / `tinylang_run_file_json` / `tinylang_run_artifact_json`
 
 ```json
 {
@@ -117,11 +117,11 @@ Unknown future fields must be ignored by consumers.
 
 ---
 
-## `tinyone_jit_listing_json`
+## `tinylang_jit_listing_json`
 
 ```json
 {
-  "listing": "; tinyone adaptive-jit a1b2c3d4e5f60718\n; chunks=1 ops=3\n.chunk 0 main slots=0\n  0000 push.i 42\n  0001 print\n  0002 halt\n"
+  "listing": "; tinylang adaptive-jit a1b2c3d4e5f60718\n; chunks=1 ops=3\n.chunk 0 main slots=0\n  0000 push.i 42\n  0001 print\n  0002 halt\n"
 }
 ```
 

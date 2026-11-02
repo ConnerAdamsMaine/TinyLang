@@ -59,11 +59,9 @@ fi
 
 cargo build
 
-# Find import lib: tinylang.dll.lib or tinyone.dll.lib depending on crate name
-IMPORT_LIB="$(ls -1 "${BUILD_DIR}"/*.dll.lib 2>/dev/null | head -n 1 || true)"
-if [[ -z "${IMPORT_LIB}" ]]; then
-  printf "consumer_smoke_msvc: import library *.dll.lib not found in %s\n" "${BUILD_DIR}" >&2
-  ls -la "${BUILD_DIR}" 2>&1 | head -n 30 >&2 || true
+IMPORT_LIB="${BUILD_DIR}/tinylang.dll.lib"
+if [[ ! -f "${IMPORT_LIB}" ]]; then
+  printf "consumer_smoke_msvc: import library not found: %s\n" "${IMPORT_LIB}" >&2
   exit 1
 fi
 

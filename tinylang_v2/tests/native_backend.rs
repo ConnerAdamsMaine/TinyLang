@@ -5,11 +5,11 @@ use tinylang_v2::engine::{EngineError, ScalarFunction};
 mod windows_x64 {
     use super::*;
     use std::ffi::c_void;
-    use tinylang_v2::engine::{BinaryOp, Instruction, TrapKind};
-    use tinyone::{
+    use tinylang::{
         Function, Instr, Op, Program, RuntimeValue, VM, VerifiedProgram, VmExecutionLimits,
         compile_source_unoptimized_verified,
     };
+    use tinylang_v2::engine::{BinaryOp, Instruction, TrapKind};
 
     #[derive(Debug, PartialEq, Eq)]
     enum Outcome {

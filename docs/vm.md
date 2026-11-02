@@ -4,7 +4,7 @@ title: VM and JIT
 
 # VM and JIT Operation
 
-The TinyOne implementation has two execution backends that share the same verified bytecode:
+The TinyLang implementation has two execution backends that share the same verified bytecode:
 the **VM** (portable interpreter) and the **JIT** (adaptive bytecode
 tier). Both are selected via `--mode vm` or `--mode jit` on the CLI, or
 `"vm"` / `"jit"` in the Rust and C APIs.
@@ -20,7 +20,7 @@ For heap and memory operation, see [`memory-model.md`](memory-model.md).
 
 `VM::run` iterates over the main chunk's instruction stream. Each `Instr { op, arg, arg2 }` dispatches to a match arm in `run_chunk`. The match arm reads operands from `arg`/`arg2`, manipulates the operand stack and stack-frame memory, and may call into the heap or runtime helpers.
 
-All operations return `Result`. There are no `unwrap` or `panic` calls on production paths. A runtime error immediately unwinds through `?` and surfaces as a `TinyOneError::Runtime` to the caller.
+All operations return `Result`. There are no `unwrap` or `panic` calls on production paths. A runtime error immediately unwinds through `?` and surfaces as a `TinyLangError::Runtime` to the caller.
 
 ### Operand Stack
 
@@ -42,7 +42,7 @@ reference.
 
 The default and maximum call-depth limit is **16** nested TinyLang function
 calls; verified VM settings can select a lower limit. Exceeding it returns
-`TinyOneError::Runtime` with `Call stack overflow after N nested call(s)`.
+`TinyLangError::Runtime` with `Call stack overflow after N nested call(s)`.
 
 The JIT uses an explicit vector of suspended call frames instead of recursive
 host interpreter calls. Each cursor retains its chunk, resume PC, and operand

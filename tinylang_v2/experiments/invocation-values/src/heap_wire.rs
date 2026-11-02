@@ -1,5 +1,5 @@
 use crate::invocation::Failure;
-use tinyone::{RuntimeValue, VmHeapValue};
+use tinylang::{RuntimeValue, VmHeapValue};
 
 // Fixed test signature: string, bytes, array<i64>. Both codecs reject other
 // shapes. The general ABI still needs type metadata and recursive conversion.

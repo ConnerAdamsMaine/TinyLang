@@ -383,7 +383,7 @@ fn sequence_value(value_records: &[u8], count: u64) -> Vec<u8> {
 }
 
 fn create_vm(runtime: TinyRuntimeHandle, source: &str) -> (TinyHandle, TinyHandle) {
-    let compiled = tinyone::compile_source(source).unwrap();
+    let compiled = tinylang::compile_source(source).unwrap();
     let artifact = compiled.to_binary_artifact().unwrap();
     let payload = values(&[u32_value(2), bytes_value(&artifact)]);
     let (status, written, response) = call(runtime, OPCODE_PROGRAM_LOAD, &payload, 48);

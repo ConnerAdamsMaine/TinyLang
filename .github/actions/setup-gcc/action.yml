@@ -15,7 +15,7 @@ runs:
   using: "composite"
   steps:
     # AGENT NOTE: Version pinning is intentional. GCC is not just a build tool here --
-    # it changes the C ABI consumer artifacts. Bump only with explicit TinyOne owner sign-off
+    # it changes the C ABI consumer artifacts. Bump only with explicit TinyLang owner sign-off
     # and update .github/actions/setup-gcc/action.yml inputs default + docs/CI_CD.md.
     - name: "Install GCC (Ubuntu, pinned)"
       if: "${{ runner.os == 'Linux' && inputs.gcc-version != '' }}"

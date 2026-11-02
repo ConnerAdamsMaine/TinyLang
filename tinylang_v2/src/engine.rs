@@ -17,7 +17,7 @@ pub use ir::{BinaryOp, Instruction, ScalarFunction};
 
 /// Compile through the authoritative frontend without changing source semantics.
 pub fn compile_scalar_source(source: &str, name: &str) -> Result<ScalarFunction, EngineError> {
-    let program = tinyone::compile_source_unoptimized_verified(source)?;
+    let program = tinylang::compile_source_unoptimized_verified(source)?;
     let index = program
         .program()
         .functions()

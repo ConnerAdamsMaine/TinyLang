@@ -24,17 +24,17 @@ class AbiManifestToolTests(unittest.TestCase):
     def test_manifest_lists_symbols_from_rust_and_header(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             ffi = Path(tmp) / "ffi.rs"
-            header = Path(tmp) / "tinyone.h"
+            header = Path(tmp) / "tinylang.h"
             ffi.write_text(
                 textwrap.dedent(
                     """
                     #[unsafe(no_mangle)]
-                    pub unsafe extern "C" fn tinyone_beta(value: *const c_char) -> *mut c_char {
+                    pub unsafe extern "C" fn tinylang_beta(value: *const c_char) -> *mut c_char {
                         todo!()
                     }
 
                     #[unsafe(no_mangle)]
-                    pub extern "C" fn tinyone_alpha() {
+                    pub extern "C" fn tinylang_alpha() {
                         todo!()
                     }
                     """
@@ -44,10 +44,10 @@ class AbiManifestToolTests(unittest.TestCase):
             header.write_text(
                 textwrap.dedent(
                     """
-                    #ifndef TINYONE_H
-                    #define TINYONE_H
-                    void tinyone_alpha(void);
-                    char *tinyone_beta(const char *value);
+                    #ifndef TINYLANG_H
+                    #define TINYLANG_H
+                    void tinylang_alpha(void);
+                    char *tinylang_beta(const char *value);
                     #endif
                     """
                 ),
@@ -64,26 +64,26 @@ class AbiManifestToolTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("rust_symbols:", result.stdout)
-        self.assertIn("  - tinyone_alpha", result.stdout)
-        self.assertIn("  - tinyone_beta", result.stdout)
+        self.assertIn("  - tinylang_alpha", result.stdout)
+        self.assertIn("  - tinylang_beta", result.stdout)
         self.assertIn("header_symbols:", result.stdout)
 
     def test_check_reports_header_drift(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             ffi = Path(tmp) / "ffi.rs"
-            header = Path(tmp) / "tinyone.h"
+            header = Path(tmp) / "tinylang.h"
             ffi.write_text(
                 textwrap.dedent(
                     """
                     #[unsafe(no_mangle)]
-                    pub unsafe extern "C" fn tinyone_only_in_rust() {
+                    pub unsafe extern "C" fn tinylang_only_in_rust() {
                         todo!()
                     }
                     """
                 ),
                 encoding="utf-8",
             )
-            header.write_text("void tinyone_only_in_header(void);\n", encoding="utf-8")
+            header.write_text("void tinylang_only_in_header(void);\n", encoding="utf-8")
 
             result = self.run_tool(
                 "check",
@@ -95,9 +95,9 @@ class AbiManifestToolTests(unittest.TestCase):
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("missing from header", result.stdout)
-        self.assertIn("tinyone_only_in_rust", result.stdout)
+        self.assertIn("tinylang_only_in_rust", result.stdout)
         self.assertIn("missing from Rust exports", result.stdout)
-        self.assertIn("tinyone_only_in_header", result.stdout)
+        self.assertIn("tinylang_only_in_header", result.stdout)
 
     def test_generate_header_requires_tinylang_crate_manifest(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -130,7 +130,7 @@ class AbiManifestToolTests(unittest.TestCase):
     def test_generate_header_checks_crate_and_passes_ffi_source_to_cbindgen(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            crate = base / "TinyOne"
+            crate = base / "TinyLang"
             source_dir = crate / "src"
             source_dir.mkdir(parents=True)
             ffi_source = source_dir / "ffi.rs"
@@ -149,7 +149,7 @@ class AbiManifestToolTests(unittest.TestCase):
                 encoding="utf-8",
             )
             ffi_source.write_text(
-                '#[unsafe(no_mangle)]\npub extern "C" fn tinyone_smoke() {}\n',
+                '#[unsafe(no_mangle)]\npub extern "C" fn tinylang_smoke() {}\n',
                 encoding="utf-8",
             )
             fake_cbindgen.write_text(
@@ -187,7 +187,7 @@ class AbiManifestToolTests(unittest.TestCase):
     def test_generate_header_reports_missing_cbindgen_config(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            crate = base / "TinyOne"
+            crate = base / "TinyLang"
             crate.mkdir()
             missing_config = base / "missing-cbindgen.toml"
             (crate / "Cargo.toml").write_text(
@@ -218,7 +218,7 @@ class AbiManifestToolTests(unittest.TestCase):
     def test_generate_header_reports_missing_ffi_source(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            crate = base / "TinyOne"
+            crate = base / "TinyLang"
             crate.mkdir()
             missing_source = base / "missing-ffi.rs"
             (crate / "Cargo.toml").write_text(

@@ -55,7 +55,8 @@ does not reproduce the CI formatting gate.
 
 - `format.yml` -- fmt+taplo check (matrix ubuntu/windows), auto-fix push on `push` to `main`/`master`.
 - `build.yml` -- `check` + `clippy -D warnings` matrix.
-- `test.yml` -- `cargo test --workspace` + `language_suite` + python tool tests + abi drift.
+- `test.yml` -- `cargo test --workspace` + `language_suite` + Python tool tests +
+  ABI drift + verified crate packaging (no upload).
 - `ffi.yml` -- cdylib build + consumer_compile + consumer_smoke (3 OS) + setup-gcc pins.
 - `nightly.yml` / `cranelift.yml` -- isolated, dispatch/schedule only.
 
@@ -74,3 +75,81 @@ ma ci-gate      # full gate (no script wrapper)
 ma ci-gate-fast # check+test
 ma ffi-consumer-compile
 ```
+
+## Crates.io publication
+
+The workspace publishes three crates in dependency order:
+
+| Package | Version | Purpose |
+| --- | --- | --- |
+| `tinylang_test_support` | `0.1.0` | Versioned development dependency for packaged tests |
+| `tinylang_ralloc` | `0.2.0` | Runtime allocator (`ralloc` Rust library) |
+| `tinylang` | `2.0.0` | Compiler, runtime, CLI, JSON C API, and sandbox worker |
+
+`tinylang-xtask` is private (`publish = false`). `tinylang_v2/`, its
+experiments, and fuzzing are separate private workspaces, not part of this
+publication. Keep every dependency between published workspace crates
+versioned as well as path-based. Shared licensing and repository metadata
+live in the root `[workspace.package]`; do not replace the custom license
+with an unrelated SPDX identifier.
+
+**Ownership prerequisite:** the 2026-11-01 registry preflight lists `era` as
+the owner of `tinylang`, with an existing `0.6.1` release. This source is not
+that registry release. Obtain owner authorization or select and consistently
+apply another package name before any upload. A package check or publish dry
+run verifies contents and builds, not permission to publish.
+
+Use a current stable Cargo with workspace packaging/publishing support.
+From a clean checkout:
+
+```sh
+cargo run --manifest-path crates/xtask/Cargo.toml -- release-gate
+cargo publish --workspace --exclude tinylang-xtask --dry-run --locked
+```
+
+For an uncommitted preparation branch, inspect the current changes without
+uploading:
+
+```sh
+cargo package --workspace --exclude tinylang-xtask --allow-dirty --locked
+cargo publish --workspace --exclude tinylang-xtask --dry-run --allow-dirty --locked
+```
+
+`package-check` is the packaging-only xtask. Cargo verifies all three
+archives, using a temporary local registry for unpublished workspace
+dependencies. Do not add `--no-verify`. Archives under `target/package/`
+must contain their readme and license. The core archive also contains its
+CLI sources, `include/tinylang.h`, `tinylang-response-schema.json`, test
+fixtures, and `tinylang-sandbox-worker` source. The root C header is only a
+source-checkout forwarding header; generate the canonical header with
+`uv run --no-project python tools/abi_manifest.py generate-header`.
+
+On Windows, Cargo may warn that the same-named `tinylang` library and CLI
+share a debug `.pdb` filename. Release builds disable debug information.
+Keep the public names consistent; use separate library and binary builds
+when collecting debug symbols.
+
+Only after ownership, validation, and release approval are resolved, publish
+from the clean release commit:
+
+```sh
+cargo publish --workspace --exclude tinylang-xtask --locked
+```
+
+No repository workflow uploads crates automatically.
+
+### V2 migration boundary
+
+- Rust imports use `tinylang`, with `TinyLangError`.
+- The JSON C ABI uses `tinylang_*` exports and `TINYLANG_ABI_VERSION = 2`.
+  Its response shapes remain unchanged; the experimental `tinylang_v2_*`
+  binary ABI is separate.
+- Use `TINYLANG_*` environment variables, `tinylang.json` module maps, and
+  the `tinylang-sandbox-worker` executable.
+- Recompile artifacts: the JSON format name is `tinylang-bytecode` and
+  the binary magic is the eight-byte `TINYLANG`. JSON layout versions 1/2
+  and binary layout version 5 are independent of package/ABI versions.
+- Re-sign module metadata with language version 2 and the renamed signing
+  domain prefixes. Do not reuse v1 signatures or caches.
+- Existing GitHub URLs retain the repository's actual name. The v1 release
+  branch is unchanged; do not backport this breaking rename to it.

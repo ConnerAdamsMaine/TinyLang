@@ -2,7 +2,7 @@ use std::hint::black_box;
 use std::sync::Arc;
 use std::time::Instant;
 
-use tinyone::{Instr, Op, Program, RuntimeValue, TinyMemory, VM};
+use tinylang::{Instr, Op, Program, RuntimeValue, TinyMemory, VM};
 
 fn main() {
     const LIMIT: i64 = 100_000;

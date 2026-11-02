@@ -21,8 +21,8 @@ EXIT_ERROR = 2
 IGNORE_FILENAMES = (".gitignore", ".zipignore")
 HELP_EPILOG = """
 Examples:
-  ./tools/zip.py crates/tinyone_core -o tinyone.zip
-  ./tools/zip.py crates/tinyone_core crates/tinyone_ralloc -o source.tar.gz --format tar.gz
+  ./tools/zip.py crates/tinylang_core -o tinylang.zip
+  ./tools/zip.py crates/tinylang_core crates/tinylang_ralloc -o source.tar.gz --format tar.gz
   ./tools/zip.py README.md docs --format zip
 
 Every directory walk loads .gitignore and .zipignore rules from each directory

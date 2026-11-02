@@ -23,7 +23,7 @@ class CompilerArtifactIntegrationTests(unittest.TestCase):
             raise ValueError("both explicit DLL and compiler artifact paths are required")
         cls.library_path = Path(library)
         cls.artifact = Path(artifact_path).read_bytes()
-        if cls.artifact[:10] != b"TINYONEB\x05\x00":
+        if cls.artifact[:10] != b"TINYLANG\x05\x00":
             raise ValueError("expected the compiler-produced version-5 sdk_artifact output")
 
     def checked_call(

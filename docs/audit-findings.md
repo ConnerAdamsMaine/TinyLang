@@ -2,14 +2,14 @@
 title: V1 Audit Findings
 ---
 
-This audit covers the TinyOne v1 implementation under `TinyOne/`.
+This audit covers the TinyLang v1 implementation under `TinyLang/`.
 References use repository-relative paths so they remain valid as line
 numbers change.
 
 # Confirmed boundaries
 
 - **FFI panic containment:** All exported JSON entry points in
-  `TinyOne/src/ffi.rs` funnel through the guarded response path. The
+  `TinyLang/src/ffi.rs` funnel through the guarded response path. The
   committed C header defines string ownership, nullability, input
   limits, and the ABI version check.
 - **Verified execution:** Public VM/JIT dispatch verifies bytecode
@@ -17,7 +17,7 @@ numbers change.
   collection and verifier budgets before execution.
 - **Recoverable frame allocation:** VM, JIT, recursive-function, and
   spawned-thread frames use `TinyMemory::try_new`, preserving Ralloc
-  exhaustion and size overflow as `TinyOneError` values. The explicitly
+  exhaustion and size overflow as `TinyLangError` values. The explicitly
   infallible `TinyMemory::new` and `Clone` APIs document their panic
   behavior; embedders can use `try_new` and `try_clone`.
 - **Mutex ownership:** `TinyMutex::unlock` rejects unlocked mutexes and

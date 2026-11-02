@@ -108,7 +108,7 @@ closure uses normal call syntax (`let f = closure_new("add", [10])`, then
 
 V2 accepts generic function declarations such as:
 
-```tinyone
+```tinylang
 fn identity<T>(value: T) -> T { return value }
 print identity(42)
 print identity("text")

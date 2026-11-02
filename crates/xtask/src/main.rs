@@ -1,7 +1,7 @@
 use std::process::ExitCode;
 use std::str::FromStr;
 
-use tinyone_xtask::{Task, plan_for, repo_root_from_cwd, usage};
+use tinylang_xtask::{Task, plan_for, repo_root_from_cwd, usage};
 
 fn main() -> ExitCode {
     match run() {

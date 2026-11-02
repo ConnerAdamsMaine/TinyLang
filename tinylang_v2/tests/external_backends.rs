@@ -1,8 +1,8 @@
+use tinylang::{RuntimeValue, VM, VmExecutionLimits, compile_source_unoptimized_verified};
 #[cfg(feature = "cranelift")]
 use tinylang_v2::engine::EngineError;
 use tinylang_v2::engine::llvm::emit_llvm_ir;
 use tinylang_v2::engine::{BinaryOp, Instruction, ScalarFunction, TrapKind};
-use tinyone::{RuntimeValue, VM, VmExecutionLimits, compile_source_unoptimized_verified};
 
 #[derive(Debug, PartialEq, Eq)]
 enum Outcome {

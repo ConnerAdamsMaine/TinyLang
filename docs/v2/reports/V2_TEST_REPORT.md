@@ -8,7 +8,7 @@ Mission 2, 2026-11-01, x86_64 Windows MSVC.
 cargo test --manifest-path .\tinylang_v2\Cargo.toml --locked
 cargo test -p tinylang --lib --locked
 cargo test -p tinylang --test runtime_parity --test instruction_fuel --test persistent_vm --test abi_api_soundness --test cache_retention --test stdlib_parity --locked
-cargo test -p tinyone_ralloc --test native_box --test initialization --test fragmentation --locked
+cargo test -p tinylang_ralloc --test native_box --test initialization --test fragmentation --locked
 ```
 
 Initial standalone ABI baseline: 42 passed, 1 manual benchmark ignored.

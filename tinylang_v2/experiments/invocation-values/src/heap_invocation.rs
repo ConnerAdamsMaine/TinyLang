@@ -1,6 +1,6 @@
 use crate::invocation::Failure;
 use std::{hint::black_box, time::Instant};
-use tinyone::{RuntimeValue, VM, VerifiedProgram, VmExecutionLimits, VmHeapValue};
+use tinylang::{RuntimeValue, VM, VerifiedProgram, VmExecutionLimits, VmHeapValue};
 
 pub fn fixture() -> Vec<VmHeapValue> {
     vec![
@@ -18,7 +18,7 @@ struct HeapInvocation {
 
 impl HeapInvocation {
     fn new() -> Self {
-        let compiled = tinyone::compile_source("fn identity(value) { return value }").unwrap();
+        let compiled = tinylang::compile_source("fn identity(value) { return value }").unwrap();
         let verified =
             VerifiedProgram::from_binary_artifact(&compiled.to_binary_artifact().unwrap()).unwrap();
         Self {

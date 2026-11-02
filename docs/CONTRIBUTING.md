@@ -2,7 +2,7 @@
 title: Contributing
 ---
 
-# Contributing to TinyOne
+# Contributing to TinyLang
 
 ## Prerequisites
 
@@ -26,8 +26,8 @@ listed under [Release Lines](../README.md#release-lines).
 Rules for `release/v1`:
 
 - No new syntax, opcodes, builtins, artifact format changes, or exported FFI
-  symbols. `tinylang.h` and `tinyone-response-schema.json` stay frozen, and
-  `tools/abi_manifest.py check` must pass.
+  symbols. That branch's published header and response schema stay frozen,
+  and `tools/abi_manifest.py check` must pass. Do not backport the v2 rename.
 - Fix a v1 defect on `release/v1` first, then forward-port it to `main` with
   `git cherry-pick -x <commit>` when `main` has the same defect. Open a
   separate PR instead when the code has diverged too far to cherry-pick.
@@ -42,10 +42,10 @@ neither line rebuilds the other's artifacts:
 ```sh
 # From the primary checkout on main
 git fetch origin
-git worktree add ../TinyOne-v1 release/v1
+git worktree add ../TinyLang-v1 release/v1
 ```
 
-Remove it with `git worktree remove ../TinyOne-v1` once its work is pushed.
+Remove it with `git worktree remove ../TinyLang-v1` once its work is pushed.
 
 ## Build System
 
@@ -69,10 +69,10 @@ Install taplo with `cargo install taplo-cli` for full formatting.
 
 ```sh
 # Build the CLI and library
-cargo build --manifest-path crates/tinyone_core/Cargo.toml
+cargo build --manifest-path crates/tinylang_core/Cargo.toml
 
 # Build the release binary
-cargo build --release --manifest-path crates/tinyone_core/Cargo.toml
+cargo build --release --manifest-path crates/tinylang_core/Cargo.toml
 ```
 
 ## Developer Harness
@@ -88,27 +88,32 @@ cargo run --manifest-path crates/xtask/Cargo.toml -- release-gate
 ```
 
 Supported tasks are `check`, `test`, `test-hooks`, `fmt-check`, `clippy`,
-`bench-smoke`, `tools-test`, and `release-gate`. The harness uses the active
-`crates/tinyone_core/Cargo.toml` and `ralloc/Cargo.toml` manifests plus the Python tools
+`bench-smoke`, `tools-test`, `package-check`, and `release-gate`. The harness uses the active
+`crates/tinylang_core/Cargo.toml` and `crates/tinylang_ralloc/Cargo.toml` manifests plus the Python tools
 under `Tools/`; it does not restore or require the removed root `stdlib/`.
+
+The release gate packages and builds every publishable crate and requires a
+clean working tree for that step. See the
+[publication checklist](CI_CD.md#cratesio-publication) for dirty-tree dry runs,
+package order, the registry ownership prerequisite, and v2 migration details.
 
 ## Running Tests
 
 ```sh
 # Standard test suite (122 tests, all should pass)
-cargo test --manifest-path crates/tinyone_core/Cargo.toml
+cargo test --manifest-path crates/tinylang_core/Cargo.toml
 
 # Language fixture suite (requires testing-hooks feature)
-cargo test --manifest-path crates/tinyone_core/Cargo.toml --features testing-hooks
+cargo test --manifest-path crates/tinylang_core/Cargo.toml --features testing-hooks
 
 # Single test suite
-cargo test --manifest-path crates/tinyone_core/Cargo.toml --test runtime_parity
-cargo test --manifest-path crates/tinyone_core/Cargo.toml --test abi_api_soundness
-cargo test --manifest-path crates/tinyone_core/Cargo.toml --test stdlib_parity
+cargo test --manifest-path crates/tinylang_core/Cargo.toml --test runtime_parity
+cargo test --manifest-path crates/tinylang_core/Cargo.toml --test abi_api_soundness
+cargo test --manifest-path crates/tinylang_core/Cargo.toml --test stdlib_parity
 
 # Run the C FFI smoke test (requires pre-built cdylib)
-cargo build --manifest-path crates/tinyone_core/Cargo.toml
-cargo test --manifest-path crates/tinyone_core/Cargo.toml --test abi_api_soundness \
+cargo build --manifest-path crates/tinylang_core/Cargo.toml
+cargo test --manifest-path crates/tinylang_core/Cargo.toml --test abi_api_soundness \
   c_header_ffi_smoke_covers_ownership_null_and_mode_contracts
 ```
 
@@ -129,25 +134,25 @@ Windows. C++, Rust, and Zig consumers use the same generated `tinylang.h`.
 
 ```sh
 # Format check (must pass before commit)
-cargo fmt --manifest-path crates/tinyone_core/Cargo.toml --all --check
+cargo fmt --manifest-path crates/tinylang_core/Cargo.toml --all --check
 
 # Apply formatting
-cargo fmt --manifest-path crates/tinyone_core/Cargo.toml --all
+cargo fmt --manifest-path crates/tinylang_core/Cargo.toml --all
 
 # Lints (must be clean)
-cargo clippy --manifest-path crates/tinyone_core/Cargo.toml --all-targets -- -D warnings
+cargo clippy --manifest-path crates/tinylang_core/Cargo.toml --all-targets -- -D warnings
 ```
 
 ## Benchmarks
 
 ```sh
 # Full benchmark suite
-cargo build --release --manifest-path crates/tinyone_core/Cargo.toml --bin tinylang_bench
-./crates/tinyone_core/target/release/tinylang_bench
+cargo build --release --manifest-path crates/tinylang_core/Cargo.toml --bin tinylang_bench
+./crates/tinylang_core/target/release/tinylang_bench
 
 # Quick smoke run
-cargo build --release --manifest-path crates/tinyone_core/Cargo.toml --bin tinylang_bench
-./crates/tinyone_core/target/release/tinylang_bench \
+cargo build --release --manifest-path crates/tinylang_core/Cargo.toml --bin tinylang_bench
+./crates/tinylang_core/target/release/tinylang_bench \
   --quick --repeats 1
 ```
 
@@ -168,12 +173,12 @@ the VM/JIT. Follow this sequence:
 
 ### 1. Add a test fixture first
 
-Add a `.to` file to `crates/tinyone/tests/language/pass/`, `fail_compile/`, or
+Add a `.to` file to `crates/tinylang_core/tests/language/pass/`, `fail_compile/`, or
 `fail_runtime/` depending on expected behavior. Run the language suite to
 confirm the fixture fails before your change:
 
 ```sh
-cargo test --manifest-path crates/tinyone_core/Cargo.toml --features testing-hooks 2>&1 | grep FAIL
+cargo test --manifest-path crates/tinylang_core/Cargo.toml --features testing-hooks 2>&1 | grep FAIL
 ```
 
 ### 2. Extend the lexer if needed (`syntax/lexer.rs`, `syntax/token.rs`)
@@ -221,9 +226,9 @@ validates them under the existing limits.
 ### 9. Run the full suite
 
 ```sh
-cargo test --manifest-path crates/tinyone_core/Cargo.toml
-cargo test --manifest-path crates/tinyone_core/Cargo.toml --features testing-hooks
-cargo clippy --manifest-path crates/tinyone_core/Cargo.toml --all-targets -- -D warnings
+cargo test --manifest-path crates/tinylang_core/Cargo.toml
+cargo test --manifest-path crates/tinylang_core/Cargo.toml --features testing-hooks
+cargo clippy --manifest-path crates/tinylang_core/Cargo.toml --all-targets -- -D warnings
 ```
 
 ---
@@ -237,7 +242,7 @@ do not insert into or reorder them.
 
 To add a Phase-2 stdlib bridge builtin:
 
-1. **`TinyOne/src/builtins.rs`** — append a new entry after index 34 in
+1. **`TinyLang/src/builtins.rs`** — append a new entry after index 34 in
    `BUILTINS`. The name must not conflict with any existing builtin.
 
    ```rust
@@ -256,13 +261,13 @@ To add a Phase-2 stdlib bridge builtin:
 4. **TinyLang wrapper modules** — deferred for now. The root `stdlib/` tree has
    been intentionally removed while the standard library surface moves into the
    runtime/system layer.
-5. **`TinyOne/tests/stdlib_parity.rs`** — add at least one test covering the new
+5. **`TinyLang/tests/stdlib_parity.rs`** — add at least one test covering the new
    builtin via `run_source`.
 
 ### Rules for all builtins
 
 - Never use `.unwrap()` or `.expect()` in a builtin implementation.
-- Check argument types explicitly; return `TinyOneError::runtime(…)` on type
+- Check argument types explicitly; return `TinyLangError::runtime(…)` on type
   mismatch rather than panicking.
 - Respect heap limits (MAX_HEAP_BYTES, MAX_ARRAY_LENGTH, MAX_BUFFER_BYTES).
   Validate sizes before allocating.
@@ -278,10 +283,10 @@ root `stdlib/` tree written in TinyLang. Add the Rust builtin first, cover it
 with parity tests, and only add TinyLang wrapper modules if that tree is
 explicitly restored later.
 
-1. Add the builtin entry in `TinyOne/src/builtins.rs`.
-2. Dispatch it through `TinyOne/src/runtime/builtins.rs`.
-3. Implement it in `TinyOne/src/runtime/stdlib.rs`.
-4. Test it through `TinyOne/tests/stdlib_parity.rs`.
+1. Add the builtin entry in `TinyLang/src/builtins.rs`.
+2. Dispatch it through `TinyLang/src/runtime/builtins.rs`.
+3. Implement it in `TinyLang/src/runtime/stdlib.rs`.
+4. Test it through `TinyLang/tests/stdlib_parity.rs`.
 
 ---
 
@@ -289,7 +294,7 @@ explicitly restored later.
 
 ### Language fixture (`.to` file)
 
-Place fixtures under `crates/tinyone/tests/language/`:
+Place fixtures under `crates/tinylang_core/tests/language/`:
 
 - `pass/` — programs expected to compile and print deterministic output.
 - `fail_compile/` — programs expected to fail at compile time.
@@ -302,9 +307,9 @@ when run with `--features testing-hooks`.
 
 Add a `#[test]` function to the appropriate file:
 
-- `TinyOne/tests/runtime_parity.rs` — language behavior, VM/JIT parity
-- `TinyOne/tests/stdlib_parity.rs` — stdlib behavior
-- `TinyOne/tests/abi_api_soundness.rs` — FFI contracts, artifact limits, verifier
+- `TinyLang/tests/runtime_parity.rs` — language behavior, VM/JIT parity
+- `TinyLang/tests/stdlib_parity.rs` — stdlib behavior
+- `TinyLang/tests/abi_api_soundness.rs` — FFI contracts, artifact limits, verifier
 
 All test functions must:
 - Use `run_source` or `compile_source` rather than constructing `Program` by hand
@@ -321,8 +326,8 @@ All test functions must:
   `unreachable!()` outside of `catch_unwind` guards or `#[cfg(test)]` blocks.
 - All operations that can fail must return `Result<T>` and propagate errors
   with `?`.
-- Errors must be `TinyOneError::compile(…)` for compilation-time failures or
-  `TinyOneError::runtime(…)` for execution-time failures.
+- Errors must be `TinyLangError::compile(…)` for compilation-time failures or
+  `TinyLangError::runtime(…)` for execution-time failures.
 - Resource limits must be checked **before** any allocation. Do not allocate a
   `Vec` from an untrusted count field before validating that count against its
   limit.
@@ -341,7 +346,7 @@ When adding a new `extern "C"` function:
    `catch_unwind` guard — `respond()` cannot be used for void functions.
 5. Nullable `const char *` parameters must be annotated `/* nullable */` in the
    header.
-6. Add a test in `TinyOne/tests/abi_api_soundness.rs` exercising the null-pointer
+6. Add a test in `TinyLang/tests/abi_api_soundness.rs` exercising the null-pointer
    and error cases.
 
 ---

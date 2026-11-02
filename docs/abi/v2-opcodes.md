@@ -40,7 +40,7 @@ Loads and verifies a deterministic TinyLang binary artifact. Source text and
 JSON artifacts are not accepted by this opcode. Format 1 is
 [artifact profile 0](v2-artifact-spec.md), an executable main-code-only
 program with no external metadata pools. Format 2 is the existing compiler's
-`TINYONEB` binary artifact, decoded by its untrusted verified loader. It supports
+`TINYLANG` binary artifact, decoded by its untrusted verified loader. It supports
 the compiler's functions and metadata pools without granting serialized host
 permissions. Format 2 currently requires compiler artifact version 5 and at
 most 8 MiB; its compiler-specific version is independent of the TLV2 frame.

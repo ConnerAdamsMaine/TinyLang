@@ -64,7 +64,7 @@ class LocToolTests(unittest.TestCase):
             self.assertEqual(payload["warnings"][0]["kind"], "large_file")
 
 
-    def test_default_extensions_include_tinyone(self) -> None:
+    def test_default_extensions_include_tinylang(self) -> None:
         extensions = loc_tool.selected_extensions(
             [], include_source=False, include_docs=False
         )
@@ -83,7 +83,7 @@ class LocToolTests(unittest.TestCase):
                 ["generated/program.to"],
             )
 
-    def test_tinyone_comments_are_not_counted_as_code(self) -> None:
+    def test_tinylang_comments_are_not_counted_as_code(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             source = root / "program.to"

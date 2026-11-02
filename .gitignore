@@ -79,5 +79,5 @@ git-prep/*
 
 # Local compiler output
 /main.s
-.tinyone-cache/
+.tinylang-cache/
 

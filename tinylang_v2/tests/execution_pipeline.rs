@@ -1,5 +1,5 @@
+use tinylang::{RuntimeValue as Value, VM, VmExecutionLimits, compile_source_unoptimized_verified};
 use tinylang_v2::engine::{ExecutionBackend, ScalarFunction};
-use tinyone::{RuntimeValue as Value, VM, VmExecutionLimits, compile_source_unoptimized_verified};
 
 fn compare(source: &str, args: &[i64], expected: i64) {
     let program = compile_source_unoptimized_verified(source).unwrap();
@@ -89,7 +89,7 @@ fn verified_compiler_artifacts_retain_native_execution_semantics() {
     )
     .unwrap();
     let bytes = compiled.program().to_binary_artifact().unwrap();
-    let loaded = tinyone::VerifiedProgram::from_binary_artifact(&bytes).unwrap();
+    let loaded = tinylang::VerifiedProgram::from_binary_artifact(&bytes).unwrap();
     let scalar = ScalarFunction::lower(&loaded, 0).unwrap();
     for backend in [ExecutionBackend::Interpreter, ExecutionBackend::NativeAsm] {
         let executable = backend.prepare(&scalar).unwrap();

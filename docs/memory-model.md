@@ -2,13 +2,13 @@
 title: Memory Model
 ---
 
-This is the current TinyOne memory and allocator design. It may change
+This is the current TinyLang memory and allocator design. It may change
 during v1 as implementation work continues; the v1 ABI freeze does not
 freeze the internal allocator or memory model. TinyLang v2 is expected
 to make major changes. Send comments, concerns, and questions to the
 [TinyLang community forum](https://tl.404connernotfound.dev).
 
-The TinyOne runtime implementation manages two memory regions: the
+The TinyLang runtime implementation manages two memory regions: the
 **stack-frame memory** (fixed slots per function call) and the **heap**
 (dynamic allocation for all aggregate values). This document covers how
 each region works, how references are validated, and which resource
@@ -79,7 +79,7 @@ and `into_inner` preserve that ownership. For allocated values, a stack-local
 storage guard releases the box's backing after the value and its fields are
 dropped, including when a destructor unwinds. It does not catch or suppress
 the panic, and does not promise cleanup after process abort. This typed Rust
-owner is separate from TinyOne's encoded byte-buffer frame and heap storage.
+owner is separate from TinyLang's encoded byte-buffer frame and heap storage.
 
 # Compiled Cache Retention
 
@@ -169,7 +169,7 @@ Before any access to a heap object, the runtime checks:
 
 If they differ -- because the slot was freed and possibly reallocated
 since `ref` was created -- the runtime returns
-`TinyOneError::runtime("Stale heap reference ...")`.
+`TinyLangError::runtime("Stale heap reference ...")`.
 
 This catches **use-after-free** and prevents a new allocation at the
 same address from being mistaken for the old object.
@@ -199,7 +199,7 @@ a structured runtime error rather than undefined behavior.
 # Ownership Rules
 
 TinyLang does not use garbage collection or compile-time borrow checking
-in the current TinyOne implementation. The Rust runtime owns the heap
+in the current TinyLang implementation. The Rust runtime owns the heap
 for the entire run.
 
 **Aliasing:** Copying a `HeapRef` or `RawPointer` aliases the same heap
@@ -222,7 +222,7 @@ become stale when the base object is freed.
 # Resource Limits
 
 All limits are enforced before allocation. Exceeding a limit produces a
-`TinyOneError::Runtime` rather than unbounded host allocation.
+`TinyLangError::Runtime` rather than unbounded host allocation.
 
 - **Dynamic array length:** 65,536 elements. `push` beyond the limit or
   `array(count, ...)` with `count` above it fails.

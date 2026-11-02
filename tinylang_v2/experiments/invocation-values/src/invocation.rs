@@ -1,9 +1,9 @@
-use tinyone::{RuntimeValue, VM, VerifiedProgram, VmExecutionLimits};
+use tinylang::{RuntimeValue, VM, VerifiedProgram, VmExecutionLimits};
 
 #[derive(Debug)]
 pub enum Failure {
     Arguments,
-    Execution(tinyone::TinyOneError),
+    Execution(tinylang::TinyLangError),
 }
 
 pub struct Invocation {
@@ -15,7 +15,7 @@ pub struct Invocation {
 
 impl Invocation {
     pub fn new() -> Self {
-        let compiled = tinyone::compile_source("fn difference(a, b) { return a - b }").unwrap();
+        let compiled = tinylang::compile_source("fn difference(a, b) { return a - b }").unwrap();
         // Exercise the same untrusted compiler-artifact loader as the v2 adapter.
         let program =
             VerifiedProgram::from_binary_artifact(&compiled.to_binary_artifact().unwrap()).unwrap();

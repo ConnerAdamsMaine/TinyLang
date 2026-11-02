@@ -6,18 +6,20 @@ The preceding requirements remain the scope; this log does not reduce them.
 
 ## Discovery and preservation
 
-The authoritative project directory is `C:/Users/Conner Adams/Desktop/404connernotfound/TinyOne`.
-Its Rust Git repository is the nested `TinyOne` directory. Siblings include
+Historical machine-specific paths below and in the file inventories are
+normalized placeholders, not current checkout locations.
+The authoritative project directory was `<historical-main-checkout>`.
+Its Rust Git repository was a nested checkout. Siblings include
 Authority, Arduino-Coprocessor, TPack, and Web; those projects are untouched.
 The repository is on `main`, commit `523242d95eba2a4787ceefd5ce34f341f649a647`.
-The relocated `TinyOne-v2-abi` worktree belongs to the same repository and
+The relocated `<historical-v2-checkout>` worktree belongs to the same repository and
 branch `v2/abi-binary-protocol`, at the same commit. Its `.git` pointer and
-registered worktree path still name `C:/Users/conne/Desktop/...`.
+registered worktree path still named an earlier machine-specific location.
 
 Read-only inspection succeeded with:
 
 ```powershell
-git --git-dir=.git/worktrees/TinyOne-v2-abi --work-tree='C:/Users/Conner Adams/Desktop/404connernotfound/TinyOne-v2-abi' status --short
+git --git-dir='<registered-worktree-git-dir>' --work-tree='<historical-v2-checkout>' status --short
 git worktree list
 git log -5 --oneline
 ```
@@ -38,7 +40,7 @@ and node_modules; generated/ignored files are not source inventory claims.
 
 Mechanical build repairs, exempt from three-way architectural prototyping:
 
-1. Change the stale dependency `../TinyOne` to `../crates/tinyone_core`.
+1. Change the stale dependency `../TinyLang` to `../crates/tinylang_core`.
 2. Add `[workspace]` to preserve the crate's intended independent workspace.
 3. Cargo refreshes its old dependency lockfile against the actual runtime.
 4. Add a crate-local stable `rustfmt.toml` matching imported formatting rather
@@ -72,7 +74,7 @@ cargo test --manifest-path <v2-worktree>/tinylang_v2/Cargo.toml --target-dir tar
 error: current package believes it's in a workspace when it's not
 ```
 
-The old `../TinyOne` directory contains only target artifacts and no manifest.
+The old `../TinyLang` directory contains only target artifacts and no manifest.
 Thus there is no runnable original baseline at that path. Measurements below
 refer to the minimally repaired import against the current runtime.
 

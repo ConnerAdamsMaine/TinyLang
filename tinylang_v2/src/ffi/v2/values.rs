@@ -1,4 +1,4 @@
-use tinyone::{RuntimeValue, TypeKind};
+use tinylang::{RuntimeValue, TypeKind};
 
 use super::status::{
     TINY_STATUS_INTERNAL, TINY_STATUS_INVALID_ARGUMENT, TINY_STATUS_INVALID_FRAME,

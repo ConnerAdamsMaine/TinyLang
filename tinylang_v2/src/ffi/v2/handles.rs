@@ -6,7 +6,7 @@ mod lifetime;
 pub(super) use execution::with_vm;
 use lifetime::SlotLifetime;
 
-use tinyone::VerifiedProgram;
+use tinylang::VerifiedProgram;
 
 use super::session::VmSession;
 use super::status::{

@@ -61,7 +61,7 @@ pub fn run(args: impl IntoIterator<Item = String>, stdout: &mut dyn Write) -> Re
                 .map_err(|_| CliError::Usage(format!("Invalid i64 argument {raw:?}")))
         })
         .collect::<Result<_, _>>()?;
-    let program = tinyone::compile_file_verified(&filename).map_err(EngineError::from)?;
+    let program = tinylang::compile_file_verified(&filename).map_err(EngineError::from)?;
     let index = program
         .program()
         .functions()

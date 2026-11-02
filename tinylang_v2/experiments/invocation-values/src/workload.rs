@@ -1,6 +1,6 @@
 use crate::invocation::{Failure, Invocation};
 use std::{hint::black_box, time::Instant};
-use tinyone::RuntimeValue;
+use tinylang::RuntimeValue;
 
 pub fn benchmark() {
     let mut invocation = Invocation::new();

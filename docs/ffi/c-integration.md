@@ -2,17 +2,18 @@
 title: C Integration
 ---
 
-# TinyOne C FFI Integration Guide
+# TinyLang C FFI Integration Guide
 
-TinyOne builds as a `cdylib` alongside the CLI binary. All public entry points
-are declared in `tinylang.h` at the repository root. This document covers how to
-embed TinyOne in a C or C++ application.
+TinyLang builds as a `cdylib` alongside the CLI binary. All public entry points
+are declared in `crates/tinylang_core/include/tinylang.h`, which is included
+in the crate archive. The root `tinylang.h` forwards to it for source-checkout
+consumers. This document covers embedding TinyLang in C or C++.
 
-**ABI VERSION 1.** The public C ABI is frozen for the entire v1 lifecycle.
-Check `tinyone_abi_version()` against `TINYONE_ABI_VERSION` before use. Expect
-major changes to the language boundary in TinyLang v2.
+**ABI VERSION 2.** Check `tinylang_abi_version()` against
+`TINYLANG_ABI_VERSION` before use. Rebuild v1 consumers against the renamed
+library and header. The experimental binary ABI is separate.
 
-This guide describes the current v1 integration surface, not a promise that
+This guide describes the current JSON C integration surface, not a promise that
 old FFI designs or implementations will remain available forever. Send
 comments, concerns, and questions to the [TinyLang community
 forum](https://tl.404connernotfound.dev).
@@ -21,34 +22,34 @@ forum](https://tl.404connernotfound.dev).
 
 ```sh
 # Debug (for development and testing)
-cargo build --manifest-path crates/tinyone_core/Cargo.toml
+cargo build --manifest-path crates/tinylang_core/Cargo.toml
 
 # Release (for embedding; includes the sandbox worker)
-cargo build --release --manifest-path crates/tinyone_core/Cargo.toml
+cargo build --release --manifest-path crates/tinylang_core/Cargo.toml
 ```
 
 Output locations:
 
 | Platform | Debug                                               | Release                                               |
 | -------- | --------------------------------------------------- | ----------------------------------------------------- |
-| Linux    | `target/debug/libtinyone.so`    | `target/release/libtinyone.so`    |
-| macOS    | `target/debug/libtinyone.dylib` | `target/release/libtinyone.dylib` |
-| Windows  | `target/debug/tinyone.dll`      | `target/release/tinyone.dll`      |
+| Linux    | `target/debug/libtinylang.so`    | `target/release/libtinylang.so`    |
+| macOS    | `target/debug/libtinylang.dylib` | `target/release/libtinylang.dylib` |
+| Windows  | `target/debug/tinylang.dll`      | `target/release/tinylang.dll`      |
 
-The `tinyone-sandbox-worker` executable produced in the same target directory
+The `tinylang-sandbox-worker` executable produced in the same target directory
 must be shipped beside the host executable (or configured with
-`TINYONE_SANDBOX_WORKER`) for the execution entry points.
+`TINYLANG_SANDBOX_WORKER`) for the execution entry points.
 
 ## Linking
 
 ```sh
 # Linux
 cc -std=c11 your_app.c -I/path/to/repo -L/path/to/target/release \
-   -Wl,-rpath,/path/to/target/release -ltinyone -o your_app
+   -Wl,-rpath,/path/to/target/release -ltinylang -o your_app
 
 # macOS
 cc -std=c11 your_app.c -I/path/to/repo -L/path/to/target/release \
-   -rpath @loader_path -ltinyone -o your_app
+   -rpath @loader_path -ltinylang -o your_app
 ```
 
 Include the header:
@@ -59,22 +60,22 @@ Include the header:
 
 ## Header Drift Checks
 
-The committed generated C header for the current ABI is `tinylang.h`. It keeps
-exported symbols named `tinyone_*`; do not rename the C symbols as part of
+The generated C header is `crates/tinylang_core/include/tinylang.h`. It keeps
+exported symbols named `tinylang_*`; do not rename the C symbols as part of
 ordinary header work.
 
-`tinyone_abi_version()` returns the ABI version reported by the library, and
-`TINYONE_ABI_VERSION` is the matching header constant. Both are `1` for the
+`tinylang_abi_version()` returns the ABI version reported by the library, and
+`TINYLANG_ABI_VERSION` is the matching header constant. Both are `2` for the
 declared ABI.
 
-Before changing `crates/tinyone/src/ffi.rs` or `tinylang.h`, run:
+Before changing `crates/tinylang_core/src/ffi.rs` or its generated header, run:
 
 ```sh
 ./scripts/check_abi_drift.sh
 ```
 
 That command uses only Python's standard library and compares exported
-`extern "C"` Rust symbols against `tinylang.h`. A deterministic manifest is
+`extern "C"` Rust symbols against the packaged header. A deterministic manifest is
 available for review:
 
 ```sh
@@ -84,7 +85,7 @@ uv run --no-project python tools/abi_manifest.py manifest
 Header generation is optional and requires a local `cbindgen` binary:
 
 ```sh
-uv run --no-project python tools/abi_manifest.py generate-header --output tinylang.h
+uv run --no-project python tools/abi_manifest.py generate-header
 ```
 
 If `cbindgen` is missing, the tool reports that explicitly and still supports
@@ -93,16 +94,16 @@ the no-dependency drift check.
 ## Ownership Contract
 
 Every function that returns `char *` returns a **heap-allocated, NUL-terminated
-UTF-8 string**. The caller must free it with `tinyone_free_string`. Do not call
+UTF-8 string**. The caller must free it with `tinylang_free_string`. Do not call
 the C standard library `free()` — the allocator may differ.
 
 ```c
-char *result = tinyone_run_source_json("print 42", "jit", NULL);
+char *result = tinylang_run_source_json("print 42", "jit", NULL);
 // ... use result ...
-tinyone_free_string(result);  // required
+tinylang_free_string(result);  // required
 ```
 
-`tinyone_free_string(NULL)` is always safe and is a no-op.
+`tinylang_free_string(NULL)` is always safe and is a no-op.
 
 ## JSON Response Format
 
@@ -112,7 +113,7 @@ All functions return a JSON string. There are four response shapes:
 {"ok": true,  "value": { ... }}
 {"ok": false, "kind": "compile",  "error": "message"}
 {"ok": false, "kind": "runtime",  "error": "message"}
-{"ok": false, "kind": "panic",    "error": "TinyOne panicked across the FFI boundary"}
+{"ok": false, "kind": "panic",    "error": "TinyLang panicked across the FFI boundary"}
 ```
 
 The `"panic"` shape should never occur in normal use — it indicates a library
@@ -133,30 +134,30 @@ limited to 1 MiB, paths to 32 KiB, execution modes to 16 bytes, and
 `inputs_json` to 8 MiB (limits exclude the trailing NUL). File and imported
 source files are subject to the same 1 MiB source limit.
 
-Execution entry points run in the `tinyone-sandbox-worker` child process. The
+Execution entry points run in the `tinylang-sandbox-worker` child process. The
 parent enforces a five-second wall-clock deadline and terminates the worker if
 it is exceeded. Install the worker beside the host executable, or set
-`TINYONE_SANDBOX_WORKER` to its path. The worker inherits the host process's OS
+`TINYLANG_SANDBOX_WORKER` to its path. The worker inherits the host process's OS
 permissions; use a restricted account, container, or Windows job object for
 untrusted principals requiring stronger isolation.
 
 ## Entry Points
 
-### `tinyone_free_string`
+### `tinylang_free_string`
 
 ```c
-void tinyone_free_string(char *value);
+void tinylang_free_string(char *value);
 ```
 
-Free a string returned by any `tinyone_*_json` function. Calling with `NULL` is
+Free a string returned by any `tinylang_*_json` function. Calling with `NULL` is
 safe. Do not call on any pointer not returned by this library.
 
 ---
 
-### `tinyone_lex_source_json`
+### `tinylang_lex_source_json`
 
 ```c
-char *tinyone_lex_source_json(const char *source);
+char *tinylang_lex_source_json(const char *source);
 ```
 
 Lex `source` and return the number of tokens.
@@ -171,10 +172,10 @@ Lex `source` and return the number of tokens.
 
 ---
 
-### `tinyone_compile_source_json`
+### `tinylang_compile_source_json`
 
 ```c
-char *tinyone_compile_source_json(const char *source);
+char *tinylang_compile_source_json(const char *source);
 ```
 
 Compile `source` through the full pipeline (lex → compile → optimize → verify).
@@ -186,7 +187,7 @@ Returns a bytecode artifact and its fingerprint.
 {
   "ok": true,
   "value": {
-    "artifact":    { "format": "tinyone-bytecode", "version": 1, … },
+    "artifact":    { "format": "tinylang-bytecode", "version": 1, … },
     "fingerprint": "a1b2c3d4e5f60718"
   }
 }
@@ -196,22 +197,22 @@ Returns a bytecode artifact and its fingerprint.
 
 ---
 
-### `tinyone_compile_file_json`
+### `tinylang_compile_file_json`
 
 ```c
-char *tinyone_compile_file_json(const char *path);
+char *tinylang_compile_file_json(const char *path);
 ```
 
-Same as `tinyone_compile_source_json` but reads source from `path` on disk.
+Same as `tinylang_compile_source_json` but reads source from `path` on disk.
 The path is canonicalized before reading; relative paths are resolved from the
 process working directory.
 
 ---
 
-### `tinyone_run_source_json`
+### `tinylang_run_source_json`
 
 ```c
-char *tinyone_run_source_json(
+char *tinylang_run_source_json(
     const char *source,
     const char *mode,
     const char *inputs_json  /* nullable */
@@ -255,10 +256,10 @@ immediately before and after runtime cleanup.
 
 ---
 
-### `tinyone_run_file_json`
+### `tinylang_run_file_json`
 
 ```c
-char *tinyone_run_file_json(
+char *tinylang_run_file_json(
     const char *path,
     const char *mode,
     const char *inputs_json  /* nullable */
@@ -266,14 +267,14 @@ char *tinyone_run_file_json(
 ```
 
 Compile the file at `path` and run it. Same response shape as
-`tinyone_run_source_json`.
+`tinylang_run_source_json`.
 
 ---
 
-### `tinyone_run_artifact_json`
+### `tinylang_run_artifact_json`
 
 ```c
-char *tinyone_run_artifact_json(
+char *tinylang_run_artifact_json(
     const char *artifact_json,
     const char *mode,
     const char *inputs_json  /* nullable */
@@ -293,10 +294,10 @@ artifact returns a verification error.
 
 ---
 
-### `tinyone_jit_listing_json`
+### `tinylang_jit_listing_json`
 
 ```c
-char *tinyone_jit_listing_json(const char *artifact_json);
+char *tinylang_jit_listing_json(const char *artifact_json);
 ```
 
 Compile the artifact through the JIT tier and return its assembly listing as
@@ -308,7 +309,7 @@ a text string. The same 8 MiB byte limit applies.
 {
   "ok": true,
   "value": {
-    "listing": "; tinyone adaptive-jit a1b2c3d4e5f60718\n; chunks=1 ops=3 …\n.chunk 0 main …\n  0000 push.i 42\n  0001 print\n  0002 halt\n"
+    "listing": "; tinylang adaptive-jit a1b2c3d4e5f60718\n; chunks=1 ops=3 …\n.chunk 0 main …\n  0000 push.i 42\n  0001 print\n  0002 halt\n"
   }
 }
 ```
@@ -322,22 +323,22 @@ a text string. The same 8 MiB byte limit applies.
 
 int main(void) {
     /* Compile and run inline source */
-    char *result = tinyone_run_source_json(
+    char *result = tinylang_run_source_json(
         "let x = 6 * 7\nprint x",
         "jit",
         NULL
     );
     if (result == NULL) {
-        fprintf(stderr, "tinyone returned NULL\n");
+        fprintf(stderr, "tinylang returned NULL\n");
         return 1;
     }
     if (strstr(result, "\"ok\":true") == NULL) {
         fprintf(stderr, "error: %s\n", result);
-        tinyone_free_string(result);
+        tinylang_free_string(result);
         return 1;
     }
     printf("%s\n", result);
-    tinyone_free_string(result);
+    tinylang_free_string(result);
     return 0;
 }
 ```
@@ -346,19 +347,19 @@ int main(void) {
 
 ```c
 /* Compile to artifact */
-char *compiled = tinyone_compile_source_json(
+char *compiled = tinylang_compile_source_json(
     "let n = read_int()\nprint n * n"
 );
 /* Extract artifact field from the JSON response (use a JSON library) */
 /* ... extract artifact_json string ... */
 
 /* Run with a pre-supplied input */
-char *run1 = tinyone_run_artifact_json(artifact_json, "jit", "[\"7\"]");
-char *run2 = tinyone_run_artifact_json(artifact_json, "jit", "[\"12\"]");
+char *run1 = tinylang_run_artifact_json(artifact_json, "jit", "[\"7\"]");
+char *run2 = tinylang_run_artifact_json(artifact_json, "jit", "[\"12\"]");
 
-tinyone_free_string(run1);
-tinyone_free_string(run2);
-tinyone_free_string(compiled);
+tinylang_free_string(run1);
+tinylang_free_string(run2);
+tinylang_free_string(compiled);
 ```
 
 ## Error Handling Pattern
@@ -374,14 +375,14 @@ static int check_ok(const char *label, char *response) {
     return 0;
 }
 
-char *r = tinyone_run_source_json("print 1", "vm", NULL);
-if (!check_ok("run", r)) { tinyone_free_string(r); return 1; }
-tinyone_free_string(r);
+char *r = tinylang_run_source_json("print 1", "vm", NULL);
+if (!check_ok("run", r)) { tinylang_free_string(r); return 1; }
+tinylang_free_string(r);
 ```
 
 ## Threading
 
-TinyOne has no global mutable state in its public API. Each call is fully
+TinyLang has no global mutable state in its public API. Each call is fully
 self-contained. You may call FFI functions from multiple threads simultaneously
 **if each call uses a distinct set of arguments** — there is no shared mutable
 state between calls. Do not share a `char *` response pointer across threads
@@ -395,10 +396,10 @@ independently safe.
 
 ## Known Limitations
 
-- `tinyone_free_string` is panic-contained, but passing a double-freed pointer
+- `tinylang_free_string` is panic-contained, but passing a double-freed pointer
   or a non-NUL-terminated pointer remains undefined behavior. Obey the
   ownership contract.
 - All future `extern "C"` entry points must be panic-contained. Functions that
   return JSON must use the internal `respond()` helper; void-returning
   functions must use an equivalent `catch_unwind` guard before being exported.
-- ABI version 1 is frozen; incompatible changes require a new ABI version.
+- Incompatible changes to the JSON C contract require a new ABI version.

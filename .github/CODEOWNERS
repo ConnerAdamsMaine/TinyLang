@@ -1,4 +1,4 @@
-# CODEOWNERS for TinyOne -- owner first, maintainer second.
+# CODEOWNERS for TinyLang -- owner first, maintainer second.
 # Last matching pattern wins (GitHub + Graphite semantics).
 # Keep docs owned by @ConnerAdamsMaine; build system owned by @mrdwarf7 so
 # Connor's laziness doesn't break a working makefile. Owner can still override via CODEOWNERS file itself.

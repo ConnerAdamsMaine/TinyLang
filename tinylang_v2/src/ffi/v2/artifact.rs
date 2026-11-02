@@ -1,4 +1,4 @@
-use tinyone::{Instr, Op, Program, VerifiedProgram};
+use tinylang::{Instr, Op, Program, VerifiedProgram};
 
 use super::schema::{ArtifactFormat, MAX_ARTIFACT_BYTES, ProgramLoad};
 
@@ -200,11 +200,11 @@ fn read_i64(bytes: &[u8], offset: usize) -> i64 {
 #[cfg(test)]
 mod compiler_tests {
     use super::*;
-    use tinyone::{RuntimeValue, VM, VmExecutionLimits};
+    use tinylang::{RuntimeValue, VM, VmExecutionLimits};
 
     #[test]
     fn compiler_adapter_preserves_functions_and_pools_without_granting_host_authority() {
-        let source = tinyone::compile_source(
+        let source = tinylang::compile_source(
             "fn answer() { return 42 } fn text_len() { return len(\"hello\") } \
              fn count() { return len([1, 2]) } fn probe() { return fs_exists(\".\") }",
         )

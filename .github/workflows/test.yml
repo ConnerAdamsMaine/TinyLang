@@ -57,3 +57,7 @@ jobs:
       - name: "ABI drift"
         shell: "bash"
         run: uv run --no-project --python 3.12 python tools/abi_manifest.py check
+
+      - name: "Verify publication packages (no upload)"
+        shell: "bash"
+        run: cargo package --workspace --exclude tinylang-xtask --locked

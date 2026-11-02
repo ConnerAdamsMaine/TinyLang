@@ -689,7 +689,7 @@ dependencies = [
 
 [[package]]
 name = "tinylang"
-version = "1.5.1"
+version = "2.0.0"
 dependencies = [
  "blake2",
  "ed25519-dalek",
@@ -698,7 +698,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "thiserror",
- "tinyone_ralloc",
+ "tinylang_ralloc",
  "toml",
 ]
 
@@ -717,7 +717,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "tinyone_ralloc"
+name = "tinylang_ralloc"
 version = "0.2.0"
 
 [[package]]

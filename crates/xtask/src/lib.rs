@@ -12,6 +12,7 @@ pub enum Task {
     Clippy,
     BenchSmoke,
     ToolsTest,
+    PackageCheck,
     ReleaseGate,
 }
 
@@ -24,6 +25,7 @@ impl Task {
         Task::Clippy,
         Task::BenchSmoke,
         Task::ToolsTest,
+        Task::PackageCheck,
         Task::ReleaseGate,
     ];
 }
@@ -44,6 +46,7 @@ impl From<Task> for &'static str {
             Task::Clippy => "clippy",
             Task::BenchSmoke => "bench-smoke",
             Task::ToolsTest => "tools-test",
+            Task::PackageCheck => "package-check",
             Task::ReleaseGate => "release-gate",
         }
     }
@@ -61,6 +64,7 @@ impl FromStr for Task {
             "clippy" => Ok(Task::Clippy),
             "bench-smoke" => Ok(Task::BenchSmoke),
             "tools-test" => Ok(Task::ToolsTest),
+            "package-check" => Ok(Task::PackageCheck),
             "release-gate" => Ok(Task::ReleaseGate),
             other => Err(format!("unknown task: {other}")),
         }
@@ -162,6 +166,7 @@ pub fn plan_for(task: Task) -> Plan {
         Task::Clippy => vec![clippy_step()],
         Task::BenchSmoke => vec![bench_smoke_step()],
         Task::ToolsTest => vec![tools_test_step()],
+        Task::PackageCheck => vec![package_check_step()],
         Task::ReleaseGate => {
             vec![
                 check_step(),
@@ -171,6 +176,7 @@ pub fn plan_for(task: Task) -> Plan {
                 clippy_step(),
                 bench_smoke_step(),
                 tools_test_step(),
+                package_check_step(),
             ]
         }
     };
@@ -178,22 +184,22 @@ pub fn plan_for(task: Task) -> Plan {
     Plan { task, steps }
 }
 
-/// Locate the root of the `TinyOne` repo from the current working directory.
+/// Locate the root of the `TinyLang` repo from the current working directory.
 ///
 /// # Errors
-/// Returns an error if the current working directory is not the root of the `TinyOne` repo,
+/// Returns an error if the current working directory is not the root of the `TinyLang` repo,
 /// or if it cannot read the current working directory.
 pub fn repo_root_from_cwd() -> Result<PathBuf, String> {
     let cwd = std::env::current_dir().map_err(|err| format!("cannot read cwd: {err}"))?;
-    if cwd.join("crates/tinyone_core/Cargo.toml").is_file()
-        && cwd.join("crates/tinyone_ralloc/Cargo.toml").is_file()
+    if cwd.join("crates/tinylang_core/Cargo.toml").is_file()
+        && cwd.join("crates/tinylang_ralloc/Cargo.toml").is_file()
         && cwd.join("tools/test_zip.py").is_file()
     {
         return Ok(cwd);
     }
 
     Err(format!(
-        "run xtask from the TinyOne repo root; missing crates/tinyone_core/Cargo.toml, crates/tinyone_ralloc/Cargo.toml, or tools/test_zip.py under {}",
+        "run xtask from the TinyLang repo root; missing crates/tinylang_core/Cargo.toml, crates/tinylang_ralloc/Cargo.toml, or tools/test_zip.py under {}",
         cwd.display()
     ))
 }
@@ -220,13 +226,13 @@ fn check_step() -> Step {
             cargo(&[
                 "check",
                 "--manifest-path",
-                "crates/tinyone_core/Cargo.toml",
+                "crates/tinylang_core/Cargo.toml",
                 "--all-targets",
             ]),
             cargo(&[
                 "check",
                 "--manifest-path",
-                "crates/tinyone_ralloc/Cargo.toml",
+                "crates/tinylang_ralloc/Cargo.toml",
                 "--all-targets",
             ]),
         ],
@@ -238,8 +244,8 @@ fn test_step() -> Step {
         "test",
         [
             cargo(&["test", "--manifest-path", "crates/xtask/Cargo.toml"]),
-            cargo(&["test", "--manifest-path", "crates/tinyone_core/Cargo.toml"]),
-            cargo(&["test", "--manifest-path", "crates/tinyone_ralloc/Cargo.toml"]),
+            cargo(&["test", "--manifest-path", "crates/tinylang_core/Cargo.toml"]),
+            cargo(&["test", "--manifest-path", "crates/tinylang_ralloc/Cargo.toml"]),
         ],
     )
 }
@@ -250,7 +256,7 @@ fn test_hooks_step() -> Step {
         [cargo(&[
             "test",
             "--manifest-path",
-            "crates/tinyone_core/Cargo.toml",
+            "crates/tinylang_core/Cargo.toml",
             "--features",
             "testing-hooks",
         ])],
@@ -265,14 +271,14 @@ fn fmt_check_step() -> Step {
             cargo(&[
                 "fmt",
                 "--manifest-path",
-                "crates/tinyone_core/Cargo.toml",
+                "crates/tinylang_core/Cargo.toml",
                 "--all",
                 "--check",
             ]),
             cargo(&[
                 "fmt",
                 "--manifest-path",
-                "crates/tinyone_ralloc/Cargo.toml",
+                "crates/tinylang_ralloc/Cargo.toml",
                 "--all",
                 "--check",
             ]),
@@ -296,7 +302,7 @@ fn clippy_step() -> Step {
             cargo(&[
                 "clippy",
                 "--manifest-path",
-                "crates/tinyone_core/Cargo.toml",
+                "crates/tinylang_core/Cargo.toml",
                 "--all-targets",
                 "--",
                 "-D",
@@ -305,7 +311,7 @@ fn clippy_step() -> Step {
             cargo(&[
                 "clippy",
                 "--manifest-path",
-                "crates/tinyone_ralloc/Cargo.toml",
+                "crates/tinylang_ralloc/Cargo.toml",
                 "--all-targets",
                 "--",
                 "-D",
@@ -322,7 +328,7 @@ fn bench_smoke_step() -> Step {
             "run",
             "--release",
             "--manifest-path",
-            "crates/tinyone_core/Cargo.toml",
+            "crates/tinylang_core/Cargo.toml",
             "--bin",
             "tinylang_bench",
             "--",
@@ -339,18 +345,24 @@ fn tools_test_step() -> Step {
     Step::new(
         "tools-test",
         [
-            python(&[
-                "-m",
-                "unittest",
-                "tools.test_abi_manifest",
-                "tools.test_hash",
-                "tools.test_loc",
-                "tools.test_zip",
-            ]),
+            python(&["-m", "unittest", "discover", "-s", "tools", "-p", "test_*.py"]),
             python(&["tools/abi_manifest.py", "check"]),
             python(&["tools/hash.py", "tools/hash.py", "--format", "plain"]),
             python(&["tools/loc.py", "--json"]),
         ],
+    )
+}
+
+fn package_check_step() -> Step {
+    Step::new(
+        "package-check",
+        [cargo(&[
+            "package",
+            "--workspace",
+            "--exclude",
+            "tinylang-xtask",
+            "--locked",
+        ])],
     )
 }
 

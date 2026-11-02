@@ -30,7 +30,7 @@ by the three invocation candidates. They do not select tagged, packed or
 stack-based interchange, and no performance advantage is claimed. Structs,
 enums and other heap variants still need explicit conversion support.
 
-Three tests in `crates/tinyone_core/tests/vm_interchange.rs` cover:
+Three tests in `crates/tinylang_core/tests/vm_interchange.rs` cover:
 
 - Identity-function arguments/results for UTF-8 strings with embedded NULs,
   arbitrary bytes, signed integer arrays and empty containers.

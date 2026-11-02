@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use tinyone::{Op, VerifiedProgram};
+use tinylang::{Op, VerifiedProgram};
 
 use super::EngineError;
 

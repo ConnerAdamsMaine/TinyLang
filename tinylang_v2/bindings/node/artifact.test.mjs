@@ -87,7 +87,7 @@ test("compiler-produced version-5 artifact survives Node format2 encoding", {
     : false,
 }, () => {
   const artifact = readFileSync(process.env.TINYLANG_V2_COMPILER_ARTIFACT);
-  assert.equal(artifact.subarray(0, 8).toString("ascii"), "TINYONEB");
+  assert.equal(artifact.subarray(0, 8).toString("ascii"), "TINYLANG");
   assert.equal(artifact.readUInt16LE(8), 5);
   const encoded = sdk.makeProgramLoadRequest(
     artifact,

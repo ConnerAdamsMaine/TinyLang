@@ -16,7 +16,7 @@ fn cli_rejects_unknown_backend_and_bad_arguments_without_success_output() {
 #[test]
 fn cli_executes_source_via_explicit_backend_and_emits_llvm_ir() {
     let source =
-        std::env::temp_dir().join(format!("tinylang-v2-cli-{}.tinyone", std::process::id(),));
+        std::env::temp_dir().join(format!("tinylang-v2-cli-{}.tinylang", std::process::id(),));
     std::fs::write(&source, "fn add(a,b) { return a+b }").unwrap();
     for backend in ["interpreter", "asm"] {
         let output = Command::new(env!("CARGO_BIN_EXE_tinylang-v2"))

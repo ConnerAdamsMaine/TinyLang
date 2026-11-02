@@ -4,7 +4,7 @@ Status: experimental v2.0 profile 0
 Transport opcode: [`PROGRAM_LOAD`](v2-opcodes.md#0x1000--program_load)
 
 This document specifies `artifact_format = 1` only. Format 2 separately adapts
-the current compiler's `TINYONEB` version-5 artifact through its existing
+the current compiler's `TINYLANG` version-5 artifact through its existing
 untrusted verifier (8 MiB maximum). Format 2 is experimental compiler
 interoperability, not a new TLBC profile or a promise of cross-version compiler
 artifact compatibility. The decoder is selected explicitly by the opcode
@@ -116,4 +116,3 @@ Container, opcode, or verifier failure produces a response with
 `TINY_STATUS_INVALID_ARTIFACT`; no handle is inserted. Registry exhaustion
 produces `TINY_STATUS_OUT_OF_MEMORY`. Success returns one 16-byte Handle record
 and transfers one host-owned reference, releasable through `HANDLE_RELEASE`.
-

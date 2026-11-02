@@ -1,7 +1,9 @@
+use tinylang::{
+    Function, Instr, Op, Program, VerifiedProgram, compile_source_unoptimized_verified,
+};
 use tinylang_v2::engine::{EngineError, ScalarFunction, TrapKind};
-use tinyone::{Function, Instr, Op, Program, VerifiedProgram, compile_source_unoptimized_verified};
 
-fn verify(code: Vec<Instr>, slots: usize) -> tinyone::Result<VerifiedProgram> {
+fn verify(code: Vec<Instr>, slots: usize) -> tinylang::Result<VerifiedProgram> {
     VerifiedProgram::verify(
         Program::new(vec![Instr::new(Op::Halt, 0, 0)], 0).with_functions(vec![Function::new(
             "candidate",

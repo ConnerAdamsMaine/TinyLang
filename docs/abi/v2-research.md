@@ -57,7 +57,7 @@ effects remain hypotheses, with no external binary or timing measurements.
 
 ## Current compiler boundary audit
 
-The current compiler emits `TINYONEB` version 5 through
+The current compiler emits `TINYLANG` version 5 through
 `Program::to_binary_artifact`. `VerifiedProgram::from_binary_artifact` decodes
 and verifies without trusting serialized host authority; its separate trusted
 entry point must not be used for foreign bytes. This decoder supports functions,

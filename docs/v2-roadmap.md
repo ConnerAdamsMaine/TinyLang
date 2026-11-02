@@ -1,8 +1,8 @@
 ---
-title: TinyOne v2 Roadmap
+title: TinyLang v2 Roadmap
 ---
 
-TinyOne is now in the v2 language generation. V2 expands the language
+TinyLang is now in the v2 language generation. V2 expands the language
 core while preserving the existing VM, JIT, Ralloc-backed heap, bytecode
 verifier, and VM/JIT parity requirements.
 
@@ -47,8 +47,8 @@ constraints provide value.
   FFI representations synchronized as the language grows.
 - Maintain parity tests for direct calls, function values, captured
   calls, generic declarations, artifacts, and both execution backends.
-- Preserve the frozen v1 ABI policy as v2 evolves; entering v2 does not
-  silently make the C ABI unstable for existing v1 consumers.
+- Preserve the frozen v1 ABI on `release/v1`. The renamed JSON C exports on
+  `main` declare ABI version 2; the experimental binary ABI stays separate.
 
 # V2 status
 

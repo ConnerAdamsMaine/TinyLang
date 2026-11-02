@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use tinyone::{Instr, Op, Program, RuntimeValue, TinyMemory, VM};
+use tinylang::{Instr, Op, Program, RuntimeValue, TinyMemory, VM};
 
 #[derive(Debug, PartialEq)]
 pub enum Outcome {

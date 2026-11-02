@@ -28,7 +28,7 @@ fn run_case(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let verified = decode_binary_artifact(&artifact)
         .map_err(|error| format!("{} failed v2 decoding: {error:?}", path.display()))?;
     let mut stdout = Vec::new();
-    tinyone::run_program(
+    tinylang::run_program(
         Arc::new(verified.program().clone()),
         "vm",
         &mut stdout,

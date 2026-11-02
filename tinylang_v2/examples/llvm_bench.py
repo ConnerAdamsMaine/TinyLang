@@ -85,7 +85,7 @@ def main() -> None:
     ir = subprocess.run(
         [
             str(root / "target" / "release" / "tinylang-v2.exe"), "--backend", "llvm",
-            str(root / "examples" / "scalar.tinyone"), "sum",
+            str(root / "examples" / "scalar.tinylang"), "sum",
         ],
         check=True, capture_output=True, text=True, timeout=15,
     ).stdout

@@ -4,7 +4,7 @@ title: Standard Library
 
 # TinyLang Standard Library Reference
 
-TinyLang has two layers of builtin functions in the current TinyOne
+TinyLang has two layers of builtin functions in the current TinyLang
 implementation:
 
 - **Phase-1 (core builtins)** — slots 0–34 in the canonical builtin table.
@@ -26,7 +26,7 @@ into the system.
 Historical TinyLang module imports looked like this, but they are not the
 active verification path in the current checkout:
 
-```tinyone
+```tinylang
 import "vec"    as vec
 import "map"    as map
 import "io"     as io
@@ -302,7 +302,7 @@ the bytes are not valid UTF-8.
 
 ### Threading and sync (`sync`)
 
-The current TinyOne implementation supports real OS multithreading. Threads
+The current TinyLang implementation supports real OS multithreading. Threads
 share the same heap; mutex and atomic operations use blocking OS primitives.
 
 #### `thread_spawn(fn_name, arg...) → thread`
@@ -349,7 +349,7 @@ Results and options are heap structs with a tag field.
 
 #### Result
 
-```tinyone
+```tinylang
 let r = result_ok(42)
 let e = result_err("not found")
 print result_is_ok(r)       # 1
@@ -368,7 +368,7 @@ print result_unwrap_err(e)  # "not found"
 
 #### Option
 
-```tinyone
+```tinylang
 let some = option_some(99)
 let none = option_none()
 print option_is_some(some)   # 1

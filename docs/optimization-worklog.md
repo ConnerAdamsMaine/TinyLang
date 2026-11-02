@@ -1,6 +1,6 @@
 # Total-system optimization worklog
 
-This batch follows all 40 sections of the user-provided **TinyOne Total System
+This batch follows all 40 sections of the user-provided **TinyLang Total System
 Optimization Plan**. This is an in-progress evidence log, not a completion
 report. The scope includes the compiler, verifier, interpreted JIT, runtime,
 Ralloc, memory, collections, capabilities, caches, and diagnostics. Native code
@@ -39,7 +39,7 @@ the historical timing records or close their performance-acceptance gaps.
   fingerprint design. Read the installed `serde_json` 1.0.150 README's value
   representation/API documentation after its versioned web page failed.
   No dependency replacement is proposed.
-- Ralloc documentation is chiefly inline in `crates/tinyone_ralloc/src/`, its
+- Ralloc documentation is chiefly inline in `crates/tinylang_ralloc/src/`, its
   C header, and the shared memory/architecture/performance pages. Allocator
   architecture/ownership gate has been read, including `lib`, `buffer`, `vm`,
   `ralloc`, `arena`, `block`, `backend`, `region`, `sync`, `page`, instrumentation,
@@ -51,7 +51,7 @@ the historical timing records or close their performance-acceptance gaps.
 Locked direct dependencies: `thiserror` 2.0.18, `blake2` 0.10.6, `hex` 0.4.3,
 `serde` 1.0.228 (derive), `serde_json` 1.0.150, `toml` 0.8.23,
 `ed25519-dalek` 2.2.0 (std, no defaults), `sha2` 0.10.9, and local
-`tinyone_ralloc` 0.2.0. Ralloc has no production external dependencies. Relevant
+`tinylang_ralloc` 0.2.0. Ralloc has no production external dependencies. Relevant
 test dependencies are `tempfile` 3.27.0 and `static_assertions` 1.1.0. Libraries
 not used by a change still need their API documentation read before that change.
 
@@ -59,7 +59,7 @@ not used by a change still need their API documentation read before that change.
 
 - `cargo test --workspace --features testing-hooks --locked --offline`: passed
   before source changes. Ralloc's mixed-size fragmentation test and one existing
-  TinyOne doctest are ignored. Windows does not select the Unix-only Ralloc C
+  TinyLang doctest are ignored. Windows does not select the Unix-only Ralloc C
   suite; this does not prove that suite passed.
 - `cargo build --release -p tinylang --bin tinylang_bench --locked --offline`:
   passed before source changes.
@@ -201,7 +201,7 @@ not used by a change still need their API documentation read before that change.
 - A new Miri regression then proved safe byte reads could observe uninitialized
   padding left by a freed `RallocBox`. Owned byte allocation and growth now
   initialize their entire new logical byte range before exposing safe slices.
-  TinyOne's redundant outer zero-fill was removed. Shrink/regrow, over-alignment,
+  TinyLang's redundant outer zero-fill was removed. Shrink/regrow, over-alignment,
   empty growth, in-place growth and moving growth have regressions.
 - Strict-provenance Miri passes all 26 focused fragmentation, initialization,
   native-buffer and native-box tests (`miri-owned-buffers-after.log`). Full
@@ -1647,7 +1647,7 @@ plan; no machine settings changed):
   control, and was never used in this comparison; its matching-number source
   archive is not a valid executable/source pairing.
 - Ran eight uninstrumented invocations with all 40 correctness checks, nine
-  repeats, machine label `tinyone-workstation`, and unchanged Balanced power
+  repeats, machine label `tinylang-workstation`, and unchanged Balanced power
   policy. No Cargo builds, allocation profiles or compression ran during timing.
   `codegen-1` (scale 64, Vec first) failed the boxed straightline CV gate at
   16.75%; `codegen-2` (scale 128, Box first) failed the Vec gate at 12.48%.
@@ -1754,7 +1754,7 @@ plan; no machine settings changed):
   `call-feedback-candidate-source-1.zip` hashes to
   `93529fcf6f12fbb60d4625ce4baa7b8078fdf1a2383bef081105ecd180f6f3bd`.
 - Twenty invocations used all 40 correctness checks, nine repeats, scale 32,
-  the `tinyone-workstation` label and unchanged Balanced policy. Capture 1
+  the `tinylang-workstation` label and unchanged Balanced policy. Capture 1
   runs control first; capture 2 reverses order. Nineteen invocations pass all
   gates, forming nine complete pairs. Candidate unstable capture 2 fails at
   10.60% CV; that entire invocation and incomplete pair are excluded.
@@ -1839,7 +1839,7 @@ plan; no machine settings changed):
   The control and byte-identical benchmark harness remain unchanged.
 - The `call-feedback-v3-*` captures completed all 20 planned invocations.
   Each passes all 40 correctness checks and uses nine repeats, scale 32,
-  `tinyone-workstation` and Balanced policy. Both opposite-order captures
+  `tinylang-workstation` and Balanced policy. Both opposite-order captures
   for each workload were run together. No build, allocation diagnostic or
   archive compression ran during timing.
 - Eighteen invocations pass the evidence gates, forming eight complete pairs.
@@ -1942,7 +1942,7 @@ plan; no machine settings changed):
   Its harness hash is
   `32c25ac7afc3b75a46417c36464fed52cd7778c87a6cd70410fc0952822a1b3b`.
 - All 20 Windows invocations passed 45 correctness checks with nine repeats,
-  scale 32, `tinyone-workstation`, and unchanged Balanced policy. Captures are
+  scale 32, `tinylang-workstation`, and unchanged Balanced policy. Captures are
   off/on then on/off for each workload. No builds, profiles or compression ran
   during timing. Nineteen invocations produce nine complete eligible pairs;
   unstable off capture 2 fails at 11.14% CV, excluding that entire pair.
@@ -2037,7 +2037,7 @@ plan; no machine settings changed):
   warm-trace regression in `call-feedback-opt-in-workspace-3.log` and
   `call-feedback-opt-in-clippy-4.log`. Both platforms include 193 core tests,
   15 benchmark tests, six call-feedback, four call-transfer, 15 module-sandbox
-  and 57 parity tests, plus the remaining TinyOne/Ralloc suites.
+  and 57 parity tests, plus the remaining TinyLang/Ralloc suites.
   Changed/new Rust formatting and `git diff --check` pass.
 
 
@@ -2050,7 +2050,7 @@ plan; no machine settings changed):
   examples, repository router, architecture, VM, bytecode, memory, performance,
   contribution and CI documents. No additional repository agent file exists.
   The existing Ralloc gate remains applicable; its instrumentation/reset API
-  and TinyOne's process-wide codec/lock counter API were rechecked.
+  and TinyLang's process-wide codec/lock counter API were rechecked.
 - Extended the isolated runtime diagnostic from 52 to 60 cases, adding the
   nested multiply/add loop and changing-operand loop used by the timing harness.
   All 15 sources run against the VM at thresholds 0/8, first/repeated execution.
@@ -2217,7 +2217,7 @@ plan; no machine settings changed):
   that file. Its retained byte SHA256 is
   `c9907beffcd7b690fe7d11c7f84911f8ddf6e05a177cc8c1543666f4e693cd9f`.
   Current Windows and Linux hooks workspaces both pass, including 194 core
-  tests, 15 benchmark tests and all TinyOne/Ralloc integration suites
+  tests, 15 benchmark tests and all TinyLang/Ralloc integration suites
   (`scalar-attribution-retained-workspace-1.log` and
   `scalar-attribution-retained-linux-workspace-1.log`). Windows all-target
   Clippy passes (`scalar-attribution-retained-clippy-1.log`), as do changed/new
@@ -2287,7 +2287,7 @@ unrestricted failures and their limitations remain recorded here.
   `check_int_range(..., "i8")` API; the failure is preserved in
   `float-store-symbolic-test-1.log`.
 - Windows and Linux full hooks workspaces pass: 195 core tests, 15 benchmark
-  tests, 17 symbolic-lowering tests and all remaining TinyOne/Ralloc suites
+  tests, 17 symbolic-lowering tests and all remaining TinyLang/Ralloc suites
   (`float-store-workspace-1.log`, `float-store-linux-workspace-1.log`).
   Windows all-target hooks Clippy passes (`float-store-clippy-1.log`).
   All 17 symbolic tests also pass in the ordinary Windows release build
@@ -2353,7 +2353,7 @@ retained side tables.
 All 28 uninstrumented invocations pass all 45 correctness checks and evidence
 gates, producing 14 complete pairs. Capture 1 is control → candidate; capture 2
 reverses that order. Both sides use nine repeats, scale 32, machine
-`tinyone-wsl-arch`, and unchanged Windows Balanced policy.
+`tinylang-wsl-arch`, and unchanged Windows Balanced policy.
 Files: `float-store-linux-{control,candidate}-{label}-{1,2}.{json,log}`.
 Thread CPU time is primary; TSC includes descheduling.
 
@@ -2413,7 +2413,7 @@ Forty Windows invocations also pass every one of the 45 correctness checks.
 Captures 1/2 cover the same seven workloads at scale 32. A single longer-sample
 follow-up covers float, float cold lowering and calls at scale 128 in captures
 3/4. All use nine repeats, rustc 1.98.0 (88d9e12ae 2026-08-18), machine
-`tinyone-workstation`, unchanged Balanced policy and reversed orders.
+`tinylang-workstation`, unchanged Balanced policy and reversed orders.
 
 Only 19 runs save eligible JSON; 21 fail CV gates. Exactly five complete
 eligible pairs remain, listed below. Orphaned eligible runs are not compared
@@ -2511,7 +2511,7 @@ No such isolation is claimed.
 
 Seven workloads, nine repeats, scale 32, non-quick, all 45 correctness checks,
 rustc 1.98.0 (88d9e12ae 2026-08-18), label
-`tinyone-workstation-affinity-0x4`, and Balanced policy. Capture 1 runs control
+`tinylang-workstation-affinity-0x4`, and Balanced policy. Capture 1 runs control
 then candidate; capture 2 reverses that order for each workload.
 All **28 runs / 14 complete pairs** pass the unchanged evidence gates. The
 largest CV is 4.45% in the mixed-type candidate; both integer-hot pairs meet
@@ -2556,7 +2556,7 @@ capture 2 reverses that order. In the crosscheck file names only, `control`
 means unrestricted scheduling and `candidate` means mask 4: these are not
 different implementations. Each start record includes the exact executable
 and observed mask. Other benchmark options, environment and launch mechanism
-match; the unrestricted machine label remains `tinyone-workstation`.
+match; the unrestricted machine label remains `tinylang-workstation`.
 
 All eight runs pass 45 correctness checks. Seven pass the timing gate; the
 first unrestricted float run fails with 10.9975636% CV and remains diagnostic
@@ -2764,7 +2764,7 @@ The padded fixture improves warm cycles 47.90–48.63% and first-run cycles
 28.03–28.48%, but the ordinary mixed-type loop regresses **7.95–8.95%** in both
 orders with CV below 0.32%. The ordinary hot loop also regresses 2.53–3.88%.
 Calls, maps and straight-line cold lowering do not show a consistent comparable
-regression. Identical TinyOne work profiles rule out a change in those recorded
+regression. Identical TinyLang work profiles rule out a change in those recorded
 dispatch/allocator counts; they do not isolate the machine-code reason for the
 slowdown or prove the offset subtraction alone caused it.
 
@@ -2994,7 +2994,7 @@ The global engineering Router, Rust rules and all four examples were checked,
 alongside the documentation index and runtime memory/performance guidance.
 The preceding architecture, VM, bytecode, contributor, CI and Ralloc gates remain
 applicable. Ralloc 0.2.0's owned-buffer and move-only VM-allocation APIs, and
-TinyOne's `RallocBytes` boundary, were reconfirmed. The relevant stable Rust
+TinyLang's `RallocBytes` boundary, were reconfirmed. The relevant stable Rust
 [GlobalAlloc](https://doc.rust-lang.org/std/alloc/trait.GlobalAlloc.html),
 [atomic ordering](https://doc.rust-lang.org/std/sync/atomic/enum.Ordering.html)
 and [slice copying](https://doc.rust-lang.org/std/primitive.slice.html#method.copy_within)
@@ -3164,7 +3164,7 @@ An audit or proposed design alone is not an implemented optimization.
 | 12–13 | General direct semantic operations and less value conversion | Scalar stores now include exact-bit float immediates: 28,679 -> 16,391 float-loop dispatches and 12,290 -> 2 pushes/pops each, with codecs unchanged; two Linux pairs reduce target CPU time 35.00–43.53%, cold lowering 7.18–7.37% and hardware instructions 31.86%; two matched-affinity Windows pairs reduce target cycles 37.41–37.70% and cold lowering 6.38–7.25%, with all seven workload guardrails passing; float-store family retained under these measured conditions; frame-resume borrowing retains earlier confirmed gains; broader runtime/representation work pending; the encoded I64 slot-pair trial is removed despite 8,192 fewer full decodes per warm integer loop: two eligible Linux target pairs regress CPU time 6.66%/4.16%, and both Windows target pairs are excluded |
 | 14 | Bounded observed type feedback, misses and hysteresis | Initial I64 feedback tier implemented with bounded tables, sampling, misses, demotion and clone/VM coverage; 18 storage cases expose full-chunk budget loss for sparse large code; compact boxed-span prototype removed despite a 48% padded-loop win because two clean Windows pairs regress the ordinary mixed loop 8–9%; a distinct opcode-local typed-ID/compact-box prototype is also removed after consistent ordinary Linux hot/mixed/map increases and a Windows cold guardrail miss; its 64-capture audit has 48 eligible captures and 22 eligible pairs, with no eligible Windows sparse pairs; full-chunk boxed ownership is restored and broader acceptance remains open |
 | 15–16 | Explicit VM call frames, preserved depth limits and measured safe reuse | Explicit frames and bounded same-run reuse implemented/tested; frame-resume dispatch and direct argument transfer have independent call timing pairs; transfer removes per-call argument containers while preserving suffix ownership, arity/depth ordering and failure cleanup; real native-pool pressure now checks main/callee frame failures and recovery of the same compiled instances on both platforms; broader frame/reuse latency evidence pending |
-| 17 | TinyOne allocation distributions, Ralloc audit, measured allocator changes and safety | 60-case runtime/Ralloc, 144-case host-call/capture, 144-case Windows map-removal, 252-sample origin preparation and 240-sample preparation-scaling profiles; another 120 compact-target candidate records match 120 reused controls in counts and retained state, but smaller requested extents do not prevent Linux copy-store latency regressions; 264 new two-platform consecutive-origin samples show lower growth requests with unchanged installed state and zero Ralloc payloads, but the prototype is rejected by deep-chain and late-gap latency; preparation adds host allocation work but no Ralloc execution payloads; paired records save allocations but are rejected by store-heavy latency; the map diagnostic separates discarded 128-byte host copies from unchanged Ralloc work, but its removal prototype is also rejected by Linux timing; float-store fusion preserves every heap/Ralloc/codec/lock record; argument transfer removes repeated host allocations without changing allocator work; provenance/initialization defects fixed; 132 new inactive-observer preparation records match the reused control exactly; 132 subsequent prefix-trial records also match those controls, including all bucket comparisons; typed-owner early zero-sized destruction and unwind leaks are fixed; actual pool-pressure tests verify failed growth/clone ownership, 32 VM/JIT failures and 32 recoveries per OS with balanced native cleanup; 320 new retained-object records expose persistent early-hole scan costs; the allocated-prefix hint changes no non-scan counters but is withdrawn for insufficient scaling/timing benefit, with fixtures and placement tests retained; a new mixed-placement oracle exposed uninitialized aligned interior headers on the no-tail-split path; the minimal header initialization is retained for correctness with two-platform native and strict-provenance Miri coverage; the distinct size-aware prefix candidate preserves all non-scan counters and cuts retained-object scan work sharply, with two-platform latency gains and 81 then-current Miri tests, but was not accepted: process-isolation evidence does not erase mixed churn, and longer Windows batches still regress 64-byte allocation by 5.61% CPU / 5.57% cycles in the reverse pair; the revised stationary boundary passes 82 fresh Miri cases and preserves all non-scan profile fields, with both Windows Priority 5 pairs and one eligible Linux pair within 5%; 32 current retained-object captures supply 98 eligible paired rows with large-case gains, but small cases remain mixed and two whole family pairs are excluded; all 80 remaining guardrail captures are eligible, with 40 primary comparisons within 5% and three supplemental observations above 5%; retain the stationary boundary for repeated retained-object/fragmentation gains with 16 added bytes per arena and explicit small-allocation/contention tradeoffs; excluded evidence remains excluded and wider allocator audit is ongoing; the encoder follow-up adds 264 fresh isolated preparation records with one fewer deep-expression host reallocation, unchanged installed storage and zero Ralloc work; 132 invalid shared-target records are excluded |
+| 17 | TinyLang allocation distributions, Ralloc audit, measured allocator changes and safety | 60-case runtime/Ralloc, 144-case host-call/capture, 144-case Windows map-removal, 252-sample origin preparation and 240-sample preparation-scaling profiles; another 120 compact-target candidate records match 120 reused controls in counts and retained state, but smaller requested extents do not prevent Linux copy-store latency regressions; 264 new two-platform consecutive-origin samples show lower growth requests with unchanged installed state and zero Ralloc payloads, but the prototype is rejected by deep-chain and late-gap latency; preparation adds host allocation work but no Ralloc execution payloads; paired records save allocations but are rejected by store-heavy latency; the map diagnostic separates discarded 128-byte host copies from unchanged Ralloc work, but its removal prototype is also rejected by Linux timing; float-store fusion preserves every heap/Ralloc/codec/lock record; argument transfer removes repeated host allocations without changing allocator work; provenance/initialization defects fixed; 132 new inactive-observer preparation records match the reused control exactly; 132 subsequent prefix-trial records also match those controls, including all bucket comparisons; typed-owner early zero-sized destruction and unwind leaks are fixed; actual pool-pressure tests verify failed growth/clone ownership, 32 VM/JIT failures and 32 recoveries per OS with balanced native cleanup; 320 new retained-object records expose persistent early-hole scan costs; the allocated-prefix hint changes no non-scan counters but is withdrawn for insufficient scaling/timing benefit, with fixtures and placement tests retained; a new mixed-placement oracle exposed uninitialized aligned interior headers on the no-tail-split path; the minimal header initialization is retained for correctness with two-platform native and strict-provenance Miri coverage; the distinct size-aware prefix candidate preserves all non-scan counters and cuts retained-object scan work sharply, with two-platform latency gains and 81 then-current Miri tests, but was not accepted: process-isolation evidence does not erase mixed churn, and longer Windows batches still regress 64-byte allocation by 5.61% CPU / 5.57% cycles in the reverse pair; the revised stationary boundary passes 82 fresh Miri cases and preserves all non-scan profile fields, with both Windows Priority 5 pairs and one eligible Linux pair within 5%; 32 current retained-object captures supply 98 eligible paired rows with large-case gains, but small cases remain mixed and two whole family pairs are excluded; all 80 remaining guardrail captures are eligible, with 40 primary comparisons within 5% and three supplemental observations above 5%; retain the stationary boundary for repeated retained-object/fragmentation gains with 16 added bytes per arena and explicit small-allocation/contention tradeoffs; excluded evidence remains excluded and wider allocator audit is ongoing; the encoder follow-up adds 264 fresh isolated preparation records with one fewer deep-expression host reallocation, unchanged installed storage and zero Ralloc work; 132 invalid shared-target records are excluded |
 | 18–21 | Measured collections, builtins, module permissions and closures | Direct capture-to-frame transfer removes closure-call vectors and has two clean pairs reducing cycles 41.6–42.3%; fresh-instance and heap-lock lifetime coverage passes; map-key narrowing is rejected after clean deletion regressions of 1.76%/5.04%; byte-discard removal is also rejected despite Windows gains because Linux VM deletion regresses 2.02%/2.32% and JIT reinsertion 2.78%/2.95%; numeric, string-key, removal/capacity and diagnostic coverage retained; 480 new two-platform constant-cardinality query records expose one owned string allocation per read/hit/miss/update, with 240 complete cross-platform counter matches; a subsequent borrowed-key/owned-index prototype removes one profiled key-copy allocation per nonempty text query but is rejected after repeated Linux map set/get, update, insertion and growth regressions and Windows deletion increases; production is restored, with three semantic regressions retained; broader collection/builtin/permission/closure work remains open; a separate get/has-only borrowing trial preserves mutation ownership and all mutation function bodies, saves one profiled text allocation only on reads, but is also rejected for repeated Windows update slowdowns |
 | 22 | Trust-safe, independently bounded caches, eviction and retained-byte accounting | Independent LRU bounds, capacity accounting, lazy/error/panic cleanup and bypass/clone coverage implemented; unchanged-owner compile-only hits skip redundant accounting, reducing lookup cycles 12.97–13.66% on Windows and CPU time 10.52–12.02% on Linux; source rebinding remains charged; cold confirmations show small 0.28–1.22% Linux increases, not a cold win; broader cache and memory acceptance remains open; source-cache LRU ages now renumber at u64::MAX across all digest buckets, fixing demonstrated hit, byte-limit and clone eviction failures; exact-source identity, lifetime counters, owners and independent compiled retention stay unchanged |
 | 23–24 | Private lazy installation and guarded bounded dynamic-call feedback | Inline guarded-call prototype preserves lazy installation, captures, identity failures, post-promotion module authority and depth limits; all 144 host/Ralloc profiles match the accepted transfer baseline; independent call feedback is now opt-in/default-off with no disabled-path sampling; three revisions plus same-executable Windows isolation do not establish general latency acceptance; Linux counters show only 0.235–0.243% fewer stable-call instructions with mixed cycles, so prototype acceptance remains open |
@@ -3174,7 +3174,7 @@ An audit or proposed design alone is not an implemented optimization.
 | 31 | Remove superseded paths while migrating | Discarded compiler snapshots, peephole input/output copies, rejected compact decode bridge and JIT call-argument split/capture concatenation paths removed; permanently generic dynamic calls share the ordinary opcode/request instead of duplicate handlers; unaccepted operand-pair inlining hint removed after measurement; owned capture snapshots remain only for existing ownership-requiring callers; remaining migration cleanup pending |
 | 32–34 | Before/after evidence per optimization, optional profiling, evidence-based retention | Accepted verifier/frontend/peephole/frame-resume, call-transfer and float-store subsets; optional-profile allocation isolated; 144 host-call cases and 60 runtime profiles retained; operand-pair hint rejected by 14 Linux pairs; float-store evidence includes 14 Linux timing pairs, two hardware-counter pairs and 14 controlled Windows timing pairs; eight same-candidate affinity crosschecks expose scheduling-sensitive variability without proving its exact mechanism; all 108 float-store measurement invocations pass 45 correctness checks, with 22 noisy captures still rejected; 308 scoped preparation batches add diagnostic attribution only, with clock-floor and variation limits; 16 eligible collection-prefix captures yield eight pairs but no repeatable cross-platform target benefit, so the guard is withdrawn; encoder left descent adds 48 eligible guardrail captures and 264 fresh isolated allocation records, retaining a scoped scratch reduction with mixed timing results and incomplete repeated target confirmation; 132 shared-target diagnostic records are excluded and ordinary release build provenance is repaired; a separate opcode-local feedback-ID trial adds 64 timing captures (48 eligible), 22 eligible pairs and 3,136 correctness checks, but is rejected for ordinary-workload tradeoffs despite Linux sparse-target gains; remaining phase/whole-runtime acceptance is not inferred from these subsets; the distinct encoded slot-pair trial adds 120 matched diagnostic cases, 64 timing captures (49 eligible), 20 eligible pairs and 3,136 correctness checks; reject it for repeated integer-target regressions, preserving mixed-loop gains and three known late-build overlaps among already excluded cold captures; the borrowed-map trial adds 480 audited before/after query cases and 80 ordinary timing captures (64 eligible), forming 29 eligible whole pairs with 3,920 correctness checks; repeated realistic mutation regressions require rejection, so conditional wider guardrails are not run; read-only map borrowing adds 480 audited comparisons (144 read cases changed, all mutation/integer/zero and runtime/Ralloc fields unchanged) and 24 predeclared ordinary mutation captures (19 eligible, nine eligible pairs); Windows update cycles +2.20%/+1.51% reject retention and the 112 conditional captures are not run |
 | 35 | Respect phase dependencies or document evidence for changes | Following baseline → correctness → verifier dependencies |
-| 36 | Full TinyOne/Ralloc boundary tests, supported safety tools, formatting and lint | Current Windows/Linux hooks workspaces pass 583/584 tests, with 23 ignored tests and no failures across 46 result groups; both all-target Clippy runs, both default-feature workspace checks and the installed-nightly full-workspace formatting check pass; both matched control/candidate ordinary releases pass 49 printed checks; benchmark regressions now cover actual iteration compatibility and Windows-only batch scaling; nine recorder/phase correctness tests cover nesting, cleanup, thread isolation, phase counts, unreachable blocks and lazy failures; the new collection matcher prefix/truncation test also passes on control and restored code; phase-recorder and prefix-trial allocation records match their reused controls and preserve balanced host owners and zero Ralloc payloads; the two new encoder postorder/origin regressions pass on the control and candidate; both no-std C-library checks passed at the unchanged allocator checkpoint; 82 distinct unchanged Ralloc tests passed strict-provenance Miri at the stationary size-aware prefix checkpoint (56 unit and 26 integration cases), including exact full-pool exhaustion with no filtered unit tests; the earlier allocated-prefix-only hint separately passed 50 unit and 26 integration cases; 120 refreshed runtime allocation records, 320 allocated-prefix retained-object records and 320 subsequent size-aware prefix records and 160 new stationary-prefix records have balanced native cleanup and match across both platforms; older timing/allocation evidence remains historical, not current full-pipeline memory-safety coverage; remaining full-batch checks tracked above; three new map identity/ownership/stale-pointer regressions pass on control, candidate and restored sources; all 480 restored query counter records match their original native controls exactly, and all 144 removal diagnostic cases per OS pass; the existing three map regressions also pass the distinct read-only candidate and exact restoration; all 160 sources at that map checkpoint match its prior restored archive, with fresh Windows/Linux gates and 480 exact original query-counter matches; the latest 163-source verifier restoration preserves three semantic tests that pass on control, candidate and restored production, with fresh native gates and 49 release checks per OS; its production verifier matches the baseline exactly and all other 162 source entries are unchanged; four source-clock boundary regressions now pass (three failed on original production); the 163-source cache checkpoint passes 587 Windows and 588 Linux tests, 23 ignored per OS, all-target hooks Clippy, default all-target checks, full formatting and 49 release checks per OS |
+| 36 | Full TinyLang/Ralloc boundary tests, supported safety tools, formatting and lint | Current Windows/Linux hooks workspaces pass 583/584 tests, with 23 ignored tests and no failures across 46 result groups; both all-target Clippy runs, both default-feature workspace checks and the installed-nightly full-workspace formatting check pass; both matched control/candidate ordinary releases pass 49 printed checks; benchmark regressions now cover actual iteration compatibility and Windows-only batch scaling; nine recorder/phase correctness tests cover nesting, cleanup, thread isolation, phase counts, unreachable blocks and lazy failures; the new collection matcher prefix/truncation test also passes on control and restored code; phase-recorder and prefix-trial allocation records match their reused controls and preserve balanced host owners and zero Ralloc payloads; the two new encoder postorder/origin regressions pass on the control and candidate; both no-std C-library checks passed at the unchanged allocator checkpoint; 82 distinct unchanged Ralloc tests passed strict-provenance Miri at the stationary size-aware prefix checkpoint (56 unit and 26 integration cases), including exact full-pool exhaustion with no filtered unit tests; the earlier allocated-prefix-only hint separately passed 50 unit and 26 integration cases; 120 refreshed runtime allocation records, 320 allocated-prefix retained-object records and 320 subsequent size-aware prefix records and 160 new stationary-prefix records have balanced native cleanup and match across both platforms; older timing/allocation evidence remains historical, not current full-pipeline memory-safety coverage; remaining full-batch checks tracked above; three new map identity/ownership/stale-pointer regressions pass on control, candidate and restored sources; all 480 restored query counter records match their original native controls exactly, and all 144 removal diagnostic cases per OS pass; the existing three map regressions also pass the distinct read-only candidate and exact restoration; all 160 sources at that map checkpoint match its prior restored archive, with fresh Windows/Linux gates and 480 exact original query-counter matches; the latest 163-source verifier restoration preserves three semantic tests that pass on control, candidate and restored production, with fresh native gates and 49 release checks per OS; its production verifier matches the baseline exactly and all other 162 source entries are unchanged; four source-clock boundary regressions now pass (three failed on original production); the 163-source cache checkpoint passes 587 Windows and 588 Linux tests, 23 ignored per OS, all-target hooks Clippy, default all-target checks, full formatting and 49 release checks per OS |
 | 37 | Correctness, safety, performance, cold/memory/allocator acceptance | Earlier verifier/frontend/peephole/frame-resume and call-transfer subsets retained; float-store fusion now has Linux target/cold/hardware and matched-affinity Windows target/cold/guardrail confirmation with unchanged heap/Ralloc/codec work; earlier unrestricted failures remain diagnostic and the exact call-outlier cause is not proven; Ralloc typed-owner fixes are retained for correctness, with native-pressure recovery and current strict-provenance Miri evidence; the first size-aware prefix failed a longer-batch Windows reverse guardrail; its stationary revision passes both current Windows Priority 5 pairs and one eligible Linux pair; all 80 remaining guardrail captures are eligible and their 40 primary comparisons stay within 5%; retain that revision for two-order retained-object/fragmentation gains on both platforms, with explicit 16-byte arena metadata, small-allocation and Windows contention costs; the excluded Linux forward and retained-family evidence, mixed small results and three supplemental increases above 5% still limit broader claims; retain left-descent encoding for measured scratch/growth reductions with all 24 cold/runtime pairs within the predeclared 5% limit and unchanged installed/Ralloc storage; Windows dead-store and Linux hot-loop point estimates are slower in both orders, and the original target confirmation remains limited to one eligible pair per platform; the later compact feedback-ID prototype is removed: its sparse-only gain does not justify repeated Linux hot/mixed/map slowdowns, a Windows cold guardrail miss, and additional opcode/handler complexity; no blanket Windows scheduling guarantee or full-batch completion claimed; the encoded slot-pair prototype is also removed after repeated realistic integer-loop regressions; all six scoped sources are restored to the 160-file control checkpoint, without a Vec/Box or allocator-policy change; borrowed map queries are also rejected: Linux JIT set/get CPU +3.55%/+7.17%, updates +7.43%/+5.24%, insertion +1.32%/+1.07% and growth +9.22%/+2.12%, plus Windows deletion cycles +1.72%/+0.85%; string-read and allocation gains do not justify these costs; both production files are restored exactly and all 160 source/archive entries verified, with only stdlib parity tests differing from the map-query control; the distinct get/has-only candidate is also rejected: Windows update cycles +2.20%/+1.51%, CPU +2.46%/+2.37% and wall +3.15%/+1.43%; Linux has only one eligible pair per screen row after five exclusions. Both production files are restored exactly; no new source/test or Vec/Box-policy change remains; the distinct lazy-verifier-label candidate is also removed: all 20 usable verifier pairs improve, but Windows warm source-API scheduled cycles rise 6.29%/1.26% and wall time 6.73%/1.45% in both qualifying orders; 104 captures complete, while 48 Linux guardrails are omitted after the Windows rejection; the original production verifier is restored exactly, retaining only three semantic tests and no Vec/Box change; retain the small source-clock rollover change for demonstrated LRU correctness, not speed: no consistent regression is established by the 11 usable normal-path pairs, but Windows has four confirmation gaps and individual eligible Windows verified-hit and Linux cold/VM comparisons exceed 5%; all such costs and exclusions remain explicit |
 | 38 | Final cleanup, tests, benchmarks and current architecture/memory/JIT/Ralloc documentation | Pending |
 | 39 | Full implementation report: compliance, architecture, measurements, cleanup, correctness and remaining opportunities | This worklog is preparatory; final report pending |
@@ -4360,7 +4360,7 @@ Rejected candidate artifacts:
 Only the Linux scaling screen ran: three workloads, two reversed variant
 orders, nine repeats and sample scale 32 (320 preparations per repeat).
 Children use virtual CPU 2, unchanged Balanced host policy and native fixtures
-in `/tmp/tinyone-expression-origins-c7XJkPff`. Mean thread CPU nanoseconds are
+in `/tmp/tinylang-expression-origins-c7XJkPff`. Mean thread CPU nanoseconds are
 the primary metric, not TSC cycles. No timing overlaps builds, source edits,
 allocation profiles or archive compression.
 
@@ -5077,7 +5077,7 @@ documentation, allocator source/API/header contracts and retained-object syntax
 were inspected. Rust's [strict-provenance model](https://doc.rust-lang.org/stable/std/ptr/index.html#strict-provenance),
 [`with_addr` contract](https://doc.rust-lang.org/stable/std/primitive.pointer.html#method.with_addr)
 and [aliasing guidance](https://doc.rust-lang.org/stable/nomicon/aliasing.html)
-were consulted. TinyOne remains 1.5.1 and Ralloc 0.2.0; no dependency, feature,
+were consulted. TinyLang remains 1.5.1 and Ralloc 0.2.0; no dependency, feature,
 public API or native-code backend was introduced.
 
 Artifacts below live in `target/perf/full-system/`. The control and candidate
@@ -5192,7 +5192,7 @@ and fragmentation tests. Default aliasing, validation and leak checks remain
 enabled. The four new placement tests additionally pass Miri on the restored
 implementation. Together with the unchanged production allocator's previous
 72-case Miri checkpoint, this covers 76 distinct allocator tests; it is not a
-full TinyOne Miri claim. Interpreter test durations are not performance data.
+full TinyLang Miri claim. Interpreter test durations are not performance data.
 
 Two launcher mistakes remain recorded: the first Linux control command selected
 stable and stopped on unavailable toolchain components before compiling; it
@@ -5274,7 +5274,7 @@ required even when the storage was used before.
   initialization and fragmentation. Default aliasing, validation and leak
   checks remain enabled. Only the exact full-pool unit case is filtered out;
   its previous 48-minute Miri completion is historical, not coverage of the
-  changed production code. This is not a full TinyOne Miri result.
+  changed production code. This is not a full TinyLang Miri result.
 - All 77 changed/new Rust files pass formatting and `git diff --check` passes.
   An initial PowerShell launcher failed to parse an interpolated variable
   before starting any check; correcting the delimiter allowed both native
@@ -5348,7 +5348,7 @@ and alignment-header regression all remain enabled. The placement oracle
 shares the existing alignment arithmetic; it is not an independent proof of
 that arithmetic.
 
-Only `crates/tinyone_ralloc/src/arena.rs` differs between the frozen control and
+Only `crates/tinylang_ralloc/src/arena.rs` differs between the frozen control and
 candidate. There is no new container, allocation class, pool, dependency,
 public API, per-block metadata or production unsafe block. On the tested 64-bit
 targets, `Arena` grows from **40 to 56 bytes**, while the reserved block header
@@ -5359,7 +5359,7 @@ The complete objective, global Router, Rust rules and four required examples
 were reconfirmed. Allocator/block code and the memory/performance contracts
 were checked; the preceding allocator checkpoints record the unchanged
 subsystem, supplemental and official pointer-API gates. Ralloc 0.2.0 still has
-no production external dependencies; TinyOne remains at package version 1.5.1.
+no production external dependencies; TinyLang remains at package version 1.5.1.
 
 Both control and candidate Windows/Linux hooks workspaces pass **571/572
 tests**, with 21 ignored and no failures across 45 result groups. Candidate
@@ -5374,7 +5374,7 @@ tests**, including exact full-pool exhaustion: no unit case is filtered out.
 The integration targets are `native_box`, `native_buffer`, `initialization`
 and `fragmentation`. Default aliasing, validation and leak checks remain on;
 only `-Zmiri-strict-provenance` is added. This is 81 Ralloc tests, not a full
-TinyOne Miri run, and Miri duration is not performance evidence.
+TinyLang Miri run, and Miri duration is not performance evidence.
 
 ### Work counts and retained-object latency
 
@@ -5570,7 +5570,7 @@ tests across 45 result groups, all-target hooks Clippy, and 49 ordinary-release
 correctness checks per binary. The two new benchmark tests account for the
 increase from 571/572. Existing strict-provenance Miri coverage of 81 Ralloc
 cases still applies to the identical allocator source; this is not a new
-whole-TinyOne Miri result.
+whole-TinyLang Miri result.
 
 The control allocator was restored from its prior archive only for the matched
 build/checkpoint, with exact hash checks; the candidate was restored
@@ -5662,7 +5662,7 @@ ordinary-release correctness checks per binary. Strict-provenance Miri passes
 82 Ralloc cases: all 56 unit tests, including full-pool exhaustion, and 26 cases
 across fragmentation, initialization, native-box and native-buffer targets.
 There are no filtered unit cases or disabled default aliasing, validity or leak
-checks. This is not full-TinyOne Miri coverage. The native layout remains
+checks. This is not full-TinyLang Miri coverage. The native layout remains
 Arena/Option<Arena> 56 bytes and block header 16 bytes: unchanged from the first
 size-aware candidate, 16 bytes per arena above the no-hint control.
 
@@ -5970,7 +5970,7 @@ result groups each. Both all-target Clippy runs with warnings denied and both
 default-feature all-target workspace checks passed. Both ordinary release
 builds passed all 49 printed correctness checks. Commands were locked/offline.
 The unchanged allocator's earlier 82-case strict-provenance Miri checkpoint
-is separate evidence; no new encoder or whole-TinyOne Miri pass is claimed.
+is separate evidence; no new encoder or whole-TinyLang Miri pass is claimed.
 
 `encoder-left-descent-freeze-1.json` records 160 source/configuration hashes,
 the source archive and ordinary Windows/Linux binaries. Only `jit/encoding.rs`
@@ -6148,7 +6148,7 @@ copied, peak memory, RSS or ordinary-release latency.
 
 The invalid shared-target attempt could leave ordinary release outputs paired
 with the wrong source/features. A package-scoped Cargo release cleanup for
-`tinylang` and `tinyone_ralloc` was previewed first, with every resolved path
+`tinylang` and `tinylang_ralloc` was previewed first, with every resolved path
 checked inside the intended platform release directory and against reparse
 points. Only regenerable release artifacts were removed: 119 files / 101.1 MiB
 on Windows and 117 files / 116.4 MiB on Linux. No source, frozen binary, source
@@ -6164,7 +6164,7 @@ The retained implementation is still the previously verified encoder hash
 `E0209E4A4E176C3FB7DDC46CD0C6DB1AFE897A837CF971E8C92476C518E7CF80`.
 Its 576/577-test native workspace gates, Clippy and default-feature checks
 remain applicable because no Rust source changed during this follow-up.
-No new encoder or full-TinyOne Miri coverage is claimed. The deterministic
+No new encoder or full-TinyLang Miri coverage is claimed. The deterministic
 scratch/growth reductions, preserved evaluation order and bounded timing
 tradeoffs justify this small safe change; they do not establish a universally
 faster encoder or runtime. Broader local-IR performance acceptance remains open.
@@ -6645,7 +6645,7 @@ Every operation still checked stored pointer bases even for unrelated query
 types. Pointer casts stayed irrelevant to key identity. No allocator, hasher,
 dependency, unsafe code, bytecode, cache or Vec/Box policy was introduced.
 
-Three tests in crates/tinyone_core/tests/stdlib_parity.rs remain after rollback:
+Three tests in crates/tinylang_core/tests/stdlib_parity.rs remain after rollback:
 
 - Equal-but-distinct, empty and UTF-8 strings; original encoded-key identity;
   freeing the original string while independently owned index text survives;
@@ -6711,7 +6711,7 @@ each completed matrix is not a runtime failure.
 
 The table shows candidate cost changes for the forward / reversed pair.
 Negative is lower cost. Windows primary is mean scheduled-thread cycles;
-Linux primary is mean thread CPU time. These are complete TinyOne program
+Linux primary is mean thread CPU time. These are complete TinyLang program
 fixtures, not isolated operation latencies.
 
 | Workload | Windows primary change | Linux primary change |
@@ -7956,7 +7956,7 @@ target/build directories exposed existing worker discovery assumptions.
 Windows selected the worker's libtest executable, which rejects the worker
 flag; Linux reported no worker. A direct Windows diagnostic preserves the
 libtest rejection and valid JSON from the actual worker. gates-2.ps1 uses the
-supported TINYONE_SANDBOX_WORKER setting to identify the real per-platform
+supported TINYLANG_SANDBOX_WORKER setting to identify the real per-platform
 target/debug worker; both full gates then pass. Original failure logs and
 runner remain. Production FFI discovery was not changed, and its nonstandard
 layout limitation is not claimed fixed.
@@ -8108,7 +8108,7 @@ ordinary control, candidate and restored release executable passes all 49
 printed correctness checks. The unchanged cold benchmark registration and
 boundary tests retain their additional golden-output checks.
 
-Tests use supported explicit TINYONE_SANDBOX_WORKER paths to the actual
+Tests use supported explicit TINYLANG_SANDBOX_WORKER paths to the actual
 workers in isolated Cargo target/debug directories. Automatic discovery under
 separate Cargo build directories is still not fixed. The initial targeted
 unit-name filter selected no integration tests; a separate unfiltered run
@@ -8341,7 +8341,7 @@ separate deallocation latency. They also span a changed safety contract:
 current `RallocBuffer::try_new_aligned` initializes every returned byte
 before exposing safe slices, and growth initializes its new tail. The
 original implementation lacks these writes. The diff in
-`crates/tinyone_ralloc/src/buffer.rs` confirms this stronger current
+`crates/tinylang_ralloc/src/buffer.rs` confirms this stronger current
 guarantee; it must not be removed to recover the old timing. This matrix
 does not isolate how much of the measured gap comes from initialization
 versus the remaining allocator changes. A safety-equivalent allocation
@@ -8455,7 +8455,7 @@ Rust 1.98.0 / LLVM 22.1.8; Linux uses Rust 1.99.0-nightly
 
 Each build passes 22 release prechecks, 13 harness tests and 73 allocator
 tests (56 library, seven initialization, ten native-box), plus all-target
-Clippy for TinyOne and Ralloc with warnings denied. Six candidate initialization
+Clippy for TinyLang and Ralloc with warnings denied. Six candidate initialization
 tests pass Miri with its default checks, covering reused typed padding,
 independent native-source copies, source destruction, VM ownership transfer
 and zeroed growth. The oversized-copy case is native-tested, not Miri-tested.

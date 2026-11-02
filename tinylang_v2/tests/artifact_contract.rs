@@ -9,7 +9,7 @@ const INSTRUCTION_BYTES: usize = 24;
 #[test]
 fn compiler_binary_loads_functions_and_rejects_mismatched_or_damaged_containers() {
     let runtime = create_runtime();
-    let program = tinyone::compile_source(
+    let program = tinylang::compile_source(
         "fn answer() { return 42 } fn text() { return \"hello\" } fn items() { return [1, 2] }",
     )
     .unwrap();

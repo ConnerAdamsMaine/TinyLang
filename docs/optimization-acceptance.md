@@ -16,9 +16,9 @@ specific to each owner's lifecycle, not a blanket container preference:
 | Installed operations | Private `JitOps(Vec<JitOp>)`, slice-only access, full retained-capacity charge, and reclamation when spare bytes reach 4 KiB. |
 | Operand/call stacks, lowering builders, idle-frame pool | Vec where the initialized length changes. The frame pool is execution-local, limited to eight frames and 64 KiB, and cleared under allocation pressure. |
 
-[JitOps and its boundary tests](../crates/tinyone_core/src/jit/chunk.rs),
-[chunk ownership/accounting](../crates/tinyone_core/src/jit/program.rs) and
-[frame ownership](../crates/tinyone_core/src/jit/frame.rs) were checked directly.
+[JitOps and its boundary tests](../crates/tinylang_core/src/jit/chunk.rs),
+[chunk ownership/accounting](../crates/tinylang_core/src/jit/program.rs) and
+[frame ownership](../crates/tinylang_core/src/jit/frame.rs) were checked directly.
 Existing tests cover empty/nonempty buffers around the reclamation threshold,
 fixed extent through quickening, independent mutable clones and shared immutable
 origins. This audit adds no new container implementation or timing result.
@@ -69,13 +69,13 @@ original files are unavailable. No percentage-complete score is implied.
 | 1. Repository documentation | Ongoing gate. Global Router, Rust rules and four examples apply; no local AGENT(S) or .agents directory was found. Recheck relevant subsystem and supplemental documentation before each implementation change. |
 | 2. External documentation | Ongoing gate. [Version/documentation record](optimization-worklog.md#starting-state-and-documentation) exists; no dependency changes in this audit. Final report must consolidate change-specific API/version evidence, not claim every dependency was newly reviewed. |
 | 3. Full baseline | Open. Current ordinary whole-system timings exist, but phase breakdowns, per-owner allocation lifetimes, separate allocate/free/grow latency and full memory/workload coverage remain incomplete. See the measurement gaps below. |
-| 4. Semantic reference | Implemented test infrastructure; full acceptance open. VM/JIT differential suites cover values, errors, locations, numeric boundaries, permissions, limits and ownership. [Boundary tests](../crates/tinyone_core/tests/optimization_boundaries.rs) and the full gates are evidence, not exhaustive safety proofs. |
+| 4. Semantic reference | Implemented test infrastructure; full acceptance open. VM/JIT differential suites cover values, errors, locations, numeric boundaries, permissions, limits and ownership. [Boundary tests](../crates/tinylang_core/tests/optimization_boundaries.rs) and the full gates are evidence, not exhaustive safety proofs. |
 | 5. Pipeline | Implemented. VerifiedProgram shares immutable program/certificate/fingerprint facts; the [architecture](architecture.md) defines stage ownership. Parsing/emission are intentionally fused and there is no AST. Cross-layer cost acceptance remains open. |
 | 6. Frontend/compiler | Retained ownership and in-place peephole changes; aggregate lexing/pipeline results improve. Large-module cache hits are platform-mixed/incomplete. [Constant-chain variants](optimization-worklog.md#constant-chain-continuation-trial-rejected-production-restored) were rejected; they are not pending production optimizations. |
 | 7. Bytecode | Portable opcode representation retained; local peephole compaction and origin remapping are implemented. No enlarged specialized source opcode set was introduced. Keep artifact/index/branch boundaries in the final audit. |
-| 8. Verifier | Dense traversal, authoritative static checks and reusable [certificates](../crates/tinyone_core/src/bytecode/certificate.rs) implemented; both CFG timing rows improve. Fine-grained phase attribution remains incomplete. Lazy diagnostic labels were rejected after API regressions. |
-| 9. Basic blocks | [Symbolic lowering](../crates/tinyone_core/src/jit/lowering.rs) consumes verified blocks and preserves canonical nonempty merges. Correctness tests exist; tiny straight-line cold lowering is still about 3x original cost. |
-| 10. Local passes | [Ordered passes](../crates/tinyone_core/src/jit/local.rs) implement propagation, versions, checked folding, branch/dead-temporary/dead-store work before encoding. Error/effect-order tests exist. Cold-cost and complexity acceptance remain open. |
+| 8. Verifier | Dense traversal, authoritative static checks and reusable [certificates](../crates/tinylang_core/src/bytecode/certificate.rs) implemented; both CFG timing rows improve. Fine-grained phase attribution remains incomplete. Lazy diagnostic labels were rejected after API regressions. |
+| 9. Basic blocks | [Symbolic lowering](../crates/tinylang_core/src/jit/lowering.rs) consumes verified blocks and preserves canonical nonempty merges. Correctness tests exist; tiny straight-line cold lowering is still about 3x original cost. |
+| 10. Local passes | [Ordered passes](../crates/tinylang_core/src/jit/local.rs) implement propagation, versions, checked folding, branch/dead-temporary/dead-store work before encoding. Error/effect-order tests exist. Cold-cost and complexity acceptance remain open. |
 | 11. JitOp layout | 24-byte representation retained. The 16-byte decode-bridge prototype was rejected in historical measurements; it is absent from production. Typed slots/temporaries/offsets and wide-index fallbacks remain. Do not describe compact-layout evaluation as a shipped win. |
 | 12. Dispatch | Direct scalar/store/branch families are present. Current hot-loop/builtin/collection regressions prevent broad dispatch-speed claims; operation-count savings alone do not close acceptance. |
 | 13. Value codec | Existing encoded I64 paths and generic fallbacks retained. Encoded slot-pair prototype rejected. Float-immediate stores use shared semantics, not adaptive F64 specialization. Reconcile codec and allocator work with whole-runtime costs. |
@@ -85,13 +85,13 @@ original files are unavailable. No percentage-complete score is implied.
 | 17. Ralloc | Initialization, alignment/header, provenance and typed-drop safety corrections retained. Stationary size-aware prefix retained with documented tradeoffs. No universal allocator gain: buffer construction regresses and separate cost/distribution/lifetime work is open. |
 | 18. Collections | Lifecycle fixtures and canonical key indexing exist; borrowed-query/key-width/removal candidates were rejected. Current vec/map workload rows regress. Reads, writes, growth, clone, iteration and destruction still need a complete current lifecycle comparison. |
 | 19. Builtins | Borrowed arguments and known direct lowering retained with permission checks. Builtin-heavy runtime regresses in the current comparison. Expansion is conditional on integrated benefit, not required merely to add variants. |
-| 20. Modules/permissions | Verified numeric ownership is reused; callee authority and dynamic-name checks remain. [Sandbox tests](../crates/tinyone_core/tests/module_sandbox.rs) cover boundaries. Isolated permission cost and module-cache platform differences remain open. |
+| 20. Modules/permissions | Verified numeric ownership is reused; callee authority and dynamic-name checks remain. [Sandbox tests](../crates/tinylang_core/tests/module_sandbox.rs) cover boundaries. Isolated permission cost and module-cache platform differences remain open. |
 | 21. Closures | Current captures transfer directly; dynamic identity, generation, arity and authority checks remain. Creation/capture-allocation/decode/destruction costs are not fully separated. No closure-instance state may enter a cache. |
-| 22. Caches | Trust-sensitive identity, independent LRU bounds, capacity charging, lazy/error/panic growth handling and source-clock rollover are implemented. [Retention tests](../crates/tinyone_core/tests/cache_retention.rs) exist. Charges exclude opaque overhead and are not RSS/peak memory; warm API regressions remain open. |
+| 22. Caches | Trust-sensitive identity, independent LRU bounds, capacity charging, lazy/error/panic growth handling and source-clock rollover are implemented. [Retention tests](../crates/tinylang_core/tests/cache_retention.rs) exist. Charges exclude opaque overhead and are not RSS/peak memory; warm API regressions remain open. |
 | 23. Lazy lowering | Functions are built privately and installed on demand; listing is intentionally eager. Tiny cold-lowering regression remains unresolved. Do not replace lazy lowering with unmeasured eager work. |
 | 24. Call feedback | Experimental, OFF by default. Callee-only guarded facts and fallback exist; short-call timing and the settled-guard trial do not justify promotion. Captures remain per-instance and guards preserve authority/depth checks. |
 | 25. Branches | Compare/branch, truthiness and counter-elision families exist with block-entry tests. Current integer hot-loop results regress; newer mixed/branch workloads need matched ordinary-release comparisons. |
-| 26. Errors | Source errors are built lazily; fused constituent failure sites and callee origins are covered by [location tests](../crates/tinyone_core/tests/runtime_locations.rs). Success-path cost and diagnostic allocation acceptance remain open. |
+| 26. Errors | Source errors are built lazily; fused constituent failure sites and callee origins are covered by [location tests](../crates/tinylang_core/tests/runtime_locations.rs). Success-path cost and diagnostic allocation acceptance remain open. |
 | 27. Debug layout | Immutable boxed origin side tables are separate from executable ops, including disk-cache restoration. Action/origin-combination and consecutive-origin prototypes were rejected. Precise diagnostics remain; cold/retained-source costs still need acceptance. |
 | 28. Data structures | Bounded Vec/Box policy and several owner audits exist; repository-wide review is not complete. Do not confuse language vector workload regressions with a Rust container comparison. Exact retained-capacity accounting is not an allocator-overhead census. |
 | 29. Repeated work | Verified ownership, stack bounds, source owners and unchanged-owner cache charges are reused. TinyMemory default initialization followed by clone/copy remains a candidate cost, not a proven removable write; zero bytes encode I8(0), not default I64(0). |
@@ -109,17 +109,17 @@ original files are unavailable. No percentage-complete score is implied.
 
 ## Measurement gaps that actually remain
 
-Existing [Ralloc instrumentation](../crates/tinyone_ralloc/src/instrumentation.rs)
+Existing [Ralloc instrumentation](../crates/tinylang_ralloc/src/instrumentation.rs)
 records allocation/free/reallocation totals, requested/usable bytes, peak live
 payload, scan/coalescing probes and fixed size/alignment buckets. It does not
 record allocation identity, owner class, lifetime, or separate operation times.
-The [host recorder](../crates/tinyone_core/tests/allocation/host.rs) counts
+The [host recorder](../crates/tinylang_core/tests/allocation/host.rs) counts
 allocations and four size buckets; it is not a whole-process lifetime/peak tracer.
 
-The [runtime census](../crates/tinyone_core/tests/allocation_profile.rs) has
+The [runtime census](../crates/tinylang_core/tests/allocation_profile.rs) has
 15 shapes, each with two thresholds and cold/warm execution. Its `struct_enum`
 label is an enum fixture, not combined coverage. The separate
-[retained-object fixtures](../crates/tinyone_core/tests/allocation/retained.rs)
+[retained-object fixtures](../crates/tinylang_core/tests/allocation/retained.rs)
 supply real struct coverage, but fixture existence is not a current measured
 struct result. Cold execution in these profiles starts after JIT construction;
 it does not include source compilation or all lowering work.

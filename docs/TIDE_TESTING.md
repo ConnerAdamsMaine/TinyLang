@@ -20,7 +20,7 @@ cargo test
 Legacy suspension coverage includes unit tests for the pending-state, distinct-reviewer, and TIDE-action boundaries. An opt-in PostgreSQL API test verifies that an unsuspended account cannot be confirmed, the initial suspender cannot be the confirming reviewer, a distinct superadmin confirmation is audited, and legacy suspension/reinstatement endpoints preserve TIDE-linked restrictions. Run it only against a disposable database whose name includes `test` or `integration`:
 
 ```powershell
-$env:TIDE_TEST_DATABASE_URL = "******localhost:55432/tinyone_integration"
+$env:TIDE_TEST_DATABASE_URL = "******localhost:55432/tinylang_integration"
 cargo test legacy_suspension_confirmation_requires_a_distinct_second_reviewer -- --ignored
 Remove-Item Env:TIDE_TEST_DATABASE_URL
 ```
@@ -33,7 +33,7 @@ an administrator without a support grant cannot read or list another user's
 ticket, and designated support agents can access the queue and internal notes:
 
 ```powershell
-$env:TIDE_TEST_DATABASE_URL = "******localhost:55432/tinyone_integration"
+$env:TIDE_TEST_DATABASE_URL = "******localhost:55432/tinylang_integration"
 cargo test investigation_visibility_excludes_targets_and_private_evidence_from_reporters -- --ignored
 cargo test ticket_visibility_and_internal_notes_are_scoped_to_owner_and_support_agents -- --ignored
 Remove-Item Env:TIDE_TEST_DATABASE_URL
@@ -46,7 +46,7 @@ only bytes on tickets continuously resolved for at least 90 days are purged,
 while recent and reopened-ticket contents remain and the digest is retained:
 
 ```powershell
-$env:TIDE_TEST_DATABASE_URL = "******localhost:55432/tinyone_integration"
+$env:TIDE_TEST_DATABASE_URL = "******localhost:55432/tinylang_integration"
 cargo test ticket_attachment_retention_purges_only_still_resolved_expired_bytes -- --ignored
 Remove-Item Env:TIDE_TEST_DATABASE_URL
 ```
@@ -58,7 +58,7 @@ status transitions, owner reopening, cleared resolution timestamps, and
 append-only transition/assignment events:
 
 ```powershell
-$env:TIDE_TEST_DATABASE_URL = "******localhost:55432/tinyone_integration"
+$env:TIDE_TEST_DATABASE_URL = "******localhost:55432/tinylang_integration"
 cargo test ticket_assignment_status_and_owner_reopen_are_audited -- --ignored
 Remove-Item Env:TIDE_TEST_DATABASE_URL
 ```
@@ -66,7 +66,7 @@ Remove-Item Env:TIDE_TEST_DATABASE_URL
 The investigator API and grant-concurrency tests are opt-in and must only run against a disposable PostgreSQL database whose name contains `test` or `integration`. They apply the Web migrations and insert uniquely named fixtures. Because investigation history is append-only, discard the database after these tests rather than reusing a database with data that must be preserved:
 
 ```powershell
-$env:TIDE_TEST_DATABASE_URL = "postgres://tinylang:test-only-password@localhost:55432/tinyone_integration"
+$env:TIDE_TEST_DATABASE_URL = "postgres://tinylang:test-only-password@localhost:55432/tinylang_integration"
 cargo test evidence_write_requires_active_grant_and_records_audit_event -- --ignored
 cargo test investigator_revocation_waits_for_in_flight_write_authorization -- --ignored
 cargo test permanent_ban_requires_two_distinct_human_reviews -- --ignored
@@ -78,7 +78,7 @@ The visibility test verifies that reporters receive only the case summary, targe
 Investigation evidence retention is also database-backed and opt-in. It verifies that bytes from closed or appealed cases are purged only after 90 days, while recent and open cases retain content, and that digests remain and repeated cleanup is idempotent:
 
 ```powershell
-$env:TIDE_TEST_DATABASE_URL = "******localhost:55432/tinyone_integration"
+$env:TIDE_TEST_DATABASE_URL = "******localhost:55432/tinylang_integration"
 cargo test investigation_attachment_retention_purges_only_expired_closed_cases -- --ignored
 Remove-Item Env:TIDE_TEST_DATABASE_URL
 ```
@@ -86,7 +86,7 @@ Remove-Item Env:TIDE_TEST_DATABASE_URL
 Independent conflict adjudication is opt-in and database-backed. It verifies that declarants, case targets, and prior reviewers cannot adjudicate; a split remains pending; two matching votes finalize an assessment without removing the original declaration or lifting recusal; and finalized assessments reject additional votes:
 
 ```powershell
-$env:TIDE_TEST_DATABASE_URL = "******localhost:55432/tinyone_integration"
+$env:TIDE_TEST_DATABASE_URL = "******localhost:55432/tinylang_integration"
 cargo test conflict_declarations_require_independent_matching_adjudication_and_never_unrecuse -- --ignored
 Remove-Item Env:TIDE_TEST_DATABASE_URL
 ```
@@ -94,7 +94,7 @@ Remove-Item Env:TIDE_TEST_DATABASE_URL
 The ban-evasion detection test is opt-in and database-backed. It verifies that an established account posting identical content never signals, a brand-new account reposting an actively restricted account's content creates exactly one unreviewed private investigation, a second identical submission is suppressed while the case is open, the similarity score is recorded, and the new account is never restricted by the detector:
 
 ```powershell
-$env:TIDE_TEST_DATABASE_URL = "******localhost:55432/tinyone_integration"
+$env:TIDE_TEST_DATABASE_URL = "******localhost:55432/tinylang_integration"
 cargo test possible_ban_evasion_signals_are_unreviewed_and_non_punitive -- --ignored
 Remove-Item Env:TIDE_TEST_DATABASE_URL
 ```
@@ -102,7 +102,7 @@ Remove-Item Env:TIDE_TEST_DATABASE_URL
 The recovery workflow test is also opt-in and requires a disposable integration database. It verifies that issuance requires the current password, replaces a prior set with ten codes, races two recovery attempts using the same code and confirms exactly one succeeds, revokes sessions and old account tokens, consumes every issued code, leaves the replacement email unverified, confirms the new password is usable, and rejects a later retry:
 
 ```powershell
-$env:TIDE_TEST_DATABASE_URL = "postgres://tinylang:test-only-password@localhost:55432/tinyone_integration"
+$env:TIDE_TEST_DATABASE_URL = "postgres://tinylang:test-only-password@localhost:55432/tinylang_integration"
 cargo test recovery_consumes_codes_and_revokes_sessions_atomically -- --ignored
 cargo test recovery_rejects_deleted_accounts_and_email_conflicts -- --ignored
 Remove-Item Env:TIDE_TEST_DATABASE_URL
@@ -113,7 +113,7 @@ These tests insert unique accounts and recovery fixtures, so discard their datab
 The appeal workflow integration test is opt-in and uses the same disposable PostgreSQL requirement. It rejects an expired token, submits a verified appellant's valid token concurrently and confirms single-use behavior, rejects a reviewer who participated in the original case, confirms one vote and a split vote leave the appeal open without changing the restriction, then records two matching independent reversal votes and checks the restriction and immutable appeal events:
 
 ```powershell
-$env:TIDE_TEST_DATABASE_URL = "postgres://tinylang:test-only-password@localhost:55432/tinyone_integration"
+$env:TIDE_TEST_DATABASE_URL = "postgres://tinylang:test-only-password@localhost:55432/tinylang_integration"
 cargo test appeal_token_is_single_use_and_requires_matching_independent_reviews -- --ignored
 Remove-Item Env:TIDE_TEST_DATABASE_URL
 ```
@@ -123,7 +123,7 @@ This test inserts a complete unique moderation/appeal fixture and requires disca
 The chat API integration test is opt-in and requires the same disposable database. It verifies block-aware creation for one-to-one and group conversations, idempotency for one-to-one channel creation, canonical participant ordering for private fixed-membership groups, member-only history, recipient notifications that omit message content, outsider denial, report submission by another group member, moderator-only report listing and message removal, and that revoking a session invalidates the WebSocket access check:
 
 ```powershell
-$env:TIDE_TEST_DATABASE_URL = "postgres://tinylang:test-only-password@localhost:55432/tinyone_integration"
+$env:TIDE_TEST_DATABASE_URL = "postgres://tinylang:test-only-password@localhost:55432/tinylang_integration"
 cargo test group_direct_messages_are_idempotent_private_and_block_aware -- --ignored
 Remove-Item Env:TIDE_TEST_DATABASE_URL
 ```

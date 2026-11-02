@@ -6,9 +6,9 @@ title: Adversarial Findings
 
 Both `ffi_null_pointers_return_valid_json_errors` and
 `ffi_free_string_accepts_null` passed. An all-nulls call to
-`tinyone_run_source_json` returns
+`tinylang_run_source_json` returns
 `{"ok":false,"kind":"compile","error":"source pointer was null"}`, as
-confirmed by test source lines 256-261. `tinyone_free_string(null)` is a
+confirmed by test source lines 256-261. `tinylang_free_string(null)` is a
 no-op with no crash.
 
 # Probe 2 (Hostile artifacts): PASS
@@ -73,7 +73,7 @@ as confirmed by test source lines 284-293.
 
 `ffi_invalid_unicode_scalar_source_returns_error` passed. Passing bytes
 `[0xED, 0xA0, 0x80]` (a lone surrogate, invalid UTF-8) to
-`tinyone_lex_source_json` returns a compile error that says the input
+`tinylang_lex_source_json` returns a compile error that says the input
 must be UTF-8.
 
 # Exploits found

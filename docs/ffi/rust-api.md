@@ -4,17 +4,17 @@ title: Rust API
 
 # Rust Crate API Reference
 
-Add `tinyone` to your `Cargo.toml` dependencies (path or crate source),
+Add `tinylang` to your `Cargo.toml` dependencies (path or crate source),
 then import the public API:
 
 ```rust
-use tinyone::{compile_source, run_source, JitCache, TinyOneError};
+use tinylang::{compile_source, run_source, JitCache, TinyLangError};
 ```
 
-All fallible functions return `tinyone::Result<T>`, an alias for
-`Result<T, TinyOneError>`. `TinyOneError` has two variants:
-- `TinyOneError::Compile(msg)` — failure during lexing, parsing, or verification
-- `TinyOneError::Runtime(msg)` — failure during execution
+All fallible functions return `tinylang::Result<T>`, an alias for
+`Result<T, TinyLangError>`. `TinyLangError` has two variants:
+- `TinyLangError::Compile(msg)` — failure during lexing, parsing, or verification
+- `TinyLangError::Runtime(msg)` — failure during execution
 
 ---
 
@@ -25,7 +25,7 @@ All fallible functions return `tinyone::Result<T>`, an alias for
 Compile a TinyLang source string through lex → compile → optimize → verify. Returns a reference-counted, verified `Program` ready for execution.
 
 ```rust
-let program = tinyone::compile_source("let x = 6 * 7\nprint x")?;
+let program = tinylang::compile_source("let x = 6 * 7\nprint x")?;
 ```
 
 ### `compile_source_with_filename(source: &str, filename: &str) -> Result<Arc<Program>>`
@@ -55,7 +55,7 @@ status where appropriate.
 Read the file at `path` and compile it. Resolves imports relative to the file's directory.
 
 ```rust
-let program = tinyone::compile_file(std::path::Path::new("example.to"))?;
+let program = tinylang::compile_file(std::path::Path::new("example.to"))?;
 ```
 
 ### `compile_source_unoptimized(source: &str) -> Result<Arc<Program>>`
@@ -76,7 +76,7 @@ Same as `compile_source_unoptimized` but attaches `filename` to diagnostic messa
 Lex `source` and return the token count. Does not compile.
 
 ```rust
-let count = tinyone::lex_source("let x = 42")?;
+let count = tinylang::lex_source("let x = 42")?;
 ```
 
 ### `optimize_program(program: Arc<Program>) -> Arc<Program>`
@@ -96,7 +96,7 @@ Compile and run a source string. Writes program output to `stdout`. `inputs` pre
 
 ```rust
 let mut out = Vec::new();
-tinyone::run_source("print 6 * 7", "jit", &mut out, vec![])?;
+tinylang::run_source("print 6 * 7", "jit", &mut out, vec![])?;
 assert_eq!(String::from_utf8(out).unwrap(), "42\n");
 ```
 
@@ -110,9 +110,9 @@ Run a pre-compiled program. Runs `BytecodeVerifier::verify` internally before ex
 Consumes the `Arc<Program>`; clone it first if you need to keep a reference.
 
 ```rust
-let program = tinyone::compile_source("print 42")?;
+let program = tinylang::compile_source("print 42")?;
 let mut out = Vec::new();
-tinyone::run_program(program, "vm", &mut out, vec![])?;
+tinylang::run_program(program, "vm", &mut out, vec![])?;
 ```
 
 ### `run_program_report(program: Arc<Program>, mode: &str, stdout: &mut dyn Write, inputs: Vec<String>) -> Result<TinyRunReport>`
@@ -126,10 +126,10 @@ Run with explicit program arguments and environment variables (consumed by `sys_
 ```rust
 use std::collections::HashMap;
 
-let program = tinyone::compile_source("print sys_argc()")?;
+let program = tinylang::compile_source("print sys_argc()")?;
 let mut out = Vec::new();
 let env = HashMap::new();
-tinyone::run_program_with_env(
+tinylang::run_program_with_env(
     program,
     "vm",
     &mut out,
@@ -151,8 +151,8 @@ runners and accept a final `JitOptions` value. Existing runner functions use
 `JitOptions::default()`.
 
 ```rust
-let options = tinyone::JitOptions::new().with_hot_back_edge_threshold(2);
-tinyone::run_program_with_jit_options(
+let options = tinylang::JitOptions::new().with_hot_back_edge_threshold(2);
+tinylang::run_program_with_jit_options(
     program,
     "jit",
     &mut out,
@@ -189,7 +189,7 @@ on request and its header is included in `JitProgram::retained_bytes()`.
 Serialize `program` to a JSON artifact file at `path`.
 
 ```rust
-tinyone::write_artifact(&program, std::path::Path::new("out.tobc.json"))?;
+tinylang::write_artifact(&program, std::path::Path::new("out.tobc.json"))?;
 ```
 
 ### `load_artifact(path: impl AsRef<Path>) -> Result<Program>`
@@ -198,7 +198,7 @@ Deserialize and verify a JSON or compact binary artifact file. Enforces
 resource limits before constructing program tables.
 
 ```rust
-let program = tinyone::load_artifact(std::path::Path::new("out.tobc.json"))?;
+let program = tinylang::load_artifact(std::path::Path::new("out.tobc.json"))?;
 ```
 
 `write_binary_artifact(program, path)` writes the compact versioned `.tob`
@@ -216,8 +216,8 @@ policy trust. An untrusted artifact and a trusted source program with identical
 content occupy distinct entries. Cache hits reuse quickened programs across calls.
 
 ```rust
-let program = tinyone::compile_source("let i = 0\nwhile i < 1000 { i = i + 1 }\nprint i")?;
-let mut cache = tinyone::JitCache::new();
+let program = tinylang::compile_source("let i = 0\nwhile i < 1000 { i = i + 1 }\nprint i")?;
+let mut cache = tinylang::JitCache::new();
 let mut out = Vec::new();
 cache.run_program(&program, &mut out, vec![])?;
 // Second call reuses the compiled and potentially quickened JitProgram:
@@ -233,7 +233,7 @@ defaults to 128 entries and 8 MiB of retained source text. Configure it while
 constructing the cache:
 
 ```rust
-let cache = tinyone::JitCache::with_options(options)
+let cache = tinylang::JitCache::with_options(options)
     .with_source_cache_limits(64, 4 * 1024 * 1024);
 ```
 
@@ -312,7 +312,7 @@ Source-cache statistics include `source_bytes`, `source_hits`,
 Compile `program` through the JIT and write the human-readable assembly listing to `path`.
 
 ```rust
-tinyone::write_jit_listing(&program, std::path::Path::new("listing.txt"))?;
+tinylang::write_jit_listing(&program, std::path::Path::new("listing.txt"))?;
 ```
 
 Use `write_verified_jit_listing(&verified, path)` when a trusted compiler or
@@ -336,7 +336,7 @@ certificate. Use `VerifiedProgram` when the caller needs to retain that proof
 and its metadata for subsequent execution or lowering.
 
 ```rust
-tinyone::BytecodeVerifier::verify(&program)?;
+tinylang::BytecodeVerifier::verify(&program)?;
 ```
 
 ### `VerifiedProgram`
@@ -349,9 +349,9 @@ with one reference-count increment. Construct it via
 artifact-loader API.
 
 ```rust
-let verified = tinyone::compile_source_verified("print 1")?;
+let verified = tinylang::compile_source_verified("print 1")?;
 // Borrow the inner Program without consuming:
-let _inner: &tinyone::Program = verified.program();
+let _inner: &tinylang::Program = verified.program();
 let fingerprint: &str = verified.fingerprint(); // memoized and clone-shared
 // Consume and recover an owned Program (the type-system guarantee is lost):
 let program = verified.into_program();
@@ -370,7 +370,7 @@ measure heap-lock acquisitions, value encodes/decodes, Ralloc growth events,
 and allocator bytes copied:
 
 ```rust
-use tinyone::testing::{reset_runtime_cost_counters, runtime_cost_counters};
+use tinylang::testing::{reset_runtime_cost_counters, runtime_cost_counters};
 
 reset_runtime_cost_counters();
 // Run one isolated workload here.

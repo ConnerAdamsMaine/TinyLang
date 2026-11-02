@@ -1,5 +1,7 @@
+use tinylang::{
+    Function, Instr, Op, Program, VerifiedProgram, compile_source_unoptimized_verified,
+};
 use tinylang_v2::engine::{BinaryOp, EngineError, ScalarFunction};
-use tinyone::{Function, Instr, Op, Program, VerifiedProgram, compile_source_unoptimized_verified};
 
 #[test]
 fn compiler_output_lowers_to_checked_integer_ir() {
@@ -116,22 +118,22 @@ fn inferred_loop_frames_preserve_vm_semantics() {
     }";
     let program = compile_source_unoptimized_verified(source).unwrap();
     let lowered = ScalarFunction::lower(&program, 0).unwrap();
-    let mut vm = tinyone::VM::from_verified_with_limits(
+    let mut vm = tinylang::VM::from_verified_with_limits(
         &program,
         vec![],
-        tinyone::VmExecutionLimits::default(),
+        tinylang::VmExecutionLimits::default(),
     )
     .unwrap();
     for (n, expected) in [(0, 0), (1, 0), (10, 45), (100, 4950)] {
         let actual = vm
             .invoke_function_with_fuel(
                 0,
-                vec![tinyone::RuntimeValue::I64(n)],
+                vec![tinylang::RuntimeValue::I64(n)],
                 &mut Vec::new(),
                 10000,
             )
             .unwrap();
-        assert_eq!(actual, tinyone::RuntimeValue::I64(expected));
+        assert_eq!(actual, tinylang::RuntimeValue::I64(expected));
         assert_eq!(lowered.interpret(&[n], 10000).unwrap(), expected);
     }
 }
@@ -175,17 +177,17 @@ fn exact_instruction_fuel_matches_the_authoritative_vm() {
     let program = compile_source_unoptimized_verified("fn add(a,b) { return a+b }").unwrap();
     let lowered = ScalarFunction::lower(&program, 0).unwrap();
     for fuel in 0..=5 {
-        let mut vm = tinyone::VM::from_verified_with_limits(
+        let mut vm = tinylang::VM::from_verified_with_limits(
             &program,
             vec![],
-            tinyone::VmExecutionLimits::default(),
+            tinylang::VmExecutionLimits::default(),
         )
         .unwrap();
         let actual = vm.invoke_function_with_fuel(
             0,
             vec![
-                tinyone::RuntimeValue::I64(19),
-                tinyone::RuntimeValue::I64(23),
+                tinylang::RuntimeValue::I64(19),
+                tinylang::RuntimeValue::I64(23),
             ],
             &mut Vec::new(),
             fuel,
@@ -205,7 +207,7 @@ fn exact_instruction_fuel_matches_the_authoritative_vm() {
                 })
             ));
         } else {
-            assert_eq!(actual.unwrap(), tinyone::RuntimeValue::I64(42));
+            assert_eq!(actual.unwrap(), tinylang::RuntimeValue::I64(42));
             assert_eq!(lowered.interpret(&[19, 23], fuel).unwrap(), 42);
         }
     }

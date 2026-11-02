@@ -26,7 +26,7 @@ forum](https://tl.404connernotfound.dev).
   operator precedence table, arithmetic, comparisons, and the unsafe
   gate.
 - [modules.md](modules.md) -- Import/export system, path resolution,
-  `tinyone.json` manifest, circular-import detection, and a worked
+  `tinylang.json` manifest, circular-import detection, and a worked
   example.
 - [decorators.md](decorators.md) -- Static function metadata, compile-time
   extension imports, coprocessor placement, and artifact/security boundaries.

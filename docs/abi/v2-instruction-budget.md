@@ -130,5 +130,5 @@ The public method remains a consuming, one-shot Rust API. Persistent sessions,
 typed foreign arguments/results, artifact exports, per-session heap limits,
 host capability restrictions and actual `VM_INVOKE` dispatch remain to be
 implemented and tested. Fuel exhaustion currently maps to the existing typed
-`TinyOneError::Runtime` category and annotated message; a future dispatcher
+`TinyLangError::Runtime` category and annotated message; a future dispatcher
 must map runtime failures to its documented trap status without parsing text.

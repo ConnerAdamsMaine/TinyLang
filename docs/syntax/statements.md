@@ -21,7 +21,7 @@ value of `expression`. The name is visible from this line until the end
 of the enclosing block. You cannot redeclare a name with `let` in the
 same scope.
 
-```tinyone
+```tinylang
 let x = 10
 let y = x + 5
 print y   # 15
@@ -39,7 +39,7 @@ Updates the value of an existing visible variable `name`. The variable
 must have been declared with `let` before it is assigned. Assignment does
 not introduce a new scope entry.
 
-```tinyone
+```tinylang
 let n = 0
 n = n + 1
 print n   # 1
@@ -57,7 +57,7 @@ Evaluates `expression` and writes its string representation to stdout,
 followed by a newline. Works on integers, strings, arrays, structs,
 buffers, cells, and raw pointers.
 
-```tinyone
+```tinylang
 print 42
 print "hello"
 print [1, 2, 3]
@@ -74,7 +74,7 @@ expression
 Evaluates `expression` and discards its result. This is the normal form for
 calling a function or builtin for its side effect.
 
-```tinyone
+```tinylang
 let arr = []
 push(arr, 1)
 unsafe write8(ptr(buffer(4), 0), 255)
@@ -91,7 +91,7 @@ unsafe { statements }
 Runs the block with unsafe builtins enabled. Use this for clustered pointer,
 buffer, raw heap, or filesystem operations.
 
-```tinyone
+```tinylang
 let buf = buffer(4)
 let base = ptr(buf, 0)
 unsafe {
@@ -112,7 +112,7 @@ set name.field  = expression
 Mutates an array element or struct field. `name` must be a visible
 variable holding an array (for index form) or a struct (for field form).
 
-```tinyone
+```tinylang
 let arr = [10, 20, 30]
 set arr[1] = 99
 print arr[1]   # 99
@@ -138,7 +138,7 @@ and an `else` clause is present, executes the else block. `else if` chains
 are parsed as cascaded conditionals without requiring an extra nested block.
 Braces are required around every branch body.
 
-```tinyone
+```tinylang
 let x = 5
 if x > 3 {
   print 1
@@ -158,7 +158,7 @@ while expression { statements }
 Evaluates `expression` before each iteration. Repeats while non-zero.
 Braces are required.
 
-```tinyone
+```tinylang
 let i = 0
 while i < 5 {
   print i
@@ -177,7 +177,7 @@ break
 Exits the innermost enclosing `while` loop immediately. Only valid
 inside a loop body.
 
-```tinyone
+```tinylang
 let i = 0
 while 1 {
   if i == 3 { break }
@@ -197,7 +197,7 @@ continue
 Jumps to the condition check of the innermost enclosing `while` loop.
 Only valid inside a loop body.
 
-```tinyone
+```tinylang
 let i = 0
 while i < 5 {
   i = i + 1
@@ -217,7 +217,7 @@ return expression
 Returns `expression` from the current function. Only valid inside a
 function body. Not valid at the top level.
 
-```tinyone
+```tinylang
 fn double(n) {
   return n * 2
 }
@@ -237,7 +237,7 @@ separated by commas. Structs must be declared before they are used as
 constructors. Only valid at top level; not valid inside a function body
 or loop.
 
-```tinyone
+```tinylang
 struct Point { x, y }
 let p = Point(3, 4)
 print p.x   # 3
@@ -266,7 +266,7 @@ Printing an enum value renders `EnumName.VariantName` for a unit variant, or
 `EnumName.VariantName{field: value, ...}` when it carries fields.
 `type_of(value)` returns `"Enum"`.
 
-```tinyone
+```tinylang
 enum Maybe {
   None,
   Some(value)
@@ -300,7 +300,7 @@ but direct assignment to those top-level slots is rejected.
 
 Only valid at top level. Must be declared before it is called.
 
-```tinyone
+```tinylang
 fn fact(n) {
   let acc = 1
   while n > 1 {
@@ -328,7 +328,7 @@ Using `export` in a non-module file (a top-level entry-point file) is
 currently a no-op — the declaration is accepted without error but the export
 has no effect.
 
-```tinyone
+```tinylang
 # math.to
 fn helper(x) { return x }        # private
 export fn double(x) { return helper(x) * 2 }  # public

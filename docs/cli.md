@@ -8,17 +8,17 @@ title: CLI Reference
 usage: tinylang [OPTIONS] [path]
 ```
 
-TinyOne exits with status `0` on success, status `1` on any error.
+TinyLang exits with status `0` on success, status `1` on any error.
 
 Build the CLI executable before using these commands:
 
 ```sh
-cargo build --manifest-path crates/tinyone_core/Cargo.toml
+cargo build --manifest-path crates/tinylang_core/Cargo.toml
 ```
 
 Cargo writes the debug executable to `target/debug/tinylang`
 (`target/debug/tinylang.exe` on Windows). For optimized local use,
-build with `cargo build --release --manifest-path crates/tinyone_core/Cargo.toml`; the
+build with `cargo build --release --manifest-path crates/tinylang_core/Cargo.toml`; the
 release executable is `target/release/tinylang` or
 `target/release/tinylang.exe`. The examples below assume the executable
 is available on `PATH` as `tinylang`.
@@ -72,9 +72,9 @@ tinylang -O1 example.to
 
 ### `--no-cache`
 
-Source files use a dependency-validated `.tinyone-cache/` beside the root
+Source files use a dependency-validated `.tinylang-cache/` beside the root
 program by default. Cache hits skip lexing, parsing, optimization, and module
-assembly. TinyOne hashes the root, imported sources, manifests (including
+assembly. TinyLang hashes the root, imported sources, manifests (including
 previously missing manifest probes), and canonical import resolutions before
 loading a compact artifact, then verifies the artifact and fingerprint.
 
@@ -164,7 +164,7 @@ tinylang \
   --input 10 --input 20 example.to
 ```
 
-```tinyone
+```tinylang
 # example.to
 let a = read_int()
 let b = read_int()

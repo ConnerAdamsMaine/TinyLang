@@ -1,0 +1,15 @@
+[package]
+name                   = "tinylang_test_support"
+version                = "0.1.0"
+edition.workspace      = true
+description            = "Shared workspace and assertion helpers for TinyLang crate tests"
+license-file.workspace = true
+repository.workspace   = true
+readme                 = "README.md"
+keywords               = [ "testing", "tinylang" ]
+categories             = [ "development-tools::testing" ]
+
+[dependencies]
+
+[dev-dependencies]
+tempfile = "3"

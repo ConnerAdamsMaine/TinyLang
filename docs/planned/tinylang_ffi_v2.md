@@ -8,7 +8,7 @@ title: TinyLang FFI v2
 - **ABI status:** Planned v2 redesign. This document explores the future shape
   of the FFI after the frozen v1 ABI; nothing here changes the v1 contract.
 - **Naming:** the public header is `tinylang.h` (branding), but the exported
-  symbols remain `tinyone_*` and the library remains `libtinyone`. Name and
+  symbols remain `tinylang_*` and the library remains `libtinylang`. Name and
   symbols are intentionally decoupled — no ABI-wide symbol rename is implied.
 - **Supersedes (eventually):** the JSON-over-C-string surface documented in
   `docs/ffi/c-integration.md`, which is retained as a convenience/debug façade
@@ -23,15 +23,15 @@ native module execution can be enabled safely.
 
 ## 1. Summary
 
-Today TinyOne's FFI is a single, *inbound* surface: a C host calls
-`tinyone_*_json` functions that take and return JSON-over-C-strings
-(`TinyOne/src/ffi.rs`). That design is correct for coarse, one-shot calls
+Today TinyLang's FFI is a single, *inbound* surface: a C host calls
+`tinylang_*_json` functions that take and return JSON-over-C-strings
+(`TinyLang/src/ffi.rs`). That design is correct for coarse, one-shot calls
 (compile, run) and has a tiny unsafe surface — but it cannot express the two
 things this proposal targets:
 
-1. **Outbound library calls** — TinyOne code calling *into* a native C library
+1. **Outbound library calls** — TinyLang code calling *into* a native C library
    (e.g. OpenGL) without a maintainer hand-writing builtin glue per function.
-2. **IPC** — two processes exchanging TinyOne values over a transport.
+2. **IPC** — two processes exchanging TinyLang values over a transport.
 
 FFI v2 introduces **one canonical, `repr(C)` typed value representation
 (`TinyValue`) and one generation-checked handle model**, and uses it across all
@@ -54,7 +54,7 @@ forces it). Outbound calls marshal `TinyValue` to and from the native C ABI.
 - Universally consumable — every language has a JSON parser.
 - Self-describing and human-debuggable.
 - Minimal unsafe surface: the only raw pointer crossing the boundary is one
-  owned `char *` with a documented ownership contract (`tinyone_free_string`).
+  owned `char *` with a documented ownership contract (`tinylang_free_string`).
 - Version-tolerant (unknown fields can be ignored).
 
 These properties are why the inbound control API (`lex`, `compile`, `run`,
@@ -69,26 +69,26 @@ serialization cost, so JSON is the right trade there.
 - **JSON number semantics.** Float precision, NaN, and infinity have no faithful
   JSON representation; today floats are emitted as raw bits to work around this.
 - **No compile-time schema.** Consumers match on string keys; drift is silent.
-- **Inbound only.** There is no mechanism for TinyOne code to call *out* to a C
+- **Inbound only.** There is no mechanism for TinyLang code to call *out* to a C
   library. Using OpenGL today would mean writing a builtin in `builtins.rs` for
   every GL entry point — weeks of glue, per library.
-- **No IPC story.** Nothing defines how a TinyOne value crosses a process
+- **No IPC story.** Nothing defines how a TinyLang value crosses a process
   boundary.
 
 ### 2.3 Goals
 
 1. A typed, zero-serialization inbound path for embedders, *alongside* JSON.
-2. Let TinyOne call arbitrary C libraries with little or no hand-written glue.
-3. Enable IPC of TinyOne values — same-machine **and networked**.
+2. Let TinyLang call arbitrary C libraries with little or no hand-written glue.
+3. Enable IPC of TinyLang values — same-machine **and networked**.
 4. Keep **one** value representation across all three directions.
-5. Preserve the soft-safety memory model: TinyOne code never holds raw native
+5. Preserve the soft-safety memory model: TinyLang code never holds raw native
    pointers; validity is enforced via generation-checked handles.
 6. Serve C / C++ / Rust / Zig from one cbindgen-generated header.
 
 ### 2.4 Non-goals (v2)
 
 - Reopening or changing the frozen v1 ABI during the v1 lifecycle.
-- Marshalling every TinyOne type outbound (only a C-ABI-compatible subset is
+- Marshalling every TinyLang type outbound (only a C-ABI-compatible subset is
   permitted in `extern` signatures — see §6).
 - A general C++-name-mangled or Rust-native ABI (the boundary is always C ABI).
 
@@ -98,9 +98,9 @@ serialization cost, so JSON is the right trade there.
 
 | Direction | Who calls whom | Example | Frequency |
 |-----------|----------------|---------|-----------|
-| **Inbound** | C host → TinyOne VM | embed the VM, run a program, read results | coarse |
-| **Outbound** | TinyOne → native C library | call OpenGL, libc, a user `.so` | hot |
-| **IPC** | TinyOne process ↔ another process | two VMs, tooling, a host service | medium |
+| **Inbound** | C host → TinyLang VM | embed the VM, run a program, read results | coarse |
+| **Outbound** | TinyLang → native C library | call OpenGL, libc, a user `.so` | hot |
+| **IPC** | TinyLang process ↔ another process | two VMs, tooling, a host service | medium |
 
 All three share the **`TinyValue`** value model (§4.1) and the **handle** model
 (§4.2). They differ only in how that representation is *moved*: by
@@ -150,7 +150,7 @@ NaN/inf/-0, matching the IEEE-754 rules in `typing_system.md`).
 
 Aggregates (`String`, `Buffer<T>`, `Vec<T>`, `Array<T,N>`) cross the boundary as
 `{ ptr, len, cap, elem_kind }` descriptors, not inline. Text is **length +
-pointer UTF-8**, not NUL-only (TinyOne strings may contain interior NULs and are
+pointer UTF-8**, not NUL-only (TinyLang strings may contain interior NULs and are
 always validated UTF-8 per `typing_system.md`).
 
 ### 4.2 `TinyHandle` — opaque, generation-checked
@@ -182,7 +182,7 @@ typedef enum TinyStatus {
 } TinyStatus;
 
 /* thread-local detail string for the last error on this thread */
-const char *tinyone_last_error(void);
+const char *tinylang_last_error(void);
 ```
 
 Functions return `TinyStatus` and write results through out-params. Every
@@ -211,16 +211,16 @@ Opaque handles, freed explicitly:
 typedef struct TinyEngine  TinyEngine;   /* owns JitCache, config */
 typedef struct TinyProgram TinyProgram;  /* an Arc<Program> */
 
-TinyEngine *tinyone_engine_new(void);
-void        tinyone_engine_free(TinyEngine *);
+TinyEngine *tinylang_engine_new(void);
+void        tinylang_engine_free(TinyEngine *);
 
-TinyStatus tinyone_compile_source(TinyEngine *, const char *src,
+TinyStatus tinylang_compile_source(TinyEngine *, const char *src,
                                   TinyProgram **out);
-TinyStatus tinyone_program_run(TinyProgram *, const char *mode,
+TinyStatus tinylang_program_run(TinyProgram *, const char *mode,
                                const TinyValue *inputs, size_t n_inputs,
                                TinyRunReport *out);   /* repr(C) report */
-TinyStatus tinyone_program_fingerprint(TinyProgram *, uint64_t *out);
-void       tinyone_program_free(TinyProgram *);
+TinyStatus tinylang_program_fingerprint(TinyProgram *, uint64_t *out);
+void       tinylang_program_free(TinyProgram *);
 ```
 
 `TinyRunReport` is the `repr(C)` form of the current run payload: a `TinyValue`
@@ -240,7 +240,7 @@ array (the top-of-stack memory snapshot) plus `TinyHeapStats`
 
 ### 5.3 JSON façade retained
 
-The existing `tinyone_*_json` functions stay, unchanged, as a convenience/debug
+The existing `tinylang_*_json` functions stay, unchanged, as a convenience/debug
 surface. They become thin wrappers that build a `TinyValue`/handle internally
 and serialize. Same `catch_unwind` discipline. `docs/ffi/c-integration.md` is
 updated to describe both surfaces and when to use which.
@@ -263,11 +263,11 @@ building handlers over OpenGL."
 
 ### 6.1 Layer 1 — dynamic FFI core (libffi)
 
-TinyOne declares foreign signatures in an `extern` block; the VM resolves
+TinyLang declares foreign signatures in an `extern` block; the VM resolves
 symbols with `dlopen`/`dlsym` and calls them through **libffi**, marshalling
 `TinyValue`s to/from the native C ABI at runtime. **No per-function Rust glue.**
 
-```tinyone
+```tinylang
 extern "C" from "libGL.so.1" {
   unsafe fn glClear(mask: u32)
   unsafe fn glGenBuffers(n: i32, buffers: &mut Buffer<u32>)
@@ -283,7 +283,7 @@ calling convention; other conventions (`stdcall`, etc.) are declarable.
 
 ### 6.2 Layer 2 — binding generation
 
-A tool ingests a C header via libclang and emits a TinyOne `extern` module (plus
+A tool ingests a C header via libclang and emits a TinyLang `extern` module (plus
 optional safe wrappers). Point it at `GL/gl.h` and get typed bindings without
 writing them. This is the ergonomic layer on top of Layer 1; Layer 1 works
 without it.
@@ -294,7 +294,7 @@ Native code is outside the VM's safety boundary, so:
 
 - **Foreign calls are `unsafe` by default** — matching the unsafe-call rule in
   `typing_system.md`. They appear only inside `unsafe` expressions/blocks.
-- **Foreign pointers never enter TinyOne as raw pointers.** A returned `void*`,
+- **Foreign pointers never enter TinyLang as raw pointers.** A returned `void*`,
   `GLuint`-as-handle, or `char*` is wrapped as a `ForeignPtr` — an opaque,
   generation-checked entry in a **Foreign Handle Table** parallel to the GAT.
   Stale/freed foreign handles fault recoverably.
@@ -302,15 +302,15 @@ Native code is outside the VM's safety boundary, so:
   *pinned* for the duration of the call; the VM enforces bounds and lifetime.
 - **`catch_unwind` wraps the trampoline** so a marshalling fault never unwinds
   into or out of C.
-- **Honest limit:** the VM guarantees *TinyOne-side* handle validity. Once a raw
+- **Honest limit:** the VM guarantees *TinyLang-side* handle validity. Once a raw
   pointer is in C's hands, what C does with it (e.g. retaining it past the call)
-  is the caller's responsibility. This preserves "TinyOne code never manipulates
+  is the caller's responsibility. This preserves "TinyLang code never manipulates
   native pointers" (`ownership_semantics_and_memory_safety.md`) without
   over-promising memory safety for arbitrary C behavior.
 
 ### 6.4 Type marshalling
 
-| TinyOne | C | Notes |
+| TinyLang | C | Notes |
 |---------|---|-------|
 | `i8..i64` / `u8..u64` | `int8_t..int64_t` / `uint8_t..uint64_t` | exact width |
 | `fp32` / `fp64` | `float` / `double` | fp8/fp16 require explicit widening |
@@ -321,11 +321,11 @@ Native code is outside the VM's safety boundary, so:
 | `Vec`/`Map`/sum/closure | — | **rejected** in `extern` signatures (§2.4) |
 
 Returned-pointer ownership is declared per function (the C library frees it, or
-TinyOne frees it through a declared finalizer — see open questions).
+TinyLang frees it through a declared finalizer — see open questions).
 
 ### 6.5 Walkthrough (illustrative)
 
-```tinyone
+```tinylang
 let gl = extern_load("libGL.so.1")        // ForeignPtr to the lib handle
 let mut ids = Buffer<u32>.with_len(1)
 unsafe { glGenBuffers(1, &mut ids) }       // C writes into pinned VM buffer
@@ -336,7 +336,7 @@ unsafe {
 }
 ```
 
-No GL-specific Rust code exists in TinyOne; the calls route through libffi, and
+No GL-specific Rust code exists in TinyLang; the calls route through libffi, and
 `ids`/`verts` stay VM-owned and bounds-checked.
 
 ---
@@ -416,11 +416,11 @@ Proto for the *wire* only. Start hand-rolled; revisit if that need is real.
 
 ### 8.1 Generation
 
-- Add `cbindgen.toml` to the TinyOne crate and to the Ralloc crate.
+- Add `cbindgen.toml` to the TinyLang crate and to the Ralloc crate.
 - Mark every FFI-exposed type `#[repr(C)]` (`TinyValue`, `TinyHandle`,
   `TinyHeapStats`, `TinyRunReport`, the enums). Functions are already
   `#[no_mangle] extern "C"`.
-- Output: TinyOne → **`tinylang.h`** (containing the `tinyone_*` symbols + the
+- Output: TinyLang → **`tinylang.h`** (containing the `tinylang_*` symbols + the
   `repr(C)` types); Ralloc → **`ralloc.h`** (replacing the current hand-written
   header at `Ralloc/include/ralloc.h`).
 
@@ -434,7 +434,7 @@ and adds a hard build dependency.)
 
 ### 8.3 Header reconciliation
 
-The existing hand-written `tinyone.h` at the repo root becomes a one-line shim:
+The existing hand-written `tinylang.h` at the repo root becomes a one-line shim:
 
 ```c
 #include "tinylang.h"
@@ -447,7 +447,7 @@ reference `tinylang.h`.
 
 Ralloc is a foundational requirement of the TinyLang system — it underpins the
 IPC safety model (§7.4), not an optional backend. The blocker is *sourcing*. Per
-`phase_2_allocator.md` [P3B-4], the in-repo `TinyOne/Ralloc/` is an **embedded
+`phase_2_allocator.md` [P3B-4], the in-repo `TinyLang/Ralloc/` is an **embedded
 git repository** (it has its own `.git`) that is **stale**: its `lib.rs`
 predates the VM API layer and exports no `VmAllocation`/`VmAllocator`/`vm_api`.
 The canonical checkout at `/Desktop/Ralloc/` is the one that contains
@@ -484,10 +484,10 @@ relative to JSON's single owned `char *`. The hardening keeps it bounded:
   **per-connection Ralloc arenas** so a hostile peer is budget-bounded and
   blast-radius-contained (§7.4); never decode into a raw pointer; handles never
   cross the process boundary.
-- **Ralloc hard boundary:** native memory integrity stays in Rust; TinyOne never
+- **Ralloc hard boundary:** native memory integrity stays in Rust; TinyLang never
   holds a raw address.
 
-**Known limitation carried over:** `tinyone_free_string` calls
+**Known limitation carried over:** `tinylang_free_string` calls
 `CString::from_raw` without a `catch_unwind` guard (`c-integration.md`, Known
 Limitations). The v2 free functions should either adopt the same documented
 contract or add guards; decide during implementation.
@@ -502,7 +502,7 @@ contract or add guards; decide during implementation.
   or remove a tag.
 - `repr(C)` structs evolve additively (no field reordering; version the struct
   or use sized/headered structs where growth is expected).
-- Expose `uint32_t tinyone_abi_version(void)`; the IPC frame header carries the
+- Expose `uint32_t tinylang_abi_version(void)`; the IPC frame header carries the
   same version so peers can reject mismatches.
 - Align with the rules in `docs/abi/versioning.md` and `docs/abi/contract.md`.
 
@@ -541,7 +541,7 @@ Each piece gets its own spec → plan → implementation cycle. (1)–(4) depend
 4. **Foreign destructors.** How does a `ForeignPtr` know how to free itself
    (e.g. `glDeleteBuffers`)? Likely a user-declared finalizer in the `extern`
    block. Needs design.
-5. **C → TinyOne callbacks.** Passing a TinyOne function as a C function pointer
+5. **C → TinyLang callbacks.** Passing a TinyLang function as a C function pointer
    (GLFW-style callbacks) needs a trampoline and a pinned environment. Hard
    sub-problem; candidate to defer past v2 core.
 6. **Handle thread model.** Precisely which handles are `Send`/shareable, given

@@ -1,307 +1,308 @@
-﻿C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\Cargo.toml
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\Cargo.lock
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\cliff.toml
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\cbindgen.toml
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\Config.toml
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\build\watch-tasks.toml
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tools\zip.py
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\build\typst-tasks.toml
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tools\test_zip.py
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\build\release-tasks.toml
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tools\test_loc.py
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\build\push_event.json
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tools\test_hash.py
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\build\ffi-tasks.toml
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tools\test_abi_manifest.py
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\build\docker-tasks.toml
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tools\loc.py
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\build\dist-tasks.toml
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tools\hash.py
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\build\common-tasks.toml
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tools\abi_manifest.py
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\build\ci-tasks.toml
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\build\.build.sh
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinyone-response-schema.json
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\.taplo.toml
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\.rustfmt.toml
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\.python-version
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\.gitignore
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\.git
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\.gitattributes
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\docs\CONTRIBUTING.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\docs\Community_Forum.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\docs\cli.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\docs\CI_CD.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\docs\bytecode.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\docs\audit-findings.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\docs\architecture.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\docs\adversarial-findings.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\scripts\check_abi_drift.sh
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\rust-toolchain.toml
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\README.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\Makefile.toml
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\LICENSE
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\scripts\consumer_smoke.sh
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\scripts\consumer_compile.sh
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\scripts\consumer_smoke_msvc.sh
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\scripts\update-docs-index.py
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\docs\memory-model.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang.h
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\docs\INDEX.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\docs\vm.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\docs\v2-roadmap.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\scripts\_compile_rust.sh
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\scripts\_compile_cpp.sh
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\scripts\_compile_c.sh
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\scripts\_common.sh
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\docs\stdlib.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\docs\performance.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\docs\EXAMPLES.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\xtask\Cargo.toml
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\xtask\Cargo.lock
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\xtask\tests\plan.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\.github\CODEOWNERS
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\xtask\src\main.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\xtask\src\lib.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\docs\ffi\c-integration.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\.github\PULL_REQUEST_TEMPLATE.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\.github\workflows\build.yml
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_ralloc\Cargo.lock
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_ralloc\Cargo.toml
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_test_support\Cargo.toml
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\Cargo.lock
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\docs\planned\tinylang_ffi_v2.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\Cargo.toml
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\docs\ffi\rust-api.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\docs\ffi\INDEX.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\docs\ffi\c-integration_new.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\.github\workflows\ffi.yml
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\.github\workflows\cranelift.yml
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\.github\workflows\format.yml
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\.github\workflows\nightly.yml
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\.github\workflows\v2-abi.yml
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\.github\workflows\test.yml
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_test_support\src\lib.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\bindings\README.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\docs\syntax\types.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\docs\syntax\statements.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\docs\syntax\modules.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\docs\syntax\INDEX.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\docs\syntax\expressions.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\docs\abi\versioning.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\docs\abi\v2-workspace-setup.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\docs\abi\v2-opcodes.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\docs\abi\v2-binary-spec.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\docs\abi\v2-artifact-spec.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\docs\abi\schemas.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\docs\abi\INDEX.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\docs\abi\contract.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_ralloc\include\ralloc.h
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\Cargo.toml
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\Cargo.lock
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tests\consumers\tinylang_consumer.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tests\consumers\tinylang_consumer.cpp
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tests\consumers\tinylang_consumer.c
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\.github\actions\setup-rust\action.yml
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_ralloc\tests\c_suite.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_ralloc\tests\c_artifacts.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_ralloc\tests\send_sync.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_ralloc\tests\native_buffer.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_ralloc\tests\native_box.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_ralloc\tests\fragmentation.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\.github\actions\setup-gcc\action.yml
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\tests\vm_session_contract.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\bindings\python\tinylang_v2.py
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\bindings\python\smoke.py
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\bindings\python\programs.py
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\allocator_audit.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\abi_api_soundness.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\bench_stdlib.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_ralloc\tests\abi.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_ralloc\src\instrumentation.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_ralloc\src\buffer.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_ralloc\src\block.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_ralloc\src\backend.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_ralloc\src\arena.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_ralloc\src\page.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_ralloc\src\lib.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_ralloc\src\ralloc.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_ralloc\src\region.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\tests\artifact_contract.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\.github\actions\setup-python\action.yml
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\tests\header_smoke.c
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\tests\golden_vectors.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\tests\ffi_contract.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\tests\opcode_contract.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\tests\parser_adversarial.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_ralloc\src\vm.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_ralloc\src\testing.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_ralloc\src\sync.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_ralloc\tests\c\run_c_suite.sh
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_ralloc\tests\c\ralloc_c_suite.c
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\.github\actions\checkout\action.yml
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\bindings\node\wire.test.mjs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\bindings\node\tinylang_v2_wire.mjs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\bindings\node\programs.mjs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\alloc_table.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\lib_smoke.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\language_suite.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\bindings\c\smoke.c
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\api.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\artifact_io.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\threading.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\stdlib_parity.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\runtime_parity.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\runtime_cost_profile.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\tests\vectors\invalid_impossible_payload_length.bin
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\tests\vectors\invalid_bad_magic.bin
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\tests\vectors\invalid_nonzero_padding.bin
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\tests\vectors\invalid_truncated_header.bin
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\module_sandbox.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\tests\artifacts\arithmetic_print.tlbc
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\tests\vectors\invalid_unsupported_version.bin
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\builtins.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\include\tinylang_v2.h
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\tests\vectors\README.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\tests\vectors\manifest.json
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\tests\artifacts\README.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\tests\artifacts\push_print_halt.tlbc
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\tests\artifacts\minimal_halt.tlbc
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\tests\artifacts\manifest.json
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\tests\artifacts\invalid_bad_opcode.tlbc
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\src\lib.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\cli.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\tests\vectors\valid_echo_values.bin
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\tests\vectors\valid_abi_info.bin
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\tests\vectors\valid_handle_release_unknown.bin
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\tests\vectors\valid_nop.bin
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\compile_cache.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\tests\vectors\valid_vm_create_unknown_program.bin
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\tests\vectors\valid_unknown_opcode.bin
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\examples\interop_rust.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\examples\generate_vectors.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\examples\abi_stdio_bridge.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\language\README.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\README.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\bin\tinyone-sandbox-worker.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\bin\tinylang_bench.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\vm_hooks.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\tiny_allocator.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\testing.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\.github\actions\setup-msvc\action.yml
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\fuzz\Cargo.lock
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\fuzz\Cargo.toml
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\language\pass\bool_float_and_type_annotations.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\language\fail_compile\undefined_symbol.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\lib.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\fuzz\README.md
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\language\fail_compile\enum_reserved_tag_field.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\src\ffi\v2\artifact.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\src\ffi\mod.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\src\ffi\v2\handles.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\src\ffi\v2\mod.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\compiler\mod.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\compiler\incremental.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\compiler\modules.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\compiler\parser.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\language\pass\float_precision_casts.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\language\pass\control_flow.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\compiler\state.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\language\pass\functions_and_calls.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\language\pass\heap_structs_arrays.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\src\ffi\v2\schema.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\pass\001_comments_whitespace.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\language\pass\input_and_strings.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\bytecode\verifier.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\bytecode\program.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\bytecode\peephole.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\pass\002_operators_precedence.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\bytecode\opcode.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\pass\003_variables_shadowing.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\bytecode\mod.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\bytecode\instr.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\bytecode\binary.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\bytecode\artifact.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\error.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\config.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\compiler\symbols.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\internal_testing.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\ffi.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\src\ffi\v2\session.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\source.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\runner.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\memory_log.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\main.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\src\ffi\v2\status.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\src\ffi\v2\wire.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\src\ffi\v2\types.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\language\fail_runtime\division_by_zero.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\language\fail_runtime\input_exhaustion.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\pass\006_arrays.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\pass\005_functions.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\pass\007_strings.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\pass\004_control_flow_break_continue.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\syntax\token.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\syntax\mod.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\syntax\lexer.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\pass\009_cells.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\pass\008_structs.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\pass\010_raw_pointers_array.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\fuzz\fuzz_targets\frame.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\tinylang_v2\fuzz\fuzz_targets\artifact.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\pass\011_raw_pointers_buffer.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\pass\012_null_and_pointer_equality.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\modules\main_import_file.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\modules\tinyone.json
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\modules\math.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\modules\main_import_manifest.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\fail_runtime\001_division_by_zero.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\fail_runtime\002_pop_empty.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\fail_compile\001_undefined_read.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\fail_compile\002_return_top_level.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\fail_runtime\003_array_too_large.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\fail_compile\003_nested_fn.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\fail_compile\009_module_top_level_executable_code.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\fail_compile\008_import_after_statement.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\fail_compile\006_let_redeclaration_not_supported.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\fail_compile\005_global_access_inside_fn.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\fail_compile\004_call_before_definition.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\pass\013_pointer_metadata.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\pass\014_to_int.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\jit\cache.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\jit\chunk.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\runtime\arithmetic.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\runtime\aggregate.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\runtime\builtins.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\runtime\context.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\fail_runtime\005_use_after_free_cell.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\fail_runtime\004_buffer_too_large.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\fail_runtime\006_raw_buffer_oob_read.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\pass\015_input_builtins.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\pass\018_low_level_ints_globals_unsafe.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\pass\017_core_ergonomics.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\pass\016_enums.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\jit\op.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\jit\mod.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\jit\program.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\runtime\heap.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\runtime\format.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\jit\vm.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\runtime\instrumentation.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\fail_runtime\008_input_exhaustion.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\fail_runtime\007_ptr_add_on_object_pointer.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\fail_runtime\009_read_int_requires_numeric.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\runtime\limits.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\tests\programs\fail_runtime\010_nested_call_depth.to
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\runtime\memory.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\runtime\vm.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\runtime\value_codec.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\runtime\value.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\runtime\typing.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\runtime\sync.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\runtime\stdlib.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\runtime\ralloc_vec.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\runtime\ralloc_record.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\runtime\pointers.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\runtime\mod.rs
-C:\Users\Conner Adams\Desktop\404connernotfound\TinyOne-v2-abi\crates\tinyone_core\src\runtime\minifloat.rs
+# Historical inventory; machine-specific checkout prefix normalized.
+﻿<historical-v2-checkout>\Cargo.toml
+<historical-v2-checkout>\Cargo.lock
+<historical-v2-checkout>\cliff.toml
+<historical-v2-checkout>\cbindgen.toml
+<historical-v2-checkout>\Config.toml
+<historical-v2-checkout>\build\watch-tasks.toml
+<historical-v2-checkout>\tools\zip.py
+<historical-v2-checkout>\build\typst-tasks.toml
+<historical-v2-checkout>\tools\test_zip.py
+<historical-v2-checkout>\build\release-tasks.toml
+<historical-v2-checkout>\tools\test_loc.py
+<historical-v2-checkout>\build\push_event.json
+<historical-v2-checkout>\tools\test_hash.py
+<historical-v2-checkout>\build\ffi-tasks.toml
+<historical-v2-checkout>\tools\test_abi_manifest.py
+<historical-v2-checkout>\build\docker-tasks.toml
+<historical-v2-checkout>\tools\loc.py
+<historical-v2-checkout>\build\dist-tasks.toml
+<historical-v2-checkout>\tools\hash.py
+<historical-v2-checkout>\build\common-tasks.toml
+<historical-v2-checkout>\tools\abi_manifest.py
+<historical-v2-checkout>\build\ci-tasks.toml
+<historical-v2-checkout>\build\.build.sh
+<historical-v2-checkout>\tinylang-response-schema.json
+<historical-v2-checkout>\.taplo.toml
+<historical-v2-checkout>\.rustfmt.toml
+<historical-v2-checkout>\.python-version
+<historical-v2-checkout>\.gitignore
+<historical-v2-checkout>\.git
+<historical-v2-checkout>\.gitattributes
+<historical-v2-checkout>\docs\CONTRIBUTING.md
+<historical-v2-checkout>\docs\Community_Forum.md
+<historical-v2-checkout>\docs\cli.md
+<historical-v2-checkout>\docs\CI_CD.md
+<historical-v2-checkout>\docs\bytecode.md
+<historical-v2-checkout>\docs\audit-findings.md
+<historical-v2-checkout>\docs\architecture.md
+<historical-v2-checkout>\docs\adversarial-findings.md
+<historical-v2-checkout>\scripts\check_abi_drift.sh
+<historical-v2-checkout>\rust-toolchain.toml
+<historical-v2-checkout>\README.md
+<historical-v2-checkout>\Makefile.toml
+<historical-v2-checkout>\LICENSE
+<historical-v2-checkout>\scripts\consumer_smoke.sh
+<historical-v2-checkout>\scripts\consumer_compile.sh
+<historical-v2-checkout>\scripts\consumer_smoke_msvc.sh
+<historical-v2-checkout>\scripts\update-docs-index.py
+<historical-v2-checkout>\docs\memory-model.md
+<historical-v2-checkout>\tinylang.h
+<historical-v2-checkout>\docs\INDEX.md
+<historical-v2-checkout>\docs\vm.md
+<historical-v2-checkout>\docs\v2-roadmap.md
+<historical-v2-checkout>\scripts\_compile_rust.sh
+<historical-v2-checkout>\scripts\_compile_cpp.sh
+<historical-v2-checkout>\scripts\_compile_c.sh
+<historical-v2-checkout>\scripts\_common.sh
+<historical-v2-checkout>\docs\stdlib.md
+<historical-v2-checkout>\docs\performance.md
+<historical-v2-checkout>\docs\EXAMPLES.md
+<historical-v2-checkout>\crates\xtask\Cargo.toml
+<historical-v2-checkout>\crates\xtask\Cargo.lock
+<historical-v2-checkout>\crates\xtask\tests\plan.rs
+<historical-v2-checkout>\.github\CODEOWNERS
+<historical-v2-checkout>\crates\xtask\src\main.rs
+<historical-v2-checkout>\crates\xtask\src\lib.rs
+<historical-v2-checkout>\docs\ffi\c-integration.md
+<historical-v2-checkout>\.github\PULL_REQUEST_TEMPLATE.md
+<historical-v2-checkout>\.github\workflows\build.yml
+<historical-v2-checkout>\crates\tinylang_ralloc\Cargo.lock
+<historical-v2-checkout>\crates\tinylang_ralloc\Cargo.toml
+<historical-v2-checkout>\crates\tinylang_test_support\Cargo.toml
+<historical-v2-checkout>\tinylang_v2\Cargo.lock
+<historical-v2-checkout>\docs\planned\tinylang_ffi_v2.md
+<historical-v2-checkout>\tinylang_v2\Cargo.toml
+<historical-v2-checkout>\docs\ffi\rust-api.md
+<historical-v2-checkout>\docs\ffi\INDEX.md
+<historical-v2-checkout>\docs\ffi\c-integration_new.md
+<historical-v2-checkout>\.github\workflows\ffi.yml
+<historical-v2-checkout>\.github\workflows\cranelift.yml
+<historical-v2-checkout>\.github\workflows\format.yml
+<historical-v2-checkout>\.github\workflows\nightly.yml
+<historical-v2-checkout>\.github\workflows\v2-abi.yml
+<historical-v2-checkout>\.github\workflows\test.yml
+<historical-v2-checkout>\crates\tinylang_test_support\src\lib.rs
+<historical-v2-checkout>\tinylang_v2\bindings\README.md
+<historical-v2-checkout>\docs\syntax\types.md
+<historical-v2-checkout>\docs\syntax\statements.md
+<historical-v2-checkout>\docs\syntax\modules.md
+<historical-v2-checkout>\docs\syntax\INDEX.md
+<historical-v2-checkout>\docs\syntax\expressions.md
+<historical-v2-checkout>\docs\abi\versioning.md
+<historical-v2-checkout>\docs\abi\v2-workspace-setup.md
+<historical-v2-checkout>\docs\abi\v2-opcodes.md
+<historical-v2-checkout>\docs\abi\v2-binary-spec.md
+<historical-v2-checkout>\docs\abi\v2-artifact-spec.md
+<historical-v2-checkout>\docs\abi\schemas.md
+<historical-v2-checkout>\docs\abi\INDEX.md
+<historical-v2-checkout>\docs\abi\contract.md
+<historical-v2-checkout>\crates\tinylang_ralloc\include\ralloc.h
+<historical-v2-checkout>\crates\tinylang_core\Cargo.toml
+<historical-v2-checkout>\crates\tinylang_core\Cargo.lock
+<historical-v2-checkout>\tests\consumers\tinylang_consumer.rs
+<historical-v2-checkout>\tests\consumers\tinylang_consumer.cpp
+<historical-v2-checkout>\tests\consumers\tinylang_consumer.c
+<historical-v2-checkout>\.github\actions\setup-rust\action.yml
+<historical-v2-checkout>\crates\tinylang_ralloc\tests\c_suite.rs
+<historical-v2-checkout>\crates\tinylang_ralloc\tests\c_artifacts.rs
+<historical-v2-checkout>\crates\tinylang_ralloc\tests\send_sync.rs
+<historical-v2-checkout>\crates\tinylang_ralloc\tests\native_buffer.rs
+<historical-v2-checkout>\crates\tinylang_ralloc\tests\native_box.rs
+<historical-v2-checkout>\crates\tinylang_ralloc\tests\fragmentation.rs
+<historical-v2-checkout>\.github\actions\setup-gcc\action.yml
+<historical-v2-checkout>\tinylang_v2\tests\vm_session_contract.rs
+<historical-v2-checkout>\tinylang_v2\bindings\python\tinylang_v2.py
+<historical-v2-checkout>\tinylang_v2\bindings\python\smoke.py
+<historical-v2-checkout>\tinylang_v2\bindings\python\programs.py
+<historical-v2-checkout>\crates\tinylang_core\tests\allocator_audit.rs
+<historical-v2-checkout>\crates\tinylang_core\tests\abi_api_soundness.rs
+<historical-v2-checkout>\crates\tinylang_core\tests\bench_stdlib.rs
+<historical-v2-checkout>\crates\tinylang_ralloc\tests\abi.rs
+<historical-v2-checkout>\crates\tinylang_ralloc\src\instrumentation.rs
+<historical-v2-checkout>\crates\tinylang_ralloc\src\buffer.rs
+<historical-v2-checkout>\crates\tinylang_ralloc\src\block.rs
+<historical-v2-checkout>\crates\tinylang_ralloc\src\backend.rs
+<historical-v2-checkout>\crates\tinylang_ralloc\src\arena.rs
+<historical-v2-checkout>\crates\tinylang_ralloc\src\page.rs
+<historical-v2-checkout>\crates\tinylang_ralloc\src\lib.rs
+<historical-v2-checkout>\crates\tinylang_ralloc\src\ralloc.rs
+<historical-v2-checkout>\crates\tinylang_ralloc\src\region.rs
+<historical-v2-checkout>\tinylang_v2\tests\artifact_contract.rs
+<historical-v2-checkout>\.github\actions\setup-python\action.yml
+<historical-v2-checkout>\tinylang_v2\tests\header_smoke.c
+<historical-v2-checkout>\tinylang_v2\tests\golden_vectors.rs
+<historical-v2-checkout>\tinylang_v2\tests\ffi_contract.rs
+<historical-v2-checkout>\tinylang_v2\tests\opcode_contract.rs
+<historical-v2-checkout>\tinylang_v2\tests\parser_adversarial.rs
+<historical-v2-checkout>\crates\tinylang_ralloc\src\vm.rs
+<historical-v2-checkout>\crates\tinylang_ralloc\src\testing.rs
+<historical-v2-checkout>\crates\tinylang_ralloc\src\sync.rs
+<historical-v2-checkout>\crates\tinylang_ralloc\tests\c\run_c_suite.sh
+<historical-v2-checkout>\crates\tinylang_ralloc\tests\c\ralloc_c_suite.c
+<historical-v2-checkout>\.github\actions\checkout\action.yml
+<historical-v2-checkout>\tinylang_v2\bindings\node\wire.test.mjs
+<historical-v2-checkout>\tinylang_v2\bindings\node\tinylang_v2_wire.mjs
+<historical-v2-checkout>\tinylang_v2\bindings\node\programs.mjs
+<historical-v2-checkout>\crates\tinylang_core\src\alloc_table.rs
+<historical-v2-checkout>\crates\tinylang_core\tests\lib_smoke.rs
+<historical-v2-checkout>\crates\tinylang_core\tests\language_suite.rs
+<historical-v2-checkout>\tinylang_v2\bindings\c\smoke.c
+<historical-v2-checkout>\crates\tinylang_core\src\api.rs
+<historical-v2-checkout>\crates\tinylang_core\src\artifact_io.rs
+<historical-v2-checkout>\crates\tinylang_core\tests\threading.rs
+<historical-v2-checkout>\crates\tinylang_core\tests\stdlib_parity.rs
+<historical-v2-checkout>\crates\tinylang_core\tests\runtime_parity.rs
+<historical-v2-checkout>\crates\tinylang_core\tests\runtime_cost_profile.rs
+<historical-v2-checkout>\tinylang_v2\tests\vectors\invalid_impossible_payload_length.bin
+<historical-v2-checkout>\tinylang_v2\tests\vectors\invalid_bad_magic.bin
+<historical-v2-checkout>\tinylang_v2\tests\vectors\invalid_nonzero_padding.bin
+<historical-v2-checkout>\tinylang_v2\tests\vectors\invalid_truncated_header.bin
+<historical-v2-checkout>\crates\tinylang_core\tests\module_sandbox.rs
+<historical-v2-checkout>\tinylang_v2\tests\artifacts\arithmetic_print.tlbc
+<historical-v2-checkout>\tinylang_v2\tests\vectors\invalid_unsupported_version.bin
+<historical-v2-checkout>\crates\tinylang_core\src\builtins.rs
+<historical-v2-checkout>\tinylang_v2\include\tinylang_v2.h
+<historical-v2-checkout>\tinylang_v2\tests\vectors\README.md
+<historical-v2-checkout>\tinylang_v2\tests\vectors\manifest.json
+<historical-v2-checkout>\tinylang_v2\tests\artifacts\README.md
+<historical-v2-checkout>\tinylang_v2\tests\artifacts\push_print_halt.tlbc
+<historical-v2-checkout>\tinylang_v2\tests\artifacts\minimal_halt.tlbc
+<historical-v2-checkout>\tinylang_v2\tests\artifacts\manifest.json
+<historical-v2-checkout>\tinylang_v2\tests\artifacts\invalid_bad_opcode.tlbc
+<historical-v2-checkout>\tinylang_v2\src\lib.rs
+<historical-v2-checkout>\crates\tinylang_core\src\cli.rs
+<historical-v2-checkout>\tinylang_v2\tests\vectors\valid_echo_values.bin
+<historical-v2-checkout>\tinylang_v2\tests\vectors\valid_abi_info.bin
+<historical-v2-checkout>\tinylang_v2\tests\vectors\valid_handle_release_unknown.bin
+<historical-v2-checkout>\tinylang_v2\tests\vectors\valid_nop.bin
+<historical-v2-checkout>\crates\tinylang_core\src\compile_cache.rs
+<historical-v2-checkout>\tinylang_v2\tests\vectors\valid_vm_create_unknown_program.bin
+<historical-v2-checkout>\tinylang_v2\tests\vectors\valid_unknown_opcode.bin
+<historical-v2-checkout>\tinylang_v2\examples\interop_rust.rs
+<historical-v2-checkout>\tinylang_v2\examples\generate_vectors.rs
+<historical-v2-checkout>\tinylang_v2\examples\abi_stdio_bridge.rs
+<historical-v2-checkout>\crates\tinylang_core\tests\language\README.md
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\README.md
+<historical-v2-checkout>\crates\tinylang_core\src\bin\tinylang-sandbox-worker.rs
+<historical-v2-checkout>\crates\tinylang_core\src\bin\tinylang_bench.rs
+<historical-v2-checkout>\crates\tinylang_core\src\vm_hooks.rs
+<historical-v2-checkout>\crates\tinylang_core\src\tiny_allocator.rs
+<historical-v2-checkout>\crates\tinylang_core\src\testing.rs
+<historical-v2-checkout>\.github\actions\setup-msvc\action.yml
+<historical-v2-checkout>\tinylang_v2\fuzz\Cargo.lock
+<historical-v2-checkout>\tinylang_v2\fuzz\Cargo.toml
+<historical-v2-checkout>\crates\tinylang_core\tests\language\pass\bool_float_and_type_annotations.to
+<historical-v2-checkout>\crates\tinylang_core\tests\language\fail_compile\undefined_symbol.to
+<historical-v2-checkout>\crates\tinylang_core\src\lib.rs
+<historical-v2-checkout>\tinylang_v2\fuzz\README.md
+<historical-v2-checkout>\crates\tinylang_core\tests\language\fail_compile\enum_reserved_tag_field.to
+<historical-v2-checkout>\tinylang_v2\src\ffi\v2\artifact.rs
+<historical-v2-checkout>\tinylang_v2\src\ffi\mod.rs
+<historical-v2-checkout>\tinylang_v2\src\ffi\v2\handles.rs
+<historical-v2-checkout>\tinylang_v2\src\ffi\v2\mod.rs
+<historical-v2-checkout>\crates\tinylang_core\src\compiler\mod.rs
+<historical-v2-checkout>\crates\tinylang_core\src\compiler\incremental.rs
+<historical-v2-checkout>\crates\tinylang_core\src\compiler\modules.rs
+<historical-v2-checkout>\crates\tinylang_core\src\compiler\parser.rs
+<historical-v2-checkout>\crates\tinylang_core\tests\language\pass\float_precision_casts.to
+<historical-v2-checkout>\crates\tinylang_core\tests\language\pass\control_flow.to
+<historical-v2-checkout>\crates\tinylang_core\src\compiler\state.rs
+<historical-v2-checkout>\crates\tinylang_core\tests\language\pass\functions_and_calls.to
+<historical-v2-checkout>\crates\tinylang_core\tests\language\pass\heap_structs_arrays.to
+<historical-v2-checkout>\tinylang_v2\src\ffi\v2\schema.rs
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\pass\001_comments_whitespace.to
+<historical-v2-checkout>\crates\tinylang_core\tests\language\pass\input_and_strings.to
+<historical-v2-checkout>\crates\tinylang_core\src\bytecode\verifier.rs
+<historical-v2-checkout>\crates\tinylang_core\src\bytecode\program.rs
+<historical-v2-checkout>\crates\tinylang_core\src\bytecode\peephole.rs
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\pass\002_operators_precedence.to
+<historical-v2-checkout>\crates\tinylang_core\src\bytecode\opcode.rs
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\pass\003_variables_shadowing.to
+<historical-v2-checkout>\crates\tinylang_core\src\bytecode\mod.rs
+<historical-v2-checkout>\crates\tinylang_core\src\bytecode\instr.rs
+<historical-v2-checkout>\crates\tinylang_core\src\bytecode\binary.rs
+<historical-v2-checkout>\crates\tinylang_core\src\bytecode\artifact.rs
+<historical-v2-checkout>\crates\tinylang_core\src\error.rs
+<historical-v2-checkout>\crates\tinylang_core\src\config.rs
+<historical-v2-checkout>\crates\tinylang_core\src\compiler\symbols.rs
+<historical-v2-checkout>\crates\tinylang_core\src\internal_testing.rs
+<historical-v2-checkout>\crates\tinylang_core\src\ffi.rs
+<historical-v2-checkout>\tinylang_v2\src\ffi\v2\session.rs
+<historical-v2-checkout>\crates\tinylang_core\src\source.rs
+<historical-v2-checkout>\crates\tinylang_core\src\runner.rs
+<historical-v2-checkout>\crates\tinylang_core\src\memory_log.rs
+<historical-v2-checkout>\crates\tinylang_core\src\main.rs
+<historical-v2-checkout>\tinylang_v2\src\ffi\v2\status.rs
+<historical-v2-checkout>\tinylang_v2\src\ffi\v2\wire.rs
+<historical-v2-checkout>\tinylang_v2\src\ffi\v2\types.rs
+<historical-v2-checkout>\crates\tinylang_core\tests\language\fail_runtime\division_by_zero.to
+<historical-v2-checkout>\crates\tinylang_core\tests\language\fail_runtime\input_exhaustion.to
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\pass\006_arrays.to
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\pass\005_functions.to
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\pass\007_strings.to
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\pass\004_control_flow_break_continue.to
+<historical-v2-checkout>\crates\tinylang_core\src\syntax\token.rs
+<historical-v2-checkout>\crates\tinylang_core\src\syntax\mod.rs
+<historical-v2-checkout>\crates\tinylang_core\src\syntax\lexer.rs
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\pass\009_cells.to
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\pass\008_structs.to
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\pass\010_raw_pointers_array.to
+<historical-v2-checkout>\tinylang_v2\fuzz\fuzz_targets\frame.rs
+<historical-v2-checkout>\tinylang_v2\fuzz\fuzz_targets\artifact.rs
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\pass\011_raw_pointers_buffer.to
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\pass\012_null_and_pointer_equality.to
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\modules\main_import_file.to
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\modules\tinylang.json
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\modules\math.to
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\modules\main_import_manifest.to
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\fail_runtime\001_division_by_zero.to
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\fail_runtime\002_pop_empty.to
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\fail_compile\001_undefined_read.to
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\fail_compile\002_return_top_level.to
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\fail_runtime\003_array_too_large.to
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\fail_compile\003_nested_fn.to
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\fail_compile\009_module_top_level_executable_code.to
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\fail_compile\008_import_after_statement.to
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\fail_compile\006_let_redeclaration_not_supported.to
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\fail_compile\005_global_access_inside_fn.to
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\fail_compile\004_call_before_definition.to
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\pass\013_pointer_metadata.to
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\pass\014_to_int.to
+<historical-v2-checkout>\crates\tinylang_core\src\jit\cache.rs
+<historical-v2-checkout>\crates\tinylang_core\src\jit\chunk.rs
+<historical-v2-checkout>\crates\tinylang_core\src\runtime\arithmetic.rs
+<historical-v2-checkout>\crates\tinylang_core\src\runtime\aggregate.rs
+<historical-v2-checkout>\crates\tinylang_core\src\runtime\builtins.rs
+<historical-v2-checkout>\crates\tinylang_core\src\runtime\context.rs
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\fail_runtime\005_use_after_free_cell.to
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\fail_runtime\004_buffer_too_large.to
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\fail_runtime\006_raw_buffer_oob_read.to
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\pass\015_input_builtins.to
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\pass\018_low_level_ints_globals_unsafe.to
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\pass\017_core_ergonomics.to
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\pass\016_enums.to
+<historical-v2-checkout>\crates\tinylang_core\src\jit\op.rs
+<historical-v2-checkout>\crates\tinylang_core\src\jit\mod.rs
+<historical-v2-checkout>\crates\tinylang_core\src\jit\program.rs
+<historical-v2-checkout>\crates\tinylang_core\src\runtime\heap.rs
+<historical-v2-checkout>\crates\tinylang_core\src\runtime\format.rs
+<historical-v2-checkout>\crates\tinylang_core\src\jit\vm.rs
+<historical-v2-checkout>\crates\tinylang_core\src\runtime\instrumentation.rs
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\fail_runtime\008_input_exhaustion.to
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\fail_runtime\007_ptr_add_on_object_pointer.to
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\fail_runtime\009_read_int_requires_numeric.to
+<historical-v2-checkout>\crates\tinylang_core\src\runtime\limits.rs
+<historical-v2-checkout>\crates\tinylang_core\tests\programs\fail_runtime\010_nested_call_depth.to
+<historical-v2-checkout>\crates\tinylang_core\src\runtime\memory.rs
+<historical-v2-checkout>\crates\tinylang_core\src\runtime\vm.rs
+<historical-v2-checkout>\crates\tinylang_core\src\runtime\value_codec.rs
+<historical-v2-checkout>\crates\tinylang_core\src\runtime\value.rs
+<historical-v2-checkout>\crates\tinylang_core\src\runtime\typing.rs
+<historical-v2-checkout>\crates\tinylang_core\src\runtime\sync.rs
+<historical-v2-checkout>\crates\tinylang_core\src\runtime\stdlib.rs
+<historical-v2-checkout>\crates\tinylang_core\src\runtime\ralloc_vec.rs
+<historical-v2-checkout>\crates\tinylang_core\src\runtime\ralloc_record.rs
+<historical-v2-checkout>\crates\tinylang_core\src\runtime\pointers.rs
+<historical-v2-checkout>\crates\tinylang_core\src\runtime\mod.rs
+<historical-v2-checkout>\crates\tinylang_core\src\runtime\minifloat.rs

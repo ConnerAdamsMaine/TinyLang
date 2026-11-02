@@ -1,4 +1,4 @@
-use tinyone::{VM, VerifiedProgram, VmExecutionLimits};
+use tinylang::{VM, VerifiedProgram, VmExecutionLimits};
 
 use super::schema::VmCreate;
 use super::status::{TINY_STATUS_INVALID_ARGUMENT, TINY_STATUS_OUT_OF_MEMORY, TinyStatus};

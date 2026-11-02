@@ -1,8 +1,8 @@
 use std::hint::black_box;
 use std::time::Instant;
 
+use tinylang::{RuntimeValue, VM, VmExecutionLimits, compile_source_unoptimized_verified};
 use tinylang_v2::engine::{ExecutionBackend, ScalarFunction};
-use tinyone::{RuntimeValue, VM, VmExecutionLimits, compile_source_unoptimized_verified};
 
 const SOURCE: &str = "fn sum(n) { let t=0 let i=0 while i<n { t=t+i i=i+1 } return t }";
 const SAMPLES: usize = 101;
@@ -40,7 +40,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut vm = VM::from_verified_with_limits(&program, vec![], VmExecutionLimits::default())?;
     println!("metric,median_ns,p95_ns,p99_ns,samples,batch");
     measure("lex", BATCH, || {
-        black_box(tinyone::lex_source(black_box(SOURCE))?);
+        black_box(tinylang::lex_source(black_box(SOURCE))?);
         Ok(())
     })?;
     measure("frontend_and_lower", 1, || {

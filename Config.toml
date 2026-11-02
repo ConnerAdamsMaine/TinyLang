@@ -1,11 +1,11 @@
-# TinyOne project policy. This file is discovered from the entry source path,
+# TinyLang project policy. This file is discovered from the entry source path,
 # like Cargo.toml, and is part of the compile-cache dependency set.
 
 [package]
-name = "tinyone"
-version = "1.5.1"
-description = "TinyOne language and VM"
-authors = ["TinyOne contributors"]
+name = "tinylang"
+version = "2.0.0"
+description = "TinyLang language and VM"
+authors = ["TinyLang contributors"]
 
 [vm]
 # This can tighten, but never raise, the VM hard limit of 16 nested calls.
@@ -35,7 +35,7 @@ codebase = [
 # When true, every import must be listed in [modules.<name>].
 require_configured_modules = false
 
-# Modules can replace a legacy tinyone.json mapping. `permissions` is the
+# Modules can replace a legacy tinylang.json mapping. `permissions` is the
 # project approval ceiling; a signed module must declare a subset of it in its
 # own module.toml. For example:
 # [modules.network]
@@ -46,7 +46,7 @@ require_configured_modules = false
 # When enabled, every imported module needs module.toml and signature.toml in
 # its directory. module.toml holds its identity, purpose, capability claims,
 # and dependencies. signature.toml supplies source/artifact hashes plus the
-# Ed25519 signature metadata. TinyOne canonicalizes their combined metadata,
+# Ed25519 signature metadata. TinyLang canonicalizes their combined metadata,
 # SHA-256 hashes it, and verifies the 64-byte Ed25519 signature over that
 # digest. Source hash and dependency lock hash are verified independently.
 #
@@ -87,8 +87,8 @@ require_module_signatures = false
 #   [artifact]
 #   source_hash = "sha256:<64 lowercase hex characters>"
 #   dependency_lock_hash = "sha256:<64 lowercase hex characters>"
-#   compiler_version = "1.5.1"
-#   language_version = "1"
+#   compiler_version = "2.0.0"
+#   language_version = "2"
 #   [signing]
 #   authority = "example-dev-authority"
 #   policy_version = "1"
@@ -97,12 +97,12 @@ require_module_signatures = false
 #   signing_record_id = "example-record-001"
 #   signature = "<64-byte Ed25519 signature as hex>"
 #
-# A company must be certified by a TinyOne central root before it can appear
+# A company must be certified by a TinyLang central root before it can appear
 # below. The release build pins central root public keys through
-# TINYONE_CENTRAL_AUTHORITY_ROOTS="tinyone-root-v1=<32-byte-key-hex>".
+# TINYLANG_CENTRAL_AUTHORITY_ROOTS="tinylang-root-v1=<32-byte-key-hex>".
 # [[signing.authorities]]
 # id = "acme"
-# issuer = "tinyone-root-v1"
+# issuer = "tinylang-root-v1"
 # public_key = "32-byte company Ed25519 public key encoded as hexadecimal"
 # not_before = 1767225600
 # expires = 1798761600

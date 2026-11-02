@@ -59,7 +59,7 @@ mod tests {
     use crate::ffi::v2::status::{
         TINY_STATUS_INVALID_HANDLE, TINY_STATUS_OK, TINY_STATUS_STALE_HANDLE, TINY_STATUS_VM_TRAP,
     };
-    use tinyone::{Instr, Op, Program, RuntimeValue, VerifiedProgram};
+    use tinylang::{Instr, Op, Program, RuntimeValue, VerifiedProgram};
 
     fn session(runtime: TinyRuntimeHandle) -> u64 {
         let program = Program::new(

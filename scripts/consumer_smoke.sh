@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Consumer smoke: build cdylib + compile C consumer against it + run.
-# Uses CARGO_TARGET_DIR, not TinyOne/target.
+# Uses CARGO_TARGET_DIR, not TinyLang/target.
 
 export t=$'\t'
 
@@ -14,7 +14,7 @@ Usage: ${_self} [help|-h|--help]
   or: bash ${BASH_SOURCE[0]} [help|-h|--help]
 
 Builds cdylib (cargo build), links tests/consumers/tinylang_consumer.c against
-libtinyone, and executes the resulting binary.
+libtinylang, and executes the resulting binary.
 Honors: CC, CARGO_TARGET_DIR.
 No arguments expected; help flags show this message.
 
@@ -52,7 +52,7 @@ _link_c_args=(
   "${ROOT_DIR}/tests/consumers/tinylang_consumer.c"
   -L"${BUILD_DIR}"
   -Wl,-rpath,"${BUILD_DIR}"
-  -ltinyone
+  -ltinylang
   -o "${BUILD_DIR}/tinylang_consumer_c"
 )
 

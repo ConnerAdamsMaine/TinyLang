@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""TinyOne C ABI symbol manifest and header drift checker.
+"""TinyLang C ABI symbol manifest and header drift checker.
 
 This tool intentionally uses only the Python standard library. The default
-check compares exported `extern "C"` Rust symbols in `crates/tinyone_core/src/ffi.rs`
-against the generated TinyLang C header `tinylang.h`.
+check compares exported `extern "C"` Rust symbols in `crates/tinylang_core/src/ffi.rs`
+against the generated TinyLang C header `crates/tinylang_core/include/tinylang.h`.
 """
 
 from __future__ import annotations
@@ -21,8 +21,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_FFI = ROOT / "crates" / "tinyone_core" / "src" / "ffi.rs"
-DEFAULT_GENERATED_HEADER = ROOT / "tinylang.h"
+DEFAULT_FFI = ROOT / "crates" / "tinylang_core" / "src" / "ffi.rs"
+DEFAULT_GENERATED_HEADER = ROOT / "crates" / "tinylang_core" / "include" / "tinylang.h"
 DEFAULT_HEADER = DEFAULT_GENERATED_HEADER
 DEFAULT_CBINDGEN_CONFIG = ROOT / "cbindgen.toml"
 DEFAULT_CBINDGEN_SOURCE = DEFAULT_FFI
@@ -35,7 +35,7 @@ RUST_EXPORT_RE = re.compile(
     r"pub\s+(?:unsafe\s+)?extern\s+\"C\"\s+fn\s+([A-Za-z_][A-Za-z0-9_]*)",
     re.MULTILINE,
 )
-HEADER_SYMBOL_RE = re.compile(r"\b(tinyone_[A-Za-z0-9_]+)\s*\(")
+HEADER_SYMBOL_RE = re.compile(r"\b(tinylang_[A-Za-z0-9_]+)\s*\(")
 
 
 @dataclass(frozen=True)
@@ -118,9 +118,9 @@ def yaml_nested_list(values: tuple[str, ...]) -> list[str]:
 
 def render_manifest(symbols: AbiSymbols) -> str:
     lines = [
-        "# TinyOne ABI symbol manifest",
+        "# TinyLang ABI symbol manifest",
         "# Deterministic symbol inventory only; not a stable ABI claim.",
-        "format: tinyone-abi-symbol-manifest-v1",
+        "format: tinylang-abi-symbol-manifest-v1",
         "inputs:",
         f"  rust_ffi: {rel(symbols.rust_path)}",
         f"  rust_ffi_sha256: {symbols.rust_sha256}",
@@ -272,7 +272,7 @@ def parser() -> argparse.ArgumentParser:
     )
 
     root = argparse.ArgumentParser(
-        description="Check TinyOne C ABI header drift and emit symbol manifests."
+        description="Check TinyLang C ABI header drift and emit symbol manifests."
     )
     subcommands = root.add_subparsers(dest="command", required=True)
 
@@ -297,7 +297,7 @@ def parser() -> argparse.ArgumentParser:
     generate.add_argument(
         "--crate-dir",
         type=Path,
-        default=ROOT / "crates" / "tinyone_core",
+        default=ROOT / "crates" / "tinylang_core",
         help="Rust crate directory whose Cargo.toml must identify the tinylang package",
     )
     generate.add_argument(

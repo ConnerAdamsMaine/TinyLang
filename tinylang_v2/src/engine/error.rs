@@ -11,7 +11,7 @@ pub enum TrapKind {
 #[derive(Debug, thiserror::Error)]
 pub enum EngineError {
     #[error(transparent)]
-    Compile(#[from] tinyone::TinyOneError),
+    Compile(#[from] tinylang::TinyLangError),
     #[error("Unknown function {0:?}")]
     UnknownFunction(String),
     #[error("{function} instruction {instruction}: unsupported opcode {opcode}")]

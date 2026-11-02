@@ -2,7 +2,7 @@
 title: Architecture
 ---
 
-# TinyOne Implementation Architecture
+# TinyLang Implementation Architecture
 
 This document describes the current implementation, not a permanent
 architecture promise. TinyLang v1 keeps its ABI frozen, but the allocator, VM,
@@ -11,7 +11,7 @@ to make major changes as the language boundary and implementation model are
 redesigned. Send comments, concerns, and questions to the [TinyLang community
 forum](https://tl.404connernotfound.dev).
 
-This document describes how the TinyOne implementation is structured
+This document describes how the TinyLang implementation is structured
 internally: the pipeline each TinyLang program travels through, the major
 modules, and the invariants each stage owns.
 
@@ -64,13 +64,13 @@ cost more than rebuilding them.
 ## Module Map
 
 ```
-TinyOne/src/
+TinyLang/src/
 ├── lib.rs              Public re-exports; feature gates for testing
 ├── api.rs              compile_source, compile_file, lex_source, optimize_program
 ├── cli.rs              CLI argument parsing and dispatch
 ├── runner.rs           run_program, run_program_report, run_program_with_env,
 │                       run_source, run_source_report
-├── error.rs            TinyOneError (Compile | Runtime), Result<T>
+├── error.rs            TinyLangError (Compile | Runtime), Result<T>
 ├── source.rs           SourceMap — source ownership and error-only line lookup
 ├── source/bytecode.rs  Shared file owners, fixed bytecode origins, error sites
 ├── builtins.rs         BUILTINS table, builtin_index lookup
@@ -192,7 +192,7 @@ JSON/binary artifacts; decoding an artifact does not invent source information.
 
 The portable VM records the first failing bytecode site while unwinding and
 formats it once at its execution boundary, preserving
-`TinyOneError::Runtime(String)`. The JIT retains original bytecode indexes in
+`TinyLangError::Runtime(String)`. The JIT retains original bytecode indexes in
 immutable cold tables, with separate constituent sites for fused operations.
 Quickening changes executable elements without changing their origins; source
 lookup and formatting happen only after failure. Compiled-cache hits rebind
@@ -215,7 +215,7 @@ Key compiler subsystems:
 
 ### Compile Cache
 
-The CLI enables a sibling `.tinyone-cache/` by default. Its metadata records
+The CLI enables a sibling `.tinylang-cache/` by default. Its metadata records
 the compiler/cache format version, optimization mode, root path, content
 digests for every source and manifest probe, canonical path resolutions, and
 logical module names. A hit loads the compact `.tob` artifact and verifies its
@@ -249,7 +249,7 @@ slower than recompilation at every measured graph size. A bounded 64-entry
 process-local LRU remembers only size-based policy decisions. Bypassed entries
 always compile current source and never reuse a program based on metadata.
 
-When exactly one existing module source changed, TinyOne attempts a bounded
+When exactly one existing module source changed, TinyLang attempts a bounded
 incremental rebuild. It recompiles that module and its imports, relocates table
 indexes by semantic name/content, replaces only declarations owned by that
 module, and verifies the combined program. The source bytes and digest already
@@ -503,7 +503,7 @@ at zero on the clone and track checkout as well as recycling.
 
 JIT calls suspend explicit cursors in a vector, without recursing through the
 host interpreter. Active calls own distinct Ralloc frame memory and preserve
-the configured TinyOne depth limit. A separate execution-local pool retains
+the configured TinyLang depth limit. A separate execution-local pool retains
 only fully cleared exact-size frames, bounded by eight frames and 64 KiB.
 Idle memory is released before heap allocation/growth, on a failed fresh frame
 allocation before retry, and on both successful and failed execution exit.
@@ -536,7 +536,7 @@ When freed, the slot is set to `None` and added to `free`.
 
 Every `HeapRef { address, generation }` carries the generation at allocation
 time. Before any access, the runtime checks `stored_generation == current` and
-returns `TinyOneError::runtime("Stale heap reference …")` if they differ. This
+returns `TinyLangError::runtime("Stale heap reference …")` if they differ. This
 catches use-after-free and prevents a new allocation at the same address from
 being confused with the old object.
 
@@ -590,5 +590,6 @@ no allocation. All JSON responses follow `{"ok": true/false, "kind": "…",
    both carry a generation counter. A freed-then-reallocated slot has a
    different generation, so stale references are caught at the next access.
 
-5. **ABI version 1 is frozen.** The `extern "C"` entry points, their JSON
-   schemas, and the `tinylang.h` header remain frozen for the v1 lifecycle.
+5. **ABI changes are explicit.** The renamed JSON `extern "C"` entry points
+   declare ABI version 2 while retaining their response shapes. The v1
+   contract remains frozen on `release/v1`.

@@ -458,7 +458,7 @@ dependencies = [
 
 [[package]]
 name = "tinylang"
-version = "1.5.1"
+version = "2.0.0"
 dependencies = [
  "blake2",
  "ed25519-dalek",
@@ -468,27 +468,30 @@ dependencies = [
  "sha2",
  "tempfile",
  "thiserror",
- "tinyone_ralloc",
- "tinyone_test_support",
+ "tinylang_ralloc",
+ "tinylang_test_support",
  "toml",
 ]
 
 [[package]]
-name = "tinyone-xtask"
+name = "tinylang-xtask"
 version = "0.1.0"
 
 [[package]]
-name = "tinyone_ralloc"
+name = "tinylang_ralloc"
 version = "0.2.0"
 dependencies = [
  "static_assertions",
  "tempfile",
- "tinyone_test_support",
+ "tinylang_test_support",
 ]
 
 [[package]]
-name = "tinyone_test_support"
+name = "tinylang_test_support"
 version = "0.1.0"
+dependencies = [
+ "tempfile",
+]
 
 [[package]]
 name = "toml"

@@ -1,11 +1,8 @@
-[![Crates.io](https://img.shields.io/crates/v/tinylang.svg)](https://crates.io/crates/tinylang)
-[![Crates.io](https://img.shields.io/crates/d/tinylang.svg)](https://crates.io/crates/tinylang)
-[![docs.rs](https://docs.rs/tinylang/badge.svg)](https://docs.rs/tinylang)
 [![CI](https://github.com/ConnerAdamsMaine/TinyOne/actions/workflows/test.yml/badge.svg)](https://github.com/ConnerAdamsMaine/TinyOne/actions/workflows/test.yml)
 [![License](https://img.shields.io/badge/license-custom-blue.svg)](#license)
 
-TinyOne is the v1 release generation of TinyLang, a portable systems
-programming language designed around a compact VM, bounded runtime
+TinyLang is a portable systems programming language designed around a
+compact VM, bounded runtime
 assumptions, a small reasoning surface, and the freedom to discover its
 own best design.
 
@@ -19,15 +16,21 @@ optimizer, verifier, portable VM, heap/runtime model, bytecode artifact
 support, adaptive execution support, host integration surfaces, CLI
 tooling, and early allocator-integration scaffolding.
 
-Current crate version: `1.5.1`. This `main` branch carries TinyLang v2
-development; the public v1 release line is maintained on `release/v1`.
+Current crate version: `2.0.0` (publication preparation). This `main` branch
+carries TinyLang v2; the v1 release line is maintained on `release/v1`.
 See [Release Lines](#release-lines).
 
-The current Rust crate lives in `crates/tinyone_core/` (crate name
-`tinylang`) in this checkout. TinyLang is the durable language identity
-and TinyOne is its v1 implementation generation. TinyLang v2 is the
-active internal language roadmap: v2 features are developed on the v1
-release foundation without creating a separate user-facing language.
+The current Rust crate lives in `crates/tinylang_core/` (crate name
+and Rust library name `tinylang`) in this checkout. The allocator package is
+`tinylang_ralloc`, and shared test helpers are `tinylang_test_support`.
+The experimental binary ABI and SDKs remain separate in `tinylang_v2/`
+and are not included in the published core crate.
+
+**Registry status:** the crates.io name `tinylang` is currently owned by
+another account (`era`). A successful local package or dry run does not grant
+permission to upload. Resolve ownership or agree on an alternative package
+name before publishing; the existing registry package is not this release.
+See the [publication checklist](docs/CI_CD.md#cratesio-publication).
 
 > **Repository history note:** Multiple recent failed rebases, and
 > subsequent rebase fixes, ruined the commit history. This repository has
@@ -45,8 +48,9 @@ release foundation without creating a separate user-facing language.
 > - **Unified Memory Determinism:** Deepening `Ralloc` integration across
 >   all VM and runtime primitives.
 >
-> _The frozen v1 ABI remains stable in `crates/tinyone_core/` while v2
-> features evolve internally._
+> _The frozen v1 ABI remains on `release/v1`. On `main`, the JSON C API uses
+> `tinylang_*` exports and ABI version 2; the experimental binary ABI keeps
+> its separate `tinylang_v2_*` exports._
 
 ---
 
@@ -82,25 +86,24 @@ release foundation without creating a separate user-facing language.
 
 # General Information
 
-- Source crate: `crates/tinyone_core/` (crate: `tinylang`)
-- C FFI header: `tinylang.h`
+- Source crate: `crates/tinylang_core/` (crate: `tinylang`)
+- C FFI header: `crates/tinylang_core/include/tinylang.h`
+  (`tinylang.h` at the root forwards to it for source-checkout consumers)
 - Public documentation: `docs/`
-- Allocator crate: `crates/tinyone_ralloc/` (crate: `tinyone_ralloc`)
+- Allocator crate: `crates/tinylang_ralloc/` (crate: `tinylang_ralloc`)
 - Developer tools: `tools/`
 - Build/orchestration: `crates/xtask/`, `Makefile.toml`, `build/`
 
-TinyLang is now in its v1 release line, but v1 and earlier are
-deliberately discovery versions. The syntax, bytecode format, builtin
+TinyLang is now in its v2 release generation. The syntax, bytecode format, builtin
 set, JSON artifacts, FFI details, allocator, VM, JIT, memory design, and
-semantics are subject to change. The v1 ABI itself is frozen for the
-entire v1 lifecycle. Nothing in the syntax, FFI, or allocator
+semantics are subject to change. The v1 ABI remains frozen on `release/v1`,
+not on this branch. Nothing in the syntax, FFI, or allocator
 documentation is a promise of permanence or perfection. These versions
 exist to test theories, kill stereotypes, and proactively develop the
 model we are working toward.
 
-TinyLang v2 will be a major version jump with massive changes, including
-a new language-boundary design. The ABI is being saved for that major
-jump because it defines how two languages communicate. Documentation
+TinyLang v2 is a major version jump, including a renamed public API and
+an experimental new language-boundary design. Documentation
 describes current behavior and design direction, not an unchangeable
 promise across v2.
 
@@ -155,14 +158,15 @@ should be explicit and checked by the runtime wherever possible.
 
 Build the Rust crate and CLI executable:
 
-    cargo build --manifest-path crates/tinyone_core/Cargo.toml
+    cargo build --manifest-path crates/tinylang_core/Cargo.toml
 
 Run the repo-local CI/release gate from the repository root:
 
     cargo run --manifest-path crates/xtask/Cargo.toml -- release-gate
 
-The gate checks tinyone_core, tinyone_ralloc, the xtask harness, language
-fixtures, formatting, Clippy, benchmark smoke coverage, and ABI drift. It
+The gate checks tinylang_core, tinylang_ralloc, the xtask harness, language
+fixtures, formatting, Clippy, benchmark smoke coverage, ABI drift, and
+publishable crate archives. Packaging requires a clean working tree. It
 requires `uv` for the Python tooling steps and an installed nightly Rust
 toolchain with `rustfmt`. Only the formatting commands explicitly select
 nightly, matching `.github/workflows/format.yml`; other Cargo checks retain
@@ -252,7 +256,7 @@ The implemented language currently includes:
 - raw pointers for objects, arrays, struct fields, buffers, and cells
 - unsafe-gated pointer arithmetic, raw loads/stores, and buffer
   reads/writes
-- imports with namespaces and `tinyone.json` manifest resolution
+- imports with namespaces and `tinylang.json` manifest resolution
 - exported module declarations
 - deterministic input through `--input` and `--stdin`
 - fixed-width runtime integer values for low-level memory work
@@ -309,7 +313,7 @@ remain deterministic.
 
 # Hard Resource Limits
 
-TinyOne rejects inputs that exceed the following enforced v1 caps. These
+TinyLang rejects inputs that exceed the following enforced v1 caps. These
 are current implementation limits, not sizing recommendations; users who
 generate source or bytecode should stay within them. Every loaded
 artifact is verified before VM execution or JIT lowering.
@@ -368,7 +372,7 @@ on its own.
   heap object slots; TinyLang call nesting is limited to 16 calls
 - `fs_read` reads at most 1 MiB; `fs_list_dir` returns at most 65,536
   entries and at most 1 MiB of entry-name text
-- each source file, imported source file, and `tinyone.json` manifest
+- each source file, imported source file, and `tinylang.json` manifest
   read from disk is at most 1 MiB
 - C-FFI source text is at most 1 MiB, file paths 32 KiB, execution modes
   16 bytes, and `inputs_json` 8 MiB (each excludes its trailing NUL).
@@ -403,25 +407,26 @@ Both public run paths verify bytecode before execution.
 
 # C FFI
 
-The crate builds as an `rlib` and `cdylib`. The C header is
-`tinylang.h`.
+The crate builds as an `rlib` and `cdylib`. The packaged C header is
+`crates/tinylang_core/include/tinylang.h`; the root `tinylang.h` forwards to it.
+The response schema ships at `crates/tinylang_core/tinylang-response-schema.json`.
 
 The FFI surface uses JSON-over-C-string entry points:
 
-- `tinyone_lex_source_json`
-- `tinyone_compile_source_json`
-- `tinyone_compile_file_json`
-- `tinyone_run_source_json`
-- `tinyone_run_file_json`
-- `tinyone_run_artifact_json`
-- `tinyone_jit_listing_json`
-- `tinyone_free_string`
+- `tinylang_lex_source_json`
+- `tinylang_compile_source_json`
+- `tinylang_compile_file_json`
+- `tinylang_run_source_json`
+- `tinylang_run_file_json`
+- `tinylang_run_artifact_json`
+- `tinylang_jit_listing_json`
+- `tinylang_free_string`
 
-Returned strings must be released with `tinyone_free_string`. The v1 ABI
-is frozen for the entire v1 lifecycle. Check `tinyone_abi_version()`
-against `TINYONE_ABI_VERSION` before using the API; expect major
-incompatibilities when TinyLang v2 introduces its new language-boundary
-design.
+Returned strings must be released with `tinylang_free_string`. Check
+`tinylang_abi_version()` against `TINYLANG_ABI_VERSION` (2) before using
+the API. Rebuild v1 consumers against the renamed library and header.
+The JSON response shapes are retained; the experimental binary ABI is
+a separate integration surface, not a drop-in replacement.
 
 <a id="documentation"></a>
 
@@ -514,8 +519,8 @@ The syntax, FFI, allocator, VM, JIT, memory model, and semantics
 described here are works in progress. These pages explain current
 behavior so it can be tested and challenged; they do not guarantee that
 the described design, spelling, layout, ownership rules, or behavior
-will remain unchanged. The v1 ABI is the exception: it is frozen for v1,
-while v2 is expected to replace it.
+will remain unchanged. The frozen v1 ABI is maintained on `release/v1`;
+the renamed JSON C API on this branch declares ABI version 2.
 
 TinyLang will not store every old version of the code, keep all
 historical TinyLang versions available forever, or promise backward
@@ -527,14 +532,14 @@ revision or release they need.
 ## Repository and documentation drift
 
 - The old README referred to `Rust/` and root `stdlib/` paths. The live
-  Rust crate is currently `crates/tinyone_core/` (crate name `tinylang`).
+  Rust crate is currently `crates/tinylang_core/` (crate name `tinylang`).
 - Some historical planning documents still use `Rust/Cargo.toml` command
   examples; active user-facing docs use
-  `crates/tinyone_core/Cargo.toml`.
+  `crates/tinylang_core/Cargo.toml`.
 - Historical release-helper examples may still assume `Rust/target` or
-  `Rust/Cargo.toml`. Active tooling should use `crates/tinyone_core/`
-  and excludes current `crates/tinyone_core/target` and
-  `crates/tinyone_ralloc/target` build outputs by default.
+  `Rust/Cargo.toml`. Active tooling should use `crates/tinylang_core/`
+  and excludes current `crates/tinylang_core/target` and
+  `crates/tinylang_ralloc/target` build outputs by default.
 
 <a id="test-and-verification-gaps"></a>
 
@@ -572,25 +577,26 @@ revision or release they need.
 Invoke one isolated checked-i64 function without executing top-level code:
 
 ```powershell
-cargo run --manifest-path .\tinylang_v2\Cargo.toml --bin tinylang-v2 -- --backend asm .\tinylang_v2\examples\scalar.tinyone add 19 23
-cargo run --manifest-path .\tinylang_v2\Cargo.toml --features cranelift --bin tinylang-v2 -- --backend cranelift .\tinylang_v2\examples\scalar.tinyone add 19 23
+cargo run --manifest-path .\tinylang_v2\Cargo.toml --bin tinylang-v2 -- --backend asm .\tinylang_v2\examples\scalar.tinylang add 19 23
+cargo run --manifest-path .\tinylang_v2\Cargo.toml --features cranelift --bin tinylang-v2 -- --backend cranelift .\tinylang_v2\examples\scalar.tinylang add 19 23
 ```
 
 `--backend interpreter` selects the checked scalar reference path.
 `--backend llvm` emits LLVM IR rather than executing it. `--fuel N` bounds
 executed instructions (default 1,000,000). Unsupported values and operations
 are errors, not implicit conversions or hidden interpreter fallbacks.
-The existing compiler CLI, decoded-opcode JIT and frozen v1 ABI are unchanged.
+This experiment does not replace the main compiler CLI, decoded-opcode JIT,
+or JSON C API.
 
 <a id="allocator-boundary"></a>
 
 ## Allocator boundary
 
-- `crates/tinyone_ralloc/` (crate: `tinyone_ralloc`) is a path dependency
-  of `tinyone_core` and is the backend for heap payloads, VM
+- `crates/tinylang_ralloc/` (crate: `tinylang_ralloc`) is a path dependency
+  of `tinylang_core` and is the backend for heap payloads, VM
   locals/globals, and native allocator sidecar entries.
 - Transient VM/JIT operand stacks and compiler/JIT metadata still use
-  Rust collections. They are control-plane data, not addressable TinyOne
+  Rust collections. They are control-plane data, not addressable TinyLang
   memory; moving them to Ralloc requires a separate variable-width value
   representation.
 - The Ralloc arena remains capacity-bounded. VM, JIT, and spawned-thread
@@ -606,16 +612,16 @@ The existing compiler CLI, decoded-opcode JIT and frozen v1 ABI are unchanged.
 
 Useful commands:
 
-    cargo check --manifest-path crates/tinyone_core/Cargo.toml
-    cargo test --manifest-path crates/tinyone_core/Cargo.toml
-    cargo test --manifest-path crates/tinyone_core/Cargo.toml --features testing-hooks
-    cargo build --release --manifest-path crates/tinyone_core/Cargo.toml --bin tinylang_bench
+    cargo check --manifest-path crates/tinylang_core/Cargo.toml
+    cargo test --manifest-path crates/tinylang_core/Cargo.toml
+    cargo test --manifest-path crates/tinylang_core/Cargo.toml --features testing-hooks
+    cargo build --release --manifest-path crates/tinylang_core/Cargo.toml --bin tinylang_bench
     ./target/release/tinylang_bench
     ./target/release/tinylang_bench --quick --repeats 1
     ./target/release/tinylang_bench --filter runtime.jit
-    ./target/release/tinylang_bench --save-baseline tinyone-baseline.json
+    ./target/release/tinylang_bench --save-baseline tinylang-baseline.json
     ./target/release/tinylang_bench --save-baseline-auto
-    ./target/release/tinylang_bench --baseline tinyone-baseline.json
+    ./target/release/tinylang_bench --baseline tinylang-baseline.json
 
 The benchmark runner checks VM/JIT output parity before measuring and
 reports best time, mean time, coefficient of variation, and per-thread
@@ -637,7 +643,7 @@ Run the suite from an optimized build; debug-profile timing is not
 representative.
 
 File-backed benchmark fixtures default to the operating-system temporary
-directory. Set `TINYONE_BENCH_FIXTURE_ROOT` to compare a particular
+directory. Set `TINYLANG_BENCH_FIXTURE_ROOT` to compare a particular
 filesystem, such as WSL `/mnt/c` versus native `/tmp`.
 
 When Windows and WSL share this checkout through `/mnt/c`, give Linux
@@ -664,7 +670,7 @@ the current optimization priority order.
 
 Current state:
 
-- `cargo check --manifest-path crates/tinyone_core/Cargo.toml` passes without
+- `cargo check --manifest-path crates/tinylang_core/Cargo.toml` passes without
   warnings.
 - The default test suite and feature-gated language fixture suite are
   release gates and are expected to pass before changes are pushed.
@@ -677,9 +683,11 @@ Current state:
     |-- build/                        cargo-make task files (ci, ffi, dist, docker, etc.)
     |-- Cargo.toml                    workspace root
     |-- crates/
-    |   |-- tinyone_core/              compiler, VM, JIT, FFI, CLI (crate: tinylang)
+    |   |-- tinylang_core/              compiler, VM, JIT, FFI, CLI (crate: tinylang)
+    |   |   |-- include/tinylang.h     canonical generated C header
+    |   |   |-- tinylang-response-schema.json  JSON C ABI response schema
     |   |   |-- src/
-    |   |   |   |-- bin/              tinylang_bench.rs, tinyone-sandbox-worker.rs
+    |   |   |   |-- bin/              tinylang_bench.rs, tinylang-sandbox-worker.rs
     |   |   |   |-- bytecode/         opcode, instr, program, artifact, peephole, verifier
     |   |   |   |-- compiler/         parser, state, symbols, modules, incremental
     |   |   |   |-- jit/              op, chunk, program, cache, vm
@@ -688,20 +696,19 @@ Current state:
     |   |   |   |-- api.rs, cli.rs, ffi.rs, runner.rs, builtins.rs, ...
     |   |   |   `-- tests/            abi_api_soundness, runtime_parity, stdlib_parity,
     |   |   |                         language_suite, language/, programs/, threading, ...
-    |   |-- tinyone_ralloc/           Ralloc allocator crate (crate: tinyone_ralloc)
+    |   |-- tinylang_ralloc/           Ralloc allocator crate (crate: tinylang_ralloc)
     |   |   |-- src/ + include/ralloc.h + tests/
-    |   |-- tinyone_test_support/     shared test-support crate
+    |   |-- tinylang_test_support/     shared test-support crate
     |   `-- xtask/                    release-gate / CI orchestrator
     |-- docs/                         abi/, ffi/, syntax/, architecture, bytecode, ...
     |-- scripts/                      check_abi_drift, consumer_compile/smoke
     |-- tests/consumers/              C / C++ / Rust FFI consumer fixtures
     |-- tools/                        hash.py, loc.py, abi_manifest.py, zip.py
-    |-- tinylang.h                    generated C header (cbindgen)
-    |-- tinyone-response-schema.json  committed JSON schema for ABI responses
+    |-- tinylang.h                    source-checkout forwarding header
     |-- Makefile.toml, build/         cargo-make task definitions
     |-- cbindgen.toml, cliff.toml     tool config
     |-- rust-toolchain.toml           toolchain pin
-    `-- Config.toml                   TinyOne project policy (compile-cache deps)
+    `-- Config.toml                   TinyLang project policy (compile-cache deps)
 
 <a id="release-lines"></a>
 
@@ -712,11 +719,11 @@ TinyLang has two active lines in this repository:
 | Line | Branch | Status | Accepts |
 | --- | --- | --- | --- |
 | TinyLang v2 | `main` | Active development | New language, runtime, JIT, ABI, and SDK work, including `tinylang_v2/` |
-| TinyLang v1 (TinyOne) | `release/v1` | Maintenance through 2027-01-31 | Bug fixes, security fixes, v1 ABI-conformance fixes, and documentation corrections |
+| TinyLang v1 | `release/v1` | Maintenance through 2027-01-31 | Bug fixes, security fixes, v1 ABI-conformance fixes, and documentation corrections |
 
-v1 releases are tagged `v1.x.y` from `release/v1`. The v1 C ABI,
-`tinylang.h`, and `tinyone-response-schema.json` stay frozen for the
-whole maintenance window. When the window ends, `release/v1` remains
+v1 releases are tagged `v1.x.y` from `release/v1`. The C ABI, header, and
+response schema on that branch stay frozen for the whole maintenance window.
+The v2 rename on `main` does not change that branch. When the window ends, `release/v1` remains
 available for reference but stops receiving fixes; pin a `v1.x.y` tag if
 you depend on v1. Branch and backport rules are in
 [CONTRIBUTING](docs/CONTRIBUTING.md#branches-and-release-lines).
@@ -726,10 +733,10 @@ you depend on v1. Branch and backport rules are in
 # Release Direction
 
 Active v2 language development is documented in `docs/v2-roadmap.md`.
-The v1 release themes include:
+The v2 release themes include:
 
-- stable v1 JSON response schemas
-- frozen v1 C ABI policy
+- consistent TinyLang package, Rust API, and C export names
+- self-contained, verified crate packages and an explicit v1 migration boundary
 - safer verified-program execution typing
 - clearer public/private bytecode program ownership
 - better test coverage for Phase 2 builtins and artifact limits

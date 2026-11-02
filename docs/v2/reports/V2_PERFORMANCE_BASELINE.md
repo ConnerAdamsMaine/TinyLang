@@ -52,7 +52,7 @@ state were not controlled.
 ## CLI process wall time and binary size
 
 31 fresh processes per backend, Cranelift-enabled release CLI, persistent
-[example](../../../tinylang_v2/examples/scalar.tinyone), `sum 100`; every output checked
+[example](../../../tinylang_v2/examples/scalar.tinylang), `sum 100`; every output checked
 4950. These measurements include PowerShell launch, process startup, file
 compilation/cache handling, preparation and execution. Source/OS caches were
 warm, so they are not uncached cold-source measurements. With 31 samples P99

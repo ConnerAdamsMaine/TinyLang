@@ -2,7 +2,7 @@
 title: Performance
 ---
 
-# TinyOne performance workflow
+# TinyLang performance workflow
 
 `tinylang_bench` is the performance regression and optimization-targeting
 harness. It measures isolated subsystems instead of treating source-to-output
@@ -70,7 +70,7 @@ correctness was skipped, `--quick` was used, there are fewer than seven
 repeats, or any row exceeds its CV limit:
 
 ```text
-cargo build --release --manifest-path crates/tinyone_core/Cargo.toml --bin tinylang_bench
+cargo build --release --manifest-path crates/tinylang_core/Cargo.toml --bin tinylang_bench
 ./target/release/tinylang_bench --repeats 7
 ```
 
@@ -219,7 +219,7 @@ not establish the intended source/executable pairing.
 | `api.*` | End-to-end public API cost, including compilation where applicable |
 
 Build with `--features testing-hooks` to use
-`tinyone::testing::{reset_runtime_cost_counters, runtime_cost_counters}`. The
+`tinylang::testing::{reset_runtime_cost_counters, runtime_cost_counters}`. The
 process-wide diagnostic counters report heap-lock acquisitions, encoded-value
 encodes/decodes, successful Ralloc buffer growth events, and bytes copied by
 allocator moves. Reset them only around an exclusive measurement interval;
@@ -481,7 +481,7 @@ loader's mandatory verification. Compare it with the separate
 introducing an unverified artifact-loading API solely for benchmarking.
 
 File fixtures default to the platform temporary directory. Set
-`TINYONE_BENCH_FIXTURE_ROOT` to measure a specific filesystem. Benchmark JSON
+`TINYLANG_BENCH_FIXTURE_ROOT` to measure a specific filesystem. Benchmark JSON
 records both the process working-directory filesystem and the fixture
 filesystem, which distinguishes WSL `/mnt/c` runs from WSL native `/tmp` runs.
 

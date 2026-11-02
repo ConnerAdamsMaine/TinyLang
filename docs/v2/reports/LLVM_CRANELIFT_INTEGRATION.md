@@ -55,7 +55,7 @@ overflow/divide-zero status and instruction location, and exact fuel.
 Every published function was checked RX (`0x20`) through VirtualQuery.
 
 ```powershell
-# From the TinyOne Rust repository; use a working CPython 3.12 bootstrap.
+# From the TinyLang Rust repository; use a working CPython 3.12 bootstrap.
 & '..\Arduino-Coprocessor\.venv\Scripts\python.exe' -m venv '.\tinylang_v2\target\llvm-validation'
 & '.\tinylang_v2\target\llvm-validation\Scripts\python.exe' -m pip install --only-binary=:all: -r '.\tinylang_v2\requirements-llvm.txt'
 cargo build -p tinylang --bin tinylang --locked

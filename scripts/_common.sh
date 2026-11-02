@@ -33,7 +33,7 @@ BUILD_DIR="${TARGET_DIR}/debug"
 mkdir -p "${BUILD_DIR}"
 
 # Convert ROOT_DIR to Windows style for cl.exe (/I) when on MSYS/MinGW.
-# On Windows runners, ROOT_DIR is /d/a/TinyOne/TinyOne but cl.exe needs D:\a\...
+# On Windows runners, ROOT_DIR is /d/a/TinyLang/TinyLang but cl.exe needs D:\a\...
 # Use cygpath if available, else manual /c/ -> C:\ conversion.
 _to_win_path() {
   local p="$1"

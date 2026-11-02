@@ -2,7 +2,7 @@
 title: Examples
 ---
 
-# TinyOne Examples
+# TinyLang Examples
 
 Runnable examples organized by feature. Each example shows the `.to` source and the expected stdout output. Run any example with:
 
@@ -14,7 +14,7 @@ tinylang example.to
 
 ## Hello World and Arithmetic
 
-```tinyone
+```tinylang
 print "hello, world"
 print 6 * 7
 print (10 + 5) / 3
@@ -30,7 +30,7 @@ hello, world
 
 ## Variables, Scoping, and Block Locals
 
-```tinyone
+```tinylang
 let x = 10
 if x > 5 {
   let y = x * 2
@@ -56,7 +56,7 @@ while i < 3 {
 
 ## Functions and Recursion
 
-```tinyone
+```tinylang
 fn fact(n) {
   let acc = 1
   while n > 1 {
@@ -86,7 +86,7 @@ print fib(10)
 
 ## Structs and Fields
 
-```tinyone
+```tinylang
 struct Point { x, y }
 
 fn distance_sq(p) {
@@ -110,7 +110,7 @@ print distance_sq(p)
 
 ## Arrays and Dynamic Storage
 
-```tinyone
+```tinylang
 let nums = [10, 20, 30, 40, 50]
 print len(nums)
 print nums[2]
@@ -149,9 +149,9 @@ print squares[4]
 
 Note: each `let` binding must use a unique name within the same scope — `_a`, `_b`, etc. are conventional discard names.
 
-```tinyone
+```tinylang
 let m = map_new()
-let _a = map_set(m, "name", "tinyone")
+let _a = map_set(m, "name", "tinylang")
 let _b = map_set(m, "version", "0.5.0")
 
 print map_get(m, "name")
@@ -168,7 +168,7 @@ print str_concat("foo", "bar")
 ```
 
 ```
-tinyone
+tinylang
 1
 2
 2
@@ -181,7 +181,7 @@ foobar
 
 ## Raw Pointers and Buffers
 
-```tinyone
+```tinylang
 let arr = [10, 20, 30]
 let p = ptr(arr, 1)
 print unsafe ptr_load(p)
@@ -216,7 +216,7 @@ print unsafe read8(unsafe ptr_add(bp, 1))
 
 A simple RPN (reverse-Polish notation) calculator using a manual stack array.
 
-```tinyone
+```tinylang
 fn calc(ops, inputs) {
   let stack = []
   let i = 0
@@ -323,7 +323,7 @@ tinylang /tmp/ex5.to 2>/dev/null
 # Maps and strings
 cat > /tmp/ex6.to << 'EOF'
 let m = map_new()
-let _a = map_set(m, "name", "tinyone")
+let _a = map_set(m, "name", "tinylang")
 let _b = map_set(m, "version", "0.5.0")
 print map_get(m, "name")
 print map_has(m, "version")
@@ -336,7 +336,7 @@ print str_slice(s, 0, 5)
 print str_concat("foo", "bar")
 EOF
 tinylang /tmp/ex6.to 2>/dev/null
-# Expected: tinyone/1/2/2/12/hello/foobar
+# Expected: tinylang/1/2/2/12/hello/foobar
 
 # Raw pointers
 cat > /tmp/ex7.to << 'EOF'
