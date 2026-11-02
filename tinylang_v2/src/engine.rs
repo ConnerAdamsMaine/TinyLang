@@ -11,7 +11,9 @@ pub mod llvm;
 pub mod native;
 mod typing;
 
-pub use backend::{ExecutionBackend, PreparedFunction};
+pub use backend::{
+    BackendCapabilities, BackendTargetRequirement, ExecutionBackend, PreparedFunction,
+};
 pub use error::{EngineError, TrapKind};
 pub use ir::{BinaryOp, Instruction, ScalarFunction};
 

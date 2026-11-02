@@ -84,6 +84,11 @@ integration, and measured cold/warm costs without unsupported speedup claims.
 | Cranelift | Real emitted machine code, optional feature | Windows x86-64 | Unix mapping code untested; other ISAs unavailable |
 | LLVM | CLI IR emission; generated objects executed in optional validation | Windows x86-64, LLVM 20.1.8 | No linked Rust LLVM executor or native COFF/executable pipeline |
 
+`ExecutionBackend::capabilities` exposes each executable backend's target
+requirement, machine-code behavior and required Cargo feature. These static
+capabilities describe build constraints; `prepare` remains authoritative for
+runtime availability.
+
 `ExecutionBackend::prepare` retains a `PreparedFunction`; invocations share
 compiled code but allocate independent bounded frames. This is explicit
 prepared-function reuse, not an automatic program-wide code cache.

@@ -9,7 +9,7 @@ name       = "tinylang_v2"
 crate-type = [ "rlib", "cdylib" ]
 
 [dependencies]
-tinylang           = { package = "tinylang", path = "../crates/tinylang_core" }
+tinylang           = { package = "tinylang-v2", path = "../crates/tinylang_core" }
 thiserror          = "2"
 cranelift-codegen  = { version = "0.125", optional = true }
 cranelift-frontend = { version = "0.125", optional = true }

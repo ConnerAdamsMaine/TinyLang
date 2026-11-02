@@ -1,7 +1,27 @@
 use tinylang::{
     Function, Instr, Op, Program, VerifiedProgram, compile_source_unoptimized_verified,
 };
-use tinylang_v2::engine::{BinaryOp, EngineError, ScalarFunction};
+use tinylang_v2::engine::{
+    BackendTargetRequirement, BinaryOp, EngineError, ExecutionBackend, ScalarFunction,
+};
+
+#[test]
+fn execution_backends_declare_target_and_codegen_requirements() {
+    let interpreter = ExecutionBackend::Interpreter.capabilities();
+    assert_eq!(interpreter.target, BackendTargetRequirement::Any);
+    assert!(!interpreter.emits_machine_code);
+    assert_eq!(interpreter.required_feature, None);
+
+    let asm = ExecutionBackend::NativeAsm.capabilities();
+    assert_eq!(asm.target, BackendTargetRequirement::WindowsX86_64);
+    assert!(asm.emits_machine_code);
+    assert_eq!(asm.required_feature, None);
+
+    let cranelift = ExecutionBackend::Cranelift.capabilities();
+    assert_eq!(cranelift.target, BackendTargetRequirement::X86_64);
+    assert!(cranelift.emits_machine_code);
+    assert_eq!(cranelift.required_feature, Some("cranelift"));
+}
 
 #[test]
 fn compiler_output_lowers_to_checked_integer_ir() {
