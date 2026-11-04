@@ -19,7 +19,7 @@ optimizer, verifier, portable VM, heap/runtime model, bytecode artifact
 support, adaptive execution support, host integration surfaces, CLI
 tooling, and early allocator-integration scaffolding.
 
-Current crate version: `2.0.0` (publication preparation). This `main` branch
+Current crate version: `2.1.0` (publication preparation). This `main` branch
 carries TinyLang v2; the v1 release line is maintained on `release/v1`.
 See [Release Lines](#release-lines).
 

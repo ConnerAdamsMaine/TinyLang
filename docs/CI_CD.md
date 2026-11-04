@@ -122,7 +122,7 @@ The workspace publishes three crates in dependency order:
 | --- | --- | --- |
 | `tinylang_test_support` | `0.1.0` | Versioned development dependency for packaged tests |
 | `tinylang_ralloc` | `0.2.0` | Runtime allocator (`ralloc` Rust library) |
-| `tinylang-v2` | `2.0.0` | Compiler, runtime, CLI, JSON C API, and sandbox worker |
+| `tinylang-v2` | `2.1.0` | Compiler, runtime, CLI, JSON C API, and sandbox worker |
 
 `tinylang-xtask` is private (`publish = false`). The v2 fuzz targets
 (`crates/tinylang_core/fuzz/`) and experiments (`crates/tinylang_core/experiments/`)

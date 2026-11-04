@@ -18,7 +18,7 @@ executable remain `tinylang`. Use `tinylang --help` for options.
 
 ```toml
 [dependencies]
-tinylang = { package = "tinylang-v2", version = "2.0.0" }
+tinylang = { package = "tinylang-v2", version = "2.1.0" }
 ```
 
 ## C integration
