@@ -1,7 +1,7 @@
 # TinyLang v2 deterministic binary ABI
 
 Status: experimental v2.0 draft  
-Canonical header: `tinylang_v2/include/tinylang_v2.h`
+Canonical header: `crates/tinylang_core/include/tinylang_v2.h`
 
 ## 1. Scope and invariants
 
@@ -153,7 +153,7 @@ used for variable-width or heterogeneous values. Nesting is bounded to 32.
   runtime nor a binding may retain a borrowed C buffer after the call returns.
 
 Reference C, Python, and Node implementations live under
-`tinylang_v2/bindings/` and are checked against the committed golden vectors.
+`crates/tinylang_core/bindings/` and are checked against the committed golden vectors.
 
 ## 5. Handles and provenance
 
@@ -229,10 +229,10 @@ The first reserved VM opcodes are `PROGRAM_LOAD` (`0x1000`), `VM_CREATE`
 (`0x1001`), `VM_INVOKE` (`0x1002`), and `HANDLE_RELEASE` (`0x1003`). Their
 normative payload schemas and side-effect rules are defined in
 [`v2-opcodes.md`](v2-opcodes.md). The reference dispatcher implements
-`PROGRAM_LOAD`, `VM_CREATE`, and `HANDLE_RELEASE`; `VM_INVOKE` remains declared
-but unimplemented. Until a dispatcher implements an opcode, it must return a
-response carrying `UNKNOWN_OPCODE`; declaration alone never implies
-implementation. Remaining stable VM opcodes occupy `0x1004`–`0x7fff`.
+`PROGRAM_LOAD`, `VM_CREATE`, `VM_INVOKE`, and `HANDLE_RELEASE`. Until a
+dispatcher implements an opcode, it must return a response carrying
+`UNKNOWN_OPCODE`; declaration alone never implies implementation. Remaining
+stable VM opcodes occupy `0x1004`–`0x7fff`.
 Experimental opcodes occupy `0x8000`–`0xffff` and must not be emitted by stable
 bindings.
 

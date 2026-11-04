@@ -14,7 +14,7 @@ local engineering analysis, not claims from external benchmarks.
 
 ## Candidates and equivalent checks
 
-The isolated executable crate is `tinylang_v2/experiments/handle-lifetimes`.
+The isolated executable crate is `crates/tinylang_core/experiments/handle-lifetimes`.
 It compares only identity allocation, lookup, and release for 64 slots. It
 does not simulate VM execution, locking, object payloads, or foreign calls.
 
@@ -43,8 +43,8 @@ No dependencies; release opt-level 3, codegen-units 1, LTO off, unwind panics.
 For each of `baseline`, `a`, `b`, and `c`, run:
 
 ```powershell
-cargo test --manifest-path tinylang_v2/experiments/handle-lifetimes/Cargo.toml --no-default-features --features a --target-dir target/handle-lifetimes/a
-cargo build --release --manifest-path tinylang_v2/experiments/handle-lifetimes/Cargo.toml --no-default-features --features a --target-dir target/handle-lifetimes/a
+cargo test --manifest-path crates/tinylang_core/experiments/handle-lifetimes/Cargo.toml --no-default-features --features a --target-dir target/handle-lifetimes/a
+cargo build --release --manifest-path crates/tinylang_core/experiments/handle-lifetimes/Cargo.toml --no-default-features --features a --target-dir target/handle-lifetimes/a
 ./target/handle-lifetimes/a/release/handle-lifetimes.exe
 ```
 

@@ -3,8 +3,8 @@
 Status: **Cranelift and LLVM scalar object execution tested on Windows
 x86-64; full-language/native Rust LLVM integration remains partial**.
 
-Cranelift is optional behind `--features cranelift`. The standalone crate
-declares the 0.125 family, resolves 0.125.4 and records dependencies in its lockfile.
+Cranelift is optional behind `--features cranelift`. `tinylang_core`
+declares the 0.125 family; the root workspace lockfile records the resolved versions.
 It consumes the same checked-i64 IR as ASM; no independent language parser
 or implicit interpreter fallback is permitted.
 
@@ -29,7 +29,7 @@ No clang, llvm-as, llc or lli was available. The actual LLVM execution test
 is explicitly ignored, not a success-shaped missing-tool pass:
 
 ```powershell
-cargo test --manifest-path .\tinylang_v2\Cargo.toml --test external_backends llvm_execution::llvm_compiles_and_executes_against_vm -- --ignored --exact
+cargo test -p tinylang-v2 --test external_backends llvm_execution::llvm_compiles_and_executes_against_vm -- --ignored --exact
 ```
 
 Explicit invocation fails with the missing-clang diagnostic. Installing a
@@ -41,8 +41,8 @@ scalar frame ABI described in [architecture](COMPILER_ARCHITECTURE.md).
 ## Verified alternative LLVM execution path
 
 The missing clang tool was not treated as the final execution limit.
-The optional [validation test](../../../tinylang_v2/tests/test_llvm_execution.py) uses
-the pinned [llvmlite dependency](../../../tinylang_v2/requirements-llvm.txt) in an isolated
+The optional [validation test](../../../crates/tinylang_core/tests/test_llvm_execution.py) uses
+the pinned [llvmlite dependency](../../../crates/tinylang_core/requirements-llvm.txt) in an isolated
 environment, without changing the SDK or a global Python environment.
 llvmlite 0.46.0 embeds LLVM 20.1.8.
 
@@ -56,11 +56,11 @@ Every published function was checked RX (`0x20`) through VirtualQuery.
 
 ```powershell
 # From the TinyLang Rust repository; use a working CPython 3.12 bootstrap.
-& '..\Arduino-Coprocessor\.venv\Scripts\python.exe' -m venv '.\tinylang_v2\target\llvm-validation'
-& '.\tinylang_v2\target\llvm-validation\Scripts\python.exe' -m pip install --only-binary=:all: -r '.\tinylang_v2\requirements-llvm.txt'
+& '..\Arduino-Coprocessor\.venv\Scripts\python.exe' -m venv '.\target\llvm-validation'
+& '.\target\llvm-validation\Scripts\python.exe' -m pip install --only-binary=:all: -r '.\crates\tinylang_core\requirements-llvm.txt'
 cargo build -p tinylang --bin tinylang --locked
-cargo build --release --manifest-path .\tinylang_v2\Cargo.toml --bin tinylang-v2 --locked
-& '.\tinylang_v2\target\llvm-validation\Scripts\python.exe' '.\tinylang_v2\tests\test_llvm_execution.py' -v
+cargo build --release -p tinylang-v2 --bin tinylang-v2 --locked
+& '.\target\llvm-validation\Scripts\python.exe' '.\crates\tinylang_core\tests\test_llvm_execution.py' -v
 ```
 
 The current llvmlite Windows target is explicitly

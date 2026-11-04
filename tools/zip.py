@@ -1,300 +1,295 @@
 #!/usr/bin/env python3
-"""Create zip or tar.gz archives while honoring discovered ignore files."""
+"""Archive a project using .gitignore and .zipignore, without Git or dependencies.
+
+Examples:
+    python zip.py
+    python zip.py /path/to/project -o /path/to/project.zip
+    python zip.py . --dry-run
+    python zip.py . --contents-only --level 9
+
+Both ignore files use Git-style glob syntax (including !, /, ** and directory
+patterns). Ignore files are loaded recursively. For any path, .gitignore rules
+are evaluated first, then .zipignore rules, allowing .zipignore to override
+.gitignore exclusions with !patterns.
+
+As with Git, you must re-include an ignored parent directory before you can
+re-include files inside it. The .git directory is always omitted. Symlinks are
+not followed or archived to avoid unexpectedly including outside files.
+"""
 
 from __future__ import annotations
-from typing import Literal, NoReturn, TYPE_CHECKING
 
 import argparse
-import fnmatch
-import sys
-import tarfile
-import zipfile
 from dataclasses import dataclass
+import os
 from pathlib import Path
-
-if TYPE_CHECKING:
-    from collections.abc import Sequence
-
-ArchiveFormat = Literal["zip", "tar.gz"]
-EXIT_OK = 0
-EXIT_ERROR = 2
-IGNORE_FILENAMES = (".gitignore", ".zipignore")
-HELP_EPILOG = """
-Examples:
-  ./tools/zip.py crates/tinylang_core -o tinylang.zip
-  ./tools/zip.py crates/tinylang_core crates/tinylang_ralloc -o source.tar.gz --format tar.gz
-  ./tools/zip.py README.md docs --format zip
-
-Every directory walk loads .gitignore and .zipignore rules from each directory
-before reading that directory's children. Nested ignore files override earlier
-matches in normal last-match-wins order, including negated patterns such as
-!keep.log.
-"""
+import re
+import sys
+import tempfile
+from typing import Iterator
+import zipfile
 
 
 @dataclass(frozen=True)
 class IgnoreRule:
-    base: Path
-    pattern: str
-    negated: bool
-    directory_only: bool
-    anchored: bool
-    has_slash: bool
+    base: tuple[str, ...]
+    pattern: re.Pattern[str]
+    basename_only: bool
+    directories_only: bool
+    exclude: bool
 
-    def matches(self, path: Path, is_dir: bool) -> bool:
-        if self.directory_only and not is_dir:
-            return False
-        try:
-            rel = path.relative_to(self.base).as_posix()
-        except ValueError:
-            return False
-        if rel in {"", "."}:
+    def matches(self, parts: tuple[str, ...], is_dir: bool) -> bool:
+        """Match this path or an ancestor directory below the rule's base."""
+        base_len = len(self.base)
+        if len(parts) <= base_len or parts[:base_len] != self.base:
             return False
 
-        pattern = self.pattern
-        if self.has_slash:
-            if self.anchored:
-                return rel == pattern or fnmatch.fnmatchcase(rel, pattern)
-            return (
-                rel == pattern
-                or rel.endswith(f"/{pattern}")
-                or fnmatch.fnmatchcase(rel, pattern)
-                or any(
-                    fnmatch.fnmatchcase(suffix, pattern)
-                    for suffix in suffixes(rel)
-                )
-            )
-
-        return any(
-            fnmatch.fnmatchcase(part, pattern) for part in rel.split("/")
-        )
+        relative = parts[base_len:]
+        for size in range(1, len(relative) + 1):
+            candidate_is_dir = size < len(relative) or is_dir
+            if self.directories_only and not candidate_is_dir:
+                continue
+            candidate = relative[size - 1] if self.basename_only else "/".join(relative[:size])
+            if self.pattern.fullmatch(candidate):
+                return True
+        return False
 
 
-def suffixes(rel: str) -> list[str]:
-    parts = rel.split("/")
-    return ["/".join(parts[index:]) for index in range(len(parts))]
+def _glob_regex(glob: str) -> re.Pattern[str]:
+    """Convert the most commonly used Git wildmatch constructs to regex."""
+    out: list[str] = []
+    i = 0
+    while i < len(glob):
+        char = glob[i]
+        if char == "\\" and i + 1 < len(glob):
+            out.append(re.escape(glob[i + 1]))
+            i += 2
+        elif char == "*":
+            if i + 1 < len(glob) and glob[i + 1] == "*":
+                before = i == 0 or glob[i - 1] == "/"
+                after_index = i + 2
+                after = after_index == len(glob) or glob[after_index] == "/"
+                if before and after:
+                    if after_index < len(glob):
+                        out.append("(?:.*/)?")  # **/ matches zero or more directories
+                        i += 3
+                    else:
+                        out.append(".*")  # trailing /**
+                        i += 2
+                    continue
+                # Adjacent * without special ** syntax have ordinary * behavior.
+                out.append("[^/]*")
+                i += 2
+            else:
+                out.append("[^/]*")
+                i += 1
+        elif char == "?":
+            out.append("[^/]")
+            i += 1
+        elif char == "[":
+            j = i + 1
+            if j < len(glob) and glob[j] in ("!", "^"):
+                j += 1
+            if j < len(glob) and glob[j] == "]":
+                j += 1
+            while j < len(glob) and glob[j] != "]":
+                if glob[j] == "\\" and j + 1 < len(glob):
+                    j += 1
+                j += 1
+            if j < len(glob):
+                contents = glob[i + 1:j].replace("\\", "\\\\")
+                if contents.startswith("!"):
+                    contents = "^" + contents[1:]
+                elif contents.startswith("^"):
+                    contents = "\\" + contents
+                try:
+                    re.compile("[" + contents + "]")
+                except re.error:
+                    out.append(r"\[")
+                    i += 1
+                    continue
+                out.append("(?!/)[" + contents + "]")
+                i = j + 1
+            else:
+                out.append(r"\[")
+                i += 1
+        else:
+            out.append(re.escape(char))
+            i += 1
+    return re.compile("".join(out))
 
 
-def parse_ignore_line(base: Path, raw: str) -> IgnoreRule | None:
-    line = raw.rstrip("\n")
-    if not line or line.isspace():
-        return None
-    if line.startswith("#"):
-        return None
-    if line.startswith("\\#"):
-        line = line[1:]
-
-    negated = line.startswith("!")
-    if negated:
-        line = line[1:]
-    if not line:
-        return None
-
-    line = line.rstrip()
-    directory_only = line.endswith("/")
-    if directory_only:
-        line = line.rstrip("/")
-    anchored = line.startswith("/")
-    if anchored:
-        line = line.lstrip("/")
-    if not line:
-        return None
-
-    return IgnoreRule(
-        base=base,
-        pattern=line,
-        negated=negated,
-        directory_only=directory_only,
-        anchored=anchored,
-        has_slash="/" in line,
-    )
+def _is_escaped(value: str, index: int) -> bool:
+    slash_count = 0
+    index -= 1
+    while index >= 0 and value[index] == "\\":
+        slash_count += 1
+        index -= 1
+    return bool(slash_count % 2)
 
 
-def load_ignore_rules(directory: Path) -> tuple[IgnoreRule, ...]:
+def _parse_ignore(path: Path, base: tuple[str, ...]) -> tuple[IgnoreRule, ...]:
+    if not path.is_file():
+        return ()
+
     rules: list[IgnoreRule] = []
-    for filename in IGNORE_FILENAMES:
-        ignore_file = directory / filename
-        if not ignore_file.is_file():
-            continue
-        with ignore_file.open(
-            "r", encoding="utf-8", errors="replace"
-        ) as handle:
-            for raw in handle:
-                rule = parse_ignore_line(directory, raw)
-                if rule is not None:
-                    rules.append(rule)
+    with path.open("r", encoding="utf-8-sig", errors="surrogateescape") as stream:
+        for raw in stream:
+            pattern = raw.rstrip("\r\n")
+            while pattern.endswith(" ") and not _is_escaped(pattern, len(pattern) - 1):
+                pattern = pattern[:-1]
+            if not pattern or pattern.startswith("#"):
+                continue
+
+            exclude = True
+            if pattern.startswith("!"):
+                exclude = False
+                pattern = pattern[1:]
+
+            if not pattern:
+                continue
+            directories_only = pattern.endswith("/") and not _is_escaped(pattern, len(pattern) - 1)
+            if directories_only:
+                pattern = pattern[:-1]
+            if pattern.startswith("/"):
+                pattern = pattern[1:]
+            if not pattern:
+                continue
+
+            rules.append(IgnoreRule(
+                base=base,
+                pattern=_glob_regex(pattern),
+                basename_only="/" not in pattern,
+                directories_only=directories_only,
+                exclude=exclude,
+            ))
     return tuple(rules)
 
 
-def is_ignored(path: Path, is_dir: bool, rules: Sequence[IgnoreRule]) -> bool:
-    ignored = False
-    for rule in rules:
-        if rule.matches(path, is_dir):
-            ignored = not rule.negated
-    return ignored
+def _excluded(
+    parts: tuple[str, ...],
+    is_dir: bool,
+    git_rules: tuple[IgnoreRule, ...],
+    zip_rules: tuple[IgnoreRule, ...],
+) -> bool:
+    excluded = False
+    for rule in git_rules:
+        if rule.matches(parts, is_dir):
+            excluded = rule.exclude
+    for rule in zip_rules:  # Always apply .zipignore after .gitignore.
+        if rule.matches(parts, is_dir):
+            excluded = rule.exclude
+    return excluded
 
 
-def archive_name_for_root(root: Path, path: Path) -> str:
-    if path == root:
-        return root.name
-    return f"{root.name}/{path.relative_to(root).as_posix()}"
+def _walk(
+    directory: Path,
+    relative: tuple[str, ...],
+    git_rules: tuple[IgnoreRule, ...],
+    zip_rules: tuple[IgnoreRule, ...],
+    output_paths: frozenset[Path],
+) -> Iterator[Path]:
+    git_rules += _parse_ignore(directory / ".gitignore", relative)
+    zip_rules += _parse_ignore(directory / ".zipignore", relative)
 
+    # scandir is deliberate: symlinks are identifiable without following them.
+    with os.scandir(directory) as entries:
+        children = sorted(entries, key=lambda entry: entry.name)
 
-def iter_archive_entries(
-    root: Path, inherited_rules: Sequence[IgnoreRule] = ()
-) -> list[tuple[Path, str]]:
-    if root.is_file():
-        return [(root, root.name)]
-    if not root.is_dir():
-        raise ValueError(
-            f"input path does not exist or is not a regular file/directory: {root}"
-        )
-
-    entries: list[tuple[Path, str]] = []
-
-    def walk(directory: Path, parent_rules: tuple[IgnoreRule, ...]) -> None:
-        rules = (*parent_rules, *load_ignore_rules(directory))
-        children = sorted(directory.iterdir(), key=lambda child: child.name)
-        for child in children:
-            child_is_dir = child.is_dir()
-            if is_ignored(child, child_is_dir, rules):
+    for child in children:
+        child_path = Path(child.path)
+        parts = relative + (child.name,)
+        if child.name == ".git" or child_path.absolute() in output_paths or child.is_symlink():
+            continue
+        if child.is_dir(follow_symlinks=False):
+            if _excluded(parts, True, git_rules, zip_rules):
                 continue
-            if child_is_dir:
-                walk(child, rules)
-            elif child.is_file():
-                entries.append((child, archive_name_for_root(root, child)))
-
-    walk(root, tuple(inherited_rules))
-    return entries
+            yield child_path  # Store directories as entries so empty directories survive.
+            yield from _walk(child_path, parts, git_rules, zip_rules, output_paths)
+        elif child.is_file(follow_symlinks=False):
+            if not _excluded(parts, False, git_rules, zip_rules):
+                yield child_path
 
 
-def is_relative_to(path: Path, root: Path) -> bool:
-    try:
-        path.relative_to(root)
-    except ValueError:
-        return False
-    return True
+def _file_manifest(root: Path, outputs: frozenset[Path]) -> list[Path]:
+    return list(_walk(root, (), (), (), outputs))
 
 
-def validate_output_path(inputs: Sequence[Path], output: Path) -> None:
-    resolved_output = output.resolve(strict=False)
-    for input_path in inputs:
-        if input_path.is_dir() and is_relative_to(
-            resolved_output, input_path.resolve()
-        ):
-            raise ValueError(
-                f"output archive is inside input directory: {output}"
-            )
+def _archive_name(root: Path, path: Path, contents_only: bool) -> str:
+    relative = path.relative_to(root).as_posix()
+    return relative if contents_only else f"{root.name}/{relative}"
 
 
-def infer_format(output: Path, explicit: str | None) -> ArchiveFormat:
-    if explicit in {"zip", "tar.gz"}:
-        return explicit  # type: ignore[return-value]
-    name = output.name.lower()
-    if name.endswith(".tar.gz") or name.endswith(".tgz"):
-        return "tar.gz"
-    if name.endswith(".zip"):
-        return "zip"
-    return "zip"
-
-
-def default_output(
-    inputs: Sequence[Path], archive_format: ArchiveFormat
-) -> Path:
-    stem = inputs[0].name if len(inputs) == 1 else "archive"
-    suffix = ".tar.gz" if archive_format == "tar.gz" else ".zip"
-    return Path(f"{stem}{suffix}")
-
-
-def collect_entries(inputs: Sequence[Path]) -> list[tuple[Path, str]]:
-    entries: list[tuple[Path, str]] = []
-    seen_names: set[str] = set()
-    for input_path in inputs:
-        for source, arcname in iter_archive_entries(input_path):
-            if arcname in seen_names:
-                raise ValueError(
-                    f"duplicate archive path from inputs: {arcname}"
-                )
-            seen_names.add(arcname)
-            entries.append((source, arcname))
-    if not entries:
-        raise ValueError("no files to archive after applying ignore rules")
-    return entries
-
-
-def create_archive(
-    paths: Sequence[str | Path],
-    output: str | Path,
-    archive_format: ArchiveFormat | str | None = None,
-) -> Path:
-    inputs = [Path(path).expanduser() for path in paths]
-    if not inputs:
-        raise ValueError("at least one input path is required")
-    out = Path(output).expanduser()
-    fmt = infer_format(out, archive_format)
-    validate_output_path(inputs, out)
-    entries = collect_entries(inputs)
-    out.parent.mkdir(parents=True, exist_ok=True)
-
-    if fmt == "zip":
-        with zipfile.ZipFile(
-            out, "w", compression=zipfile.ZIP_DEFLATED
-        ) as archive:
-            for source, arcname in entries:
-                archive.write(source, arcname)
-    elif fmt == "tar.gz":
-        with tarfile.open(out, "w:gz") as archive:
-            for source, arcname in entries:
-                archive.add(source, arcname=arcname, recursive=False)
-    else:
-        raise ValueError(f"unsupported archive format: {archive_format}")
-    return out
-
-
-def build_parser() -> argparse.ArgumentParser:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        prog="zip.py",
-        description="Create .zip or .tar.gz archives while honoring discovered .gitignore and .zipignore files.",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=HELP_EPILOG,
+        description="Archive a project respecting nested .gitignore and .zipignore files, without Git.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument(
-        "paths", nargs="+", help="file or directory paths to archive"
-    )
-    parser.add_argument("-o", "--output", help="archive path to write")
-    parser.add_argument(
-        "--format",
-        choices=("zip", "tar.gz"),
-        help="archive format; inferred from --output when omitted",
-    )
-    return parser
-
-
-def die(message: str) -> NoReturn:
-    print(f"zip.py: error: {message}", file=sys.stderr)
-    raise SystemExit(EXIT_ERROR)
-
-
-def main(argv: Sequence[str] | None = None) -> int:
-    parser = build_parser()
+    parser.add_argument("project", nargs="?", type=Path, default=Path.cwd(), help="Project root")
+    parser.add_argument("-o", "--output", type=Path, help="ZIP destination (default: alongside the project)")
+    parser.add_argument("--contents-only", action="store_true", help="Do not wrap files in the project-root folder")
+    parser.add_argument("--dry-run", action="store_true", help="List archive members without creating an archive")
+    parser.add_argument("--level", type=int, choices=range(10), metavar="0-9", default=6,
+                        help="DEFLATE compression level (0=no compression; 9=maximum)")
     args = parser.parse_args(argv)
-    input_paths = [Path(path).expanduser() for path in args.paths]
-    fmt = (
-        infer_format(Path(args.output), args.format)
-        if args.output
-        else infer_format(Path("archive.zip"), args.format)
-    )
-    output = (
-        Path(args.output).expanduser()
-        if args.output
-        else default_output(input_paths, fmt)
-    )
+
+    requested_root = args.project.expanduser().absolute()
+    if requested_root.is_symlink():
+        parser.error("The project root must not be a symbolic link")
+    root = requested_root.resolve()
+    if not root.is_dir():
+        parser.error(f"Not a directory: {root}")
+
+    output = (args.output.expanduser() if args.output is not None else root.parent / f"{root.name}.zip").absolute()
+    if output.is_symlink():
+        parser.error(f"Output must not be a symbolic link: {output}")
+    output = output.resolve(strict=False)
+    if output.is_dir():
+        parser.error(f"Output must be a .zip file path, not a directory: {output}")
+
+    temporary: Path | None = None
     try:
-        archive = create_archive(input_paths, output, fmt)
-    except (OSError, ValueError) as exc:
-        die(str(exc))
-    print(archive)
-    return EXIT_OK
+        # Allocate in destination directory for an atomic final rename, if writing.
+        if not args.dry_run:
+            output.parent.mkdir(parents=True, exist_ok=True)
+            with tempfile.NamedTemporaryFile(prefix=".zip-tmp-", suffix=".zip", dir=output.parent,
+                                             delete=False) as handle:
+                temporary = Path(handle.name)
+
+        excluded_outputs = frozenset({output, *([temporary] if temporary else [])})
+        files = _file_manifest(root, excluded_outputs)
+        regular_files = [path for path in files if path.is_file()]
+        directories = len(files) - len(regular_files)
+        total = sum(path.stat().st_size for path in regular_files)
+
+        if args.dry_run:
+            for path in files:
+                print(_archive_name(root, path, args.contents_only) + ("/" if path.is_dir() else ""))
+            print(f"\nDry run: {len(regular_files)} files, {directories} directories, "
+                  f"{total:,} uncompressed bytes; nothing written.")
+            return 0
+
+        assert temporary is not None
+        with zipfile.ZipFile(temporary, "w", compression=zipfile.ZIP_DEFLATED,
+                             compresslevel=args.level, allowZip64=True) as archive:
+            if not args.contents_only:
+                archive.write(root, arcname=f"{root.name}/")
+            for path in files:
+                name = _archive_name(root, path, args.contents_only)
+                archive.write(path, arcname=name + ("/" if path.is_dir() else ""))
+
+        os.replace(temporary, output)
+        temporary = None
+        print(f"Created: {output}")
+        print(f"Files: {len(regular_files)} | Directories: {directories} | "
+              f"Original: {total:,} bytes | ZIP: {output.stat().st_size:,} bytes")
+        return 0
+    except (OSError, ValueError, zipfile.BadZipFile) as exc:
+        print(f"zip.py: error: {exc}", file=sys.stderr)
+        return 1
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

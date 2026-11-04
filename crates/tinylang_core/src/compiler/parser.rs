@@ -41,9 +41,83 @@ struct LoopContext {
     breaks: Vec<usize>,
 }
 
+#[derive(Clone, Copy)]
 enum ReadSlot {
     Local(usize),
     Global(usize),
+    Capture(usize),
+}
+
+#[derive(Clone, Copy)]
+struct CaptureSource {
+    slot: ReadSlot,
+}
+
+struct Capture {
+    name:   String,
+    source: CaptureSource,
+    /// The captured value is a shared environment cell rather than a plain value.
+    boxed:  bool,
+}
+
+struct EnclosingCaptureContext {
+    captures:       Vec<Capture>,
+    capture_slots:  HashMap<String, usize>,
+    outer_symbols:  Option<SymbolTable>,
+    outer_slots:    HashMap<String, usize>,
+    outer_globals:  HashMap<String, usize>,
+    outer_function: bool,
+    outer_boxed:    HashSet<usize>,
+}
+
+/// Generated closure functions use this prefix; user declarations may not.
+pub(crate) const CLOSURE_NAME_PREFIX: &str = "__tiny_closure_";
+
+fn placeholder_function(name: &str) -> Function {
+    Function {
+        name:           name.to_string(),
+        decorators:     Vec::new(),
+        generic_params: Vec::new(),
+        param_count:    0,
+        code:           Vec::new(),
+        source:         None,
+        slot_count:     0,
+        names:          Vec::new(),
+    }
+}
+
+fn capture_slot_operand(index: usize) -> Result<i64> {
+    let index = i64::try_from(index).map_err(|_| TinyLangError::compile("Closure capture index is too large"))?;
+    index
+        .checked_add(1)
+        .and_then(i64::checked_neg)
+        .ok_or_else(|| TinyLangError::compile("Closure capture index is too large"))
+}
+
+fn remap_capture_slots(code: &mut [Instr], capture_count: usize) -> Result<()> {
+    let shift =
+        i64::try_from(capture_count).map_err(|_| TinyLangError::compile("Closure capture count is too large"))?;
+    for instruction in code {
+        if !matches!(instruction.op, Op::Load | Op::Store) {
+            continue;
+        }
+        if instruction.arg < 0 {
+            let capture = instruction
+                .arg
+                .checked_neg()
+                .and_then(|index| index.checked_sub(1))
+                .and_then(|index| usize::try_from(index).ok())
+                .ok_or_else(|| TinyLangError::compile("Invalid internal closure capture slot"))?;
+            instruction.arg =
+                i64::try_from(capture).map_err(|_| TinyLangError::compile("Closure capture index is too large"))?;
+        } else {
+            instruction.arg = instruction
+                .arg
+                .checked_add(shift)
+                .ok_or_else(|| TinyLangError::compile("Closure local slot is too large"))?;
+        }
+    }
+    Ok(())
 }
 
 pub(crate) struct Compiler {
@@ -53,6 +127,7 @@ pub(crate) struct Compiler {
     source_map:             Arc<SourceMap>,
     source_offsets:         Vec<SourceOffset>,
     last_source_offset:     SourceOffset,
+    last_token_end:         usize,
     filename:               String,
     resolver:               Option<Resolver>,
     module_mode:            bool,
@@ -65,11 +140,25 @@ pub(crate) struct Compiler {
     symbols:                SymbolTable,
     code:                   Vec<Instr>,
     shared:                 SharedState,
+    next_closure_id:        usize,
     local_function_indexes: HashMap<String, usize>,
     local_struct_indexes:   HashMap<String, usize>,
     local_enum_names:       HashSet<String>,
     function_globals:       HashMap<String, usize>,
+    captures:               Vec<Capture>,
+    capture_slots:          HashMap<String, usize>,
+    capture_outer_symbols:  Option<SymbolTable>,
+    capture_outer_slots:    HashMap<String, usize>,
+    capture_outer_globals:  HashMap<String, usize>,
+    capture_outer_function: bool,
+    enclosing_captures:     Vec<EnclosingCaptureContext>,
     loops:                  Vec<LoopContext>,
+    /// Names in the current function that need shared cells (assigned and referenced by a nested closure).
+    boxed_names:            HashSet<String>,
+    /// Local slots in the current function that hold shared cells.
+    boxed_slots:            HashSet<usize>,
+    /// Boxed local slots of the function that encloses the closure being compiled.
+    capture_outer_boxed:    HashSet<usize>,
     in_function:            bool,
     unsafe_depth:           usize,
     root_capabilities:      ModuleCapabilities,
@@ -133,6 +222,7 @@ impl Compiler {
             source_map,
             source_offsets: Vec::new(),
             last_source_offset: SourceOffset(source_len),
+            last_token_end: 0,
             filename,
             resolver,
             module_mode,
@@ -145,10 +235,21 @@ impl Compiler {
             symbols: SymbolTable::new(),
             code: Vec::new(),
             shared,
+            next_closure_id: 0,
             local_function_indexes: HashMap::new(),
             local_struct_indexes: HashMap::new(),
             local_enum_names: HashSet::new(),
             function_globals: HashMap::new(),
+            captures: Vec::new(),
+            capture_slots: HashMap::new(),
+            capture_outer_symbols: None,
+            capture_outer_slots: HashMap::new(),
+            capture_outer_globals: HashMap::new(),
+            capture_outer_function: false,
+            enclosing_captures: Vec::new(),
+            boxed_names: HashSet::new(),
+            boxed_slots: HashSet::new(),
+            capture_outer_boxed: HashSet::new(),
             loops: Vec::new(),
             in_function: false,
             unsafe_depth: 0,
@@ -346,6 +447,12 @@ impl Compiler {
         let slot = self.symbols.define_current(&name_token.text).ok_or_else(|| {
             self.error(format!("Variable {:?} is already defined in this scope", name_token.text), name_token.clone())
         })?;
+        if self.in_function && self.boxed_names.contains(&name_token.text) {
+            self.boxed_slots.insert(slot);
+            self.emit_at(Op::MakeCell, 0, 0, name_token.pos);
+        } else {
+            self.boxed_slots.remove(&slot);
+        }
         self.emit_at(Op::Store, slot as i64, 0, name_token.pos);
         Ok(())
     }
@@ -372,7 +479,7 @@ impl Compiler {
         let slot = self.get_assignment_slot(&name_token)?;
         self.eat(TokenKind::Equal)?;
         self.expression()?;
-        self.emit_at(Op::Store, slot as i64, 0, name_token.pos);
+        self.emit_store_slot(slot, name_token.pos)?;
         Ok(())
     }
 
@@ -730,6 +837,12 @@ impl Compiler {
         self.eat(TokenKind::Fn)?;
         let name_token = self.eat(TokenKind::Ident)?;
         let name = name_token.text.clone();
+        if name.starts_with(CLOSURE_NAME_PREFIX) {
+            return Err(self.error(
+                format!("Function name {name:?} uses the reserved prefix {CLOSURE_NAME_PREFIX:?}"),
+                name_token,
+            ));
+        }
         if self.has_namespace(&name) {
             return Err(self.error(format!("Function {name:?} conflicts with an imported namespace"), name_token));
         }
@@ -756,6 +869,7 @@ impl Compiler {
             }
             let index = state.functions.len();
             state.function_indexes.insert(full_name.clone(), index);
+            state.functions.push(placeholder_function(&full_name));
             index
         };
         self.local_function_indexes.insert(name.clone(), function_index);
@@ -797,8 +911,14 @@ impl Compiler {
         let previous_source_offsets = std::mem::take(&mut self.source_offsets);
         let previous_in_function = self.in_function;
         let previous_function_globals = std::mem::replace(&mut self.function_globals, global_slots);
+        let previous_loops = std::mem::take(&mut self.loops);
+        let previous_unsafe_depth = std::mem::replace(&mut self.unsafe_depth, 0);
+        let previous_boxed_slots = std::mem::take(&mut self.boxed_slots);
+        let prescanned_boxed_names = self.prescan_boxed_names();
+        let previous_boxed_names = std::mem::replace(&mut self.boxed_names, prescanned_boxed_names);
         self.in_function = true;
         let result = (|| {
+            self.box_parameters();
             self.block()?;
             self.emit(Op::PushInt, 0, 0);
             self.emit(Op::Return, 0, 0);
@@ -821,9 +941,185 @@ impl Compiler {
         self.source_offsets = previous_source_offsets;
         self.in_function = previous_in_function;
         self.function_globals = previous_function_globals;
+        self.loops = previous_loops;
+        self.unsafe_depth = previous_unsafe_depth;
+        self.boxed_slots = previous_boxed_slots;
+        self.boxed_names = previous_boxed_names;
         drop(function_symbols);
         let function = result?;
-        self.shared.borrow_mut().functions.push(function);
+        self.shared.borrow_mut().functions[function_index] = function;
+        Ok(())
+    }
+
+    fn closure_literal(&mut self) -> Result<()> {
+        let fn_token = self.eat(TokenKind::Fn)?;
+        // Closure identities use a reserved prefix that user declarations cannot
+        // spell (see `function_definition`), so they can never collide. The
+        // slot is reserved up front so nested definitions keep stable indexes.
+        let (full_name, function_index) = loop {
+            let closure_name = format!("{CLOSURE_NAME_PREFIX}{}", self.next_closure_id);
+            self.next_closure_id = self
+                .next_closure_id
+                .checked_add(1)
+                .ok_or_else(|| self.error_at("Too many closure literals", fn_token.pos))?;
+            let full_name = self.qualified_declaration_name(&closure_name);
+            let mut state = self.shared.borrow_mut();
+            if state.function_indexes.contains_key(&full_name) {
+                continue;
+            }
+            let index = state.functions.len();
+            state.function_indexes.insert(full_name.clone(), index);
+            state.functions.push(placeholder_function(&full_name));
+            break (full_name, index);
+        };
+
+        let mut function_symbols = SymbolTable::new();
+        self.eat(TokenKind::LParen)?;
+        let mut param_count = 0usize;
+        if self.current().kind != TokenKind::RParen {
+            loop {
+                let param = self.eat(TokenKind::Ident)?;
+                self.skip_optional_type_annotation(TokenKind::Colon)?;
+                let Some(slot) = function_symbols.define_current(&param.text) else {
+                    return Err(self.error(format!("Duplicate parameter {:?}", param.text), param));
+                };
+                debug_assert_eq!(slot, param_count);
+                param_count += 1;
+                if self.current().kind != TokenKind::Comma {
+                    break;
+                }
+                self.eat(TokenKind::Comma)?;
+            }
+        }
+        self.eat(TokenKind::RParen)?;
+        self.skip_optional_type_annotation(TokenKind::Arrow)?;
+
+        let global_slots = if self.in_function {
+            self.function_globals.clone()
+        } else {
+            self.symbols.top_level_slots()
+        };
+        let outer_symbols = self.symbols.clone();
+        let outer_capture_slots = self.capture_slots.clone();
+        let outer_is_function = self.in_function;
+        let restore_parent_capture_context = self.capture_outer_symbols.is_some();
+        if restore_parent_capture_context {
+            self.enclosing_captures.push(EnclosingCaptureContext {
+                captures:       std::mem::take(&mut self.captures),
+                capture_slots:  std::mem::take(&mut self.capture_slots),
+                outer_symbols:  self.capture_outer_symbols.take(),
+                outer_slots:    std::mem::take(&mut self.capture_outer_slots),
+                outer_globals:  std::mem::take(&mut self.capture_outer_globals),
+                outer_function: std::mem::replace(&mut self.capture_outer_function, false),
+                outer_boxed:    std::mem::take(&mut self.capture_outer_boxed),
+            });
+        }
+        let previous_capture_outer_boxed = std::mem::replace(&mut self.capture_outer_boxed, self.boxed_slots.clone());
+        let previous_boxed_slots = std::mem::take(&mut self.boxed_slots);
+        let prescanned_boxed_names = self.prescan_boxed_names();
+        let previous_boxed_names = std::mem::replace(&mut self.boxed_names, prescanned_boxed_names);
+        let previous_symbols = std::mem::replace(&mut self.symbols, function_symbols);
+        let previous_code = std::mem::take(&mut self.code);
+        let previous_source_offsets = std::mem::take(&mut self.source_offsets);
+        let previous_in_function = std::mem::replace(&mut self.in_function, true);
+        let previous_function_globals = std::mem::replace(&mut self.function_globals, global_slots.clone());
+        let previous_captures = std::mem::take(&mut self.captures);
+        let previous_capture_slots = std::mem::take(&mut self.capture_slots);
+        let previous_capture_outer_symbols = self.capture_outer_symbols.replace(outer_symbols);
+        let previous_capture_outer_slots = std::mem::replace(&mut self.capture_outer_slots, outer_capture_slots);
+        let previous_capture_outer_globals = std::mem::replace(&mut self.capture_outer_globals, global_slots);
+        let previous_capture_outer_function = std::mem::replace(&mut self.capture_outer_function, outer_is_function);
+        let previous_loops = std::mem::take(&mut self.loops);
+        let previous_unsafe_depth = std::mem::replace(&mut self.unsafe_depth, 0);
+
+        let result = (|| {
+            self.box_parameters();
+            self.block()?;
+            self.emit(Op::PushInt, 0, 0);
+            self.emit(Op::Return, 0, 0);
+
+            let local_slot_count = self.symbols.slot_count();
+            let captures = std::mem::take(&mut self.captures);
+            let capture_count = captures.len();
+            remap_capture_slots(&mut self.code, capture_count)?;
+            let param_count = param_count
+                .checked_add(capture_count)
+                .ok_or_else(|| self.error_at("Closure parameter count overflow", fn_token.pos))?;
+            let slot_count = local_slot_count
+                .checked_add(capture_count)
+                .ok_or_else(|| self.error_at("Closure slot count overflow", fn_token.pos))?;
+            let names = captures
+                .iter()
+                .map(|capture| capture.name.clone())
+                .chain(std::mem::take(&mut self.symbols.names))
+                .collect::<Vec<_>>();
+
+            Ok((
+                Function {
+                    name: full_name.clone(),
+                    decorators: Vec::new(),
+                    generic_params: Vec::new(),
+                    param_count,
+                    code: std::mem::take(&mut self.code).into_boxed_slice().into_vec(),
+                    source: Some(BytecodeSource::new(
+                        Arc::clone(&self.source_map),
+                        std::mem::take(&mut self.source_offsets),
+                    )),
+                    slot_count,
+                    names,
+                },
+                captures,
+            ))
+        })();
+
+        self.symbols = previous_symbols;
+        self.code = previous_code;
+        self.source_offsets = previous_source_offsets;
+        self.in_function = previous_in_function;
+        self.function_globals = previous_function_globals;
+        self.captures = previous_captures;
+        self.capture_slots = previous_capture_slots;
+        self.capture_outer_symbols = previous_capture_outer_symbols;
+        self.capture_outer_slots = previous_capture_outer_slots;
+        self.capture_outer_globals = previous_capture_outer_globals;
+        self.capture_outer_function = previous_capture_outer_function;
+        self.capture_outer_boxed = previous_capture_outer_boxed;
+        self.boxed_slots = previous_boxed_slots;
+        self.boxed_names = previous_boxed_names;
+        self.loops = previous_loops;
+        self.unsafe_depth = previous_unsafe_depth;
+        if restore_parent_capture_context {
+            let Some(parent) = self.enclosing_captures.pop() else {
+                return Err(TinyLangError::compile("Internal closure capture context error"));
+            };
+            self.captures = parent.captures;
+            self.capture_slots = parent.capture_slots;
+            self.capture_outer_symbols = parent.outer_symbols;
+            self.capture_outer_slots = parent.outer_slots;
+            self.capture_outer_globals = parent.outer_globals;
+            self.capture_outer_function = parent.outer_function;
+            self.capture_outer_boxed = parent.outer_boxed;
+        }
+
+        let (function, captures) = result?;
+        self.shared.borrow_mut().functions[function_index] = function;
+        self.emit_closure_value(function_index, &captures, fn_token.pos)
+    }
+
+    fn emit_closure_value(&mut self, function_index: usize, captures: &[Capture], pos: usize) -> Result<()> {
+        for capture in captures {
+            match capture.source.slot {
+                ReadSlot::Local(slot) => self.emit_at(Op::Load, slot as i64, 0, pos),
+                ReadSlot::Global(slot) => self.emit_at(Op::LoadGlobal, slot as i64, 0, pos),
+                ReadSlot::Capture(index) => {
+                    self.emit_at(Op::Load, capture_slot_operand(index)?, 0, pos);
+                }
+            }
+        }
+        let capture_count =
+            i64::try_from(captures.len()).map_err(|_| self.error_at("Too many closure captures", pos))?;
+        let function_index = i64::try_from(function_index).map_err(|_| self.error_at("Too many functions", pos))?;
+        self.emit_at(Op::MakeClosure, function_index, capture_count, pos);
         Ok(())
     }
 
@@ -960,6 +1256,12 @@ impl Compiler {
                     let field_index = self.intern_field(&field);
                     self.emit(Op::GetField, field_index as i64, 0);
                 }
+                // A `(` on a later line starts a new statement, not a call.
+                TokenKind::LParen if !self.paren_starts_new_line() => {
+                    let token = self.eat(TokenKind::LParen)?;
+                    let argc = self.argument_list()?;
+                    self.emit_at(Op::CallValue, argc as i64, 0, token.pos);
+                }
                 _ => break,
             }
         }
@@ -1005,6 +1307,7 @@ impl Compiler {
                 self.eat(TokenKind::False)?;
                 self.emit(Op::PushBool, 0, 0);
             }
+            TokenKind::Fn => self.closure_literal()?,
             TokenKind::LBracket => {
                 let token = self.eat(TokenKind::LBracket)?;
                 let mut count = 0i64;
@@ -1092,6 +1395,7 @@ impl Compiler {
                 | TokenKind::Minus
                 | TokenKind::Bang
                 | TokenKind::Unsafe
+                | TokenKind::Fn
         )
     }
 
@@ -1099,15 +1403,23 @@ impl Compiler {
         if let Some(struct_index) = self.local_struct_indexes.get(&name.text).copied() {
             return self.constructor_call(&name.text, struct_index, name.pos);
         }
-        if let Some(builtin_index) = builtin_index(&name.text) {
-            return self.builtin_call(&name.text, builtin_index, name.pos);
-        }
-        if self.symbols.get(&name.text).is_some() {
+        // Callees resolve through the same lexical chain as reads: locals, then
+        // enclosing captures, then top-level variables, then builtins and named
+        // functions. User bindings therefore shadow builtin names.
+        let is_value = self.symbols.get(&name.text).is_some()
+            || self.capture_slot(name).is_some()
+            || (self.in_function
+                && self.function_globals.contains_key(&name.text)
+                && !self.local_function_indexes.contains_key(&name.text));
+        if is_value {
             self.emit_load_name(name)?;
             self.eat(TokenKind::LParen)?;
             let arg_count = self.argument_list()?;
             self.emit_at(Op::CallValue, arg_count as i64, 0, name.pos);
             return Ok(());
+        }
+        if let Some(builtin_index) = builtin_index(&name.text) {
+            return self.builtin_call(&name.text, builtin_index, name.pos);
         }
         let function_index = self
             .local_function_indexes
@@ -1240,7 +1552,18 @@ impl Compiler {
         }
         let token = self.tokens.next().unwrap_or_else(|| self.eof_token.clone());
         self.last_source_offset = SourceOffset(token.pos);
+        self.last_token_end = token.end;
         Ok(token)
+    }
+
+    /// Postfix `(` must appear on the same line as the callee, since the grammar has no statement terminators.
+    fn paren_starts_new_line(&self) -> bool {
+        let pos = self.current().pos;
+        let start = self.last_token_end.min(pos);
+        self.source_map
+            .source()
+            .get(start..pos)
+            .is_some_and(|text| text.contains('\n'))
     }
 
     fn emit(&mut self, op: Op, arg: i64, arg2: i64) {
@@ -1267,21 +1590,28 @@ impl Compiler {
         Ok(())
     }
 
-    fn get_assignment_slot(&self, token: &Token) -> Result<usize> {
-        self.symbols.get(&token.text).ok_or_else(|| {
-            if self.in_function && self.function_globals.contains_key(&token.text) {
-                return self.error(
-                    format!("Cannot assign to top-level variable {:?} inside a function", token.text),
-                    token.clone(),
-                );
-            }
-            self.error(format!("Undefined variable {:?}", token.text), token.clone())
-        })
-    }
-
-    fn get_read_slot(&self, token: &Token) -> Result<ReadSlot> {
+    fn get_assignment_slot(&mut self, token: &Token) -> Result<ReadSlot> {
         if let Some(slot) = self.symbols.get(&token.text) {
             return Ok(ReadSlot::Local(slot));
+        }
+        if let Some(slot) = self.capture_slot(token) {
+            return Ok(ReadSlot::Capture(slot));
+        }
+        if self.in_function && self.function_globals.contains_key(&token.text) {
+            return Err(self.error(
+                format!("Cannot assign to top-level variable {:?} inside a function", token.text),
+                token.clone(),
+            ));
+        }
+        Err(self.error(format!("Undefined variable {:?}", token.text), token.clone()))
+    }
+
+    fn get_read_slot(&mut self, token: &Token) -> Result<ReadSlot> {
+        if let Some(slot) = self.symbols.get(&token.text) {
+            return Ok(ReadSlot::Local(slot));
+        }
+        if let Some(slot) = self.capture_slot(token) {
+            return Ok(ReadSlot::Capture(slot));
         }
         if self.in_function
             && let Some(slot) = self.function_globals.get(&token.text).copied()
@@ -1291,12 +1621,206 @@ impl Compiler {
         Err(self.error(format!("Undefined variable {:?}", token.text), token.clone()))
     }
 
+    fn read_slot_is_boxed(&self, slot: ReadSlot) -> bool {
+        match slot {
+            ReadSlot::Local(slot) => self.boxed_slots.contains(&slot),
+            ReadSlot::Global(_) => false,
+            ReadSlot::Capture(index) => self.captures.get(index).is_some_and(|capture| capture.boxed),
+        }
+    }
+
     fn emit_load_name(&mut self, token: &Token) -> Result<()> {
-        match self.get_read_slot(token)? {
+        let slot = self.get_read_slot(token)?;
+        match slot {
             ReadSlot::Local(slot) => self.emit_at(Op::Load, slot as i64, 0, token.pos),
             ReadSlot::Global(slot) => self.emit_at(Op::LoadGlobal, slot as i64, 0, token.pos),
+            ReadSlot::Capture(index) => self.emit_at(Op::Load, capture_slot_operand(index)?, 0, token.pos),
+        }
+        if self.read_slot_is_boxed(slot) {
+            self.emit_at(Op::LoadCell, 0, 0, token.pos);
         }
         Ok(())
+    }
+
+    fn emit_store_slot(&mut self, slot: ReadSlot, pos: usize) -> Result<()> {
+        let operand = match slot {
+            ReadSlot::Local(slot) => i64::try_from(slot).map_err(|_| self.error_at("Local slot is too large", pos))?,
+            ReadSlot::Global(_) => return Err(self.error_at("Cannot assign to a global variable", pos)),
+            ReadSlot::Capture(index) => capture_slot_operand(index)?,
+        };
+        if self.read_slot_is_boxed(slot) {
+            self.emit_at(Op::Load, operand, 0, pos);
+            self.emit_at(Op::StoreCell, 0, 0, pos);
+        } else {
+            self.emit_at(Op::Store, operand, 0, pos);
+        }
+        Ok(())
+    }
+
+    /// Wraps a freshly defined local in a shared cell when a nested closure mutates or observes mutation of it.
+    fn box_parameters(&mut self) {
+        let names: Vec<(String, usize)> = self
+            .boxed_names
+            .iter()
+            .filter_map(|name| self.symbols.get(name).map(|slot| (name.clone(), slot)))
+            .collect();
+        for (_, slot) in names {
+            if self.boxed_slots.insert(slot) {
+                self.emit(Op::Load, slot as i64, 0);
+                self.emit(Op::MakeCell, 0, 0);
+                self.emit(Op::Store, slot as i64, 0);
+            }
+        }
+    }
+
+    /// Conservatively finds names in the upcoming `{ ... }` body that are both assigned and referenced
+    /// inside a nested closure. Those bindings need shared cells; everything else is captured by value.
+    fn prescan_boxed_names(&self) -> HashSet<String> {
+        let mut assigned = HashSet::new();
+        let mut nested = HashSet::new();
+        let mut depth = 0usize;
+        // Brace depths at which nested function bodies started.
+        let mut nested_bodies: Vec<usize> = Vec::new();
+        let mut pending_fn = false;
+        let mut previous: Option<TokenKind> = None;
+        let tokens = self.tokens.as_slice();
+        for (index, token) in tokens.iter().enumerate() {
+            match token.kind {
+                TokenKind::Fn => pending_fn = true,
+                TokenKind::LBrace => {
+                    depth += 1;
+                    if pending_fn {
+                        nested_bodies.push(depth);
+                        pending_fn = false;
+                    }
+                }
+                TokenKind::RBrace => {
+                    if nested_bodies.last() == Some(&depth) {
+                        nested_bodies.pop();
+                    }
+                    depth = depth.saturating_sub(1);
+                    if depth == 0 {
+                        break;
+                    }
+                }
+                TokenKind::Ident => {
+                    let next = tokens.get(index + 1).map(|token| token.kind);
+                    if next == Some(TokenKind::Equal) && previous != Some(TokenKind::Let) {
+                        assigned.insert(token.text.clone());
+                    }
+                    if !nested_bodies.is_empty() {
+                        nested.insert(token.text.clone());
+                    }
+                }
+                TokenKind::Eof => break,
+                _ => {}
+            }
+            previous = Some(token.kind);
+        }
+        assigned.intersection(&nested).cloned().collect()
+    }
+
+    fn capture_source_boxed(&self, context_index: Option<usize>, source: ReadSlot) -> bool {
+        // `context_index` identifies the saved context whose captures/outer state describe `source`;
+        // `None` means the closure currently being compiled.
+        match (context_index, source) {
+            (None, ReadSlot::Local(slot)) => self.capture_outer_boxed.contains(&slot),
+            (Some(index), ReadSlot::Local(slot)) => {
+                self.enclosing_captures
+                    .get(index)
+                    .is_some_and(|context| context.outer_boxed.contains(&slot))
+            }
+            (None, ReadSlot::Capture(slot)) => {
+                self.enclosing_captures
+                    .last()
+                    .and_then(|context| context.captures.get(slot))
+                    .is_some_and(|capture| capture.boxed)
+            }
+            (Some(index), ReadSlot::Capture(slot)) => {
+                index
+                    .checked_sub(1)
+                    .and_then(|parent| self.enclosing_captures.get(parent))
+                    .and_then(|context| context.captures.get(slot))
+                    .is_some_and(|capture| capture.boxed)
+            }
+            (_, ReadSlot::Global(_)) => false,
+        }
+    }
+
+    fn capture_slot(&mut self, token: &Token) -> Option<usize> {
+        if let Some(slot) = self.capture_slots.get(&token.text).copied() {
+            return Some(slot);
+        }
+
+        let local = self
+            .capture_outer_symbols
+            .as_ref()
+            .and_then(|symbols| symbols.get(&token.text))
+            .filter(|_| self.capture_outer_function || !self.capture_outer_globals.contains_key(&token.text))
+            .map(ReadSlot::Local);
+        let source = if let Some(source) = local {
+            source
+        } else if let Some(slot) = self.capture_outer_slots.get(&token.text).copied() {
+            ReadSlot::Capture(slot)
+        } else {
+            let parent = self.enclosing_captures.len().checked_sub(1)?;
+            if !self.capture_outer_function {
+                return None;
+            }
+            ReadSlot::Capture(self.ensure_enclosing_capture(parent, &token.text)?)
+        };
+        let boxed = self.capture_source_boxed(None, source);
+        let index = self.captures.len();
+        self.capture_slots.insert(token.text.clone(), index);
+        self.captures.push(Capture {
+            name: token.text.clone(),
+            source: CaptureSource { slot: source },
+            boxed,
+        });
+        Some(index)
+    }
+
+    fn ensure_enclosing_capture(&mut self, context_index: usize, name: &str) -> Option<usize> {
+        if let Some(slot) = self
+            .enclosing_captures
+            .get(context_index)?
+            .capture_slots
+            .get(name)
+            .copied()
+        {
+            return Some(slot);
+        }
+
+        let direct_source = {
+            let context = self.enclosing_captures.get(context_index)?;
+            let local = context
+                .outer_symbols
+                .as_ref()
+                .and_then(|symbols| symbols.get(name))
+                .filter(|_| context.outer_function || !context.outer_globals.contains_key(name))
+                .map(ReadSlot::Local);
+            local.or_else(|| context.outer_slots.get(name).copied().map(ReadSlot::Capture))
+        };
+        let source = if let Some(source) = direct_source {
+            source
+        } else {
+            let context = self.enclosing_captures.get(context_index)?;
+            if !context.outer_function || context_index == 0 {
+                return None;
+            }
+            ReadSlot::Capture(self.ensure_enclosing_capture(context_index - 1, name)?)
+        };
+
+        let boxed = self.capture_source_boxed(Some(context_index), source);
+        let context = self.enclosing_captures.get_mut(context_index)?;
+        let slot = context.captures.len();
+        context.capture_slots.insert(name.to_string(), slot);
+        context.captures.push(Capture {
+            name: name.to_string(),
+            source: CaptureSource { slot: source },
+            boxed,
+        });
+        Some(slot)
     }
 
     fn intern_string(&self, text: &str) -> usize {

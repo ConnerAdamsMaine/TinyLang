@@ -8,11 +8,19 @@ repository.workspace   = true
 readme                 = "README.md"
 keywords               = [ "language", "compiler", "bytecode", "vm", "jit" ]
 categories             = [ "compilers" ]
-exclude                = [ "/main.rs" ]
+exclude                = [ "/main.rs", "/bindings", "/experiments", "/fuzz", "/requirements-llvm.txt" ]
 
 [features]
 default       = [  ]
 testing-hooks = [ "ralloc/testing-hooks" ]
+cranelift = [
+  "dep:memmap2",
+  "dep:cranelift-codegen",
+  "dep:cranelift-frontend",
+  "dep:cranelift-jit",
+  "dep:cranelift-module",
+  "dep:cranelift-native",
+]
 
 [lib]
 name       = "tinylang"
@@ -21,6 +29,10 @@ crate-type = [ "rlib", "cdylib" ]
 [[bin]]
 name = "tinylang"
 path = "src/main.rs"
+
+[[bin]]
+name = "tinylang-v2"
+path = "src/bin/tinylang-v2.rs"
 
 ## TODO(@mrdwarf7): [refactor] Move this to a separate crate for benchmarking and testing.
 [[bin]]
@@ -49,6 +61,14 @@ toml          = "0.8"
 ed25519-dalek = { version = "2", default-features = false, features = [ "std" ] }
 sha2          = "0.10"
 ralloc        = { version = "0.2.0", package = "tinylang_ralloc", path = "../tinylang_ralloc" }
+cranelift-codegen  = { version = "0.125", optional = true }
+cranelift-frontend = { version = "0.125", optional = true }
+cranelift-jit      = { version = "0.125", optional = true }
+cranelift-module   = { version = "0.125", optional = true }
+cranelift-native   = { version = "0.125", optional = true }
+
+[target.'cfg(not(windows))'.dependencies]
+memmap2 = { version = "0.9", optional = true }
 
 [dev-dependencies]
 tempfile              = "3"

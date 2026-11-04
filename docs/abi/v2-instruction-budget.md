@@ -21,7 +21,7 @@ must constrain those facilities before it can claim bounded execution.
 
 ## Three working accounting candidates
 
-The independent `tinylang_v2/experiments/instruction-budget` crate implements:
+The independent `crates/tinylang_core/experiments/instruction-budget` crate implements:
 
 - Baseline: unbounded trace execution; deliberately fails the budget contract.
 - A: a local countdown checked before each instruction. Hypothesis: minimal
@@ -47,8 +47,8 @@ opt-level 3, codegen-units 1, LTO off; no dependencies. For each feature
 `baseline`, `a`, `b`, `c` (replace both `a` occurrences):
 
 ```powershell
-cargo test --manifest-path tinylang_v2/experiments/instruction-budget/Cargo.toml --no-default-features --features a --target-dir target/instruction-budget/a
-cargo build --release --manifest-path tinylang_v2/experiments/instruction-budget/Cargo.toml --no-default-features --features a --target-dir target/instruction-budget/a
+cargo test --manifest-path crates/tinylang_core/experiments/instruction-budget/Cargo.toml --no-default-features --features a --target-dir target/instruction-budget/a
+cargo build --release --manifest-path crates/tinylang_core/experiments/instruction-budget/Cargo.toml --no-default-features --features a --target-dir target/instruction-budget/a
 ./target/instruction-budget/a/release/instruction-budget.exe
 ```
 
@@ -113,7 +113,7 @@ instructions with identical output/memory assertions, once warm then seven
 times per mode:
 
 ```powershell
-cargo build --release --locked --manifest-path tinylang_v2/Cargo.toml --target-dir target/abi-v2 --example fuel_benchmark
+cargo build --release --locked -p tinylang-v2 --target-dir target/abi-v2 --example fuel_benchmark
 ./target/abi-v2/release/examples/fuel_benchmark.exe
 ```
 

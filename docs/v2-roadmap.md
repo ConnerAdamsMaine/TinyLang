@@ -20,10 +20,18 @@ calling the result prepends its captures to the explicit arguments. The
 bytecode surface is `PUSH_FUNCTION` plus `CALL_VALUE`; both the
 interpreter and JIT implement the same dispatch and call-depth checks.
 
-V2 follow-up work includes source-level closure literals, capture
-inference, and richer closure diagnostics. The runtime representation
-and indirect-call ABI are established now so these features can be added
-without another value model migration.
+Anonymous functions use `fn(parameters) { ... }` expressions, with the
+same optional parameter and return annotations as named functions.
+Free local bindings are captured by value, and nested closures forward
+captures through intermediate closures when needed. Reassigning a captured
+local changes the closure's invocation-local copy; top-level bindings
+remain live global accesses. Capturing a heap-valued variable copies its
+value/handle rather than deep-cloning the referenced object.
+Runtime errors in source closure bodies retain their source locations
+across VM and JIT execution.
+
+V2 follow-up work includes richer closure diagnostics. The runtime
+representation and indirect-call ABI remain unchanged.
 
 ## Generic functions
 
@@ -40,7 +48,8 @@ constraints provide value.
 
 # Implementation tracks
 
-- Add source-level closure literals and lexical capture analysis.
+- Continue closure diagnostic coverage and preserve parity for source-level
+  closures, captured calls, nested captures, and module-returned closures.
 - Define generic constraints and type-argument diagnostics without
   weakening runtime safety.
 - Keep `Program` fingerprints, artifacts, verifier rules, VM, JIT, and
@@ -53,5 +62,6 @@ constraints provide value.
 # V2 status
 
 The first v2 slice is implemented: first-class top-level function
-values, callable heap closures, erased generic declarations, generic
-metadata in artifacts, verifier support, and VM/JIT parity coverage.
+values, source-level closure literals with lexical captures, callable
+heap closures, erased generic declarations, generic metadata in
+artifacts, verifier support, and VM/JIT parity coverage.

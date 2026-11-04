@@ -15,11 +15,11 @@ aggregates, and unit results are not marshalled. Unsupported input/result
 values return `INVALID_ARGUMENT`; when an unsupported result is discovered,
 the function has already executed and its language side effects remain.
 Capacity preflight and low-fuel recovery are covered by
-`tinylang_v2/tests/opcode_contract.rs`. This integration does not make
+`crates/tinylang_core/tests/opcode_contract.rs`. This integration does not make
 performance claims and does not implement a native JIT or AOT backend.
 
 The historical three-way invocation comparison remains incomplete. It lives in
-`tinylang_v2/experiments/invocation-values` and executes the actual compiler's
+`crates/tinylang_core/experiments/invocation-values` and executes the actual compiler's
 `difference(a, b)` function after an untrusted binary-artifact round trip.
 The reference runtime's current scalar integration uses canonical tagged
 records; this experiment is not its serializer implementation.
@@ -102,8 +102,8 @@ Warm dependencies with a release build, then substitute each of `baseline`,
 final-crate build from the warm-up invocation.
 
 ```text
-cargo test --locked --manifest-path tinylang_v2/experiments/invocation-values/Cargo.toml --target-dir target/session-execution --no-default-features --features FEATURE
-cargo clippy --locked --manifest-path tinylang_v2/experiments/invocation-values/Cargo.toml --target-dir target/session-execution --all-targets --no-default-features --features FEATURE -- -D warnings
-cargo rustc --release --locked --manifest-path tinylang_v2/experiments/invocation-values/Cargo.toml --target-dir target/session-execution --no-default-features --features FEATURE -- --cfg invocation_measurement3
+cargo test --locked --manifest-path crates/tinylang_core/experiments/invocation-values/Cargo.toml --target-dir target/session-execution --no-default-features --features FEATURE
+cargo clippy --locked --manifest-path crates/tinylang_core/experiments/invocation-values/Cargo.toml --target-dir target/session-execution --all-targets --no-default-features --features FEATURE -- -D warnings
+cargo rustc --release --locked --manifest-path crates/tinylang_core/experiments/invocation-values/Cargo.toml --target-dir target/session-execution --no-default-features --features FEATURE -- --cfg invocation_measurement3
 target/session-execution/release/invocation-values.exe
 ```

@@ -192,7 +192,7 @@ fn remap_code(
 ) -> Result<()> {
     for instruction in code {
         let mapping = match instruction.op {
-            Op::Call | Op::PushFunction => Some(functions),
+            Op::Call | Op::PushFunction | Op::MakeClosure => Some(functions),
             Op::PushString => Some(strings),
             Op::MakeStruct => Some(structs),
             Op::GetField | Op::SetField => Some(fields),

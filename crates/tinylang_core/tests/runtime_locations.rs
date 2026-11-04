@@ -79,6 +79,15 @@ fn function_failure_reports_the_callee_not_the_call_site() {
 }
 
 #[test]
+fn source_closure_failure_reports_its_body_location() {
+    assert_runtime_location(
+        "let divide = fn(value) {\n    return 42 / value\n}\nprint divide(0)\n",
+        "locations.to:2:15:",
+        "Division by zero",
+    );
+}
+
+#[test]
 fn compound_expression_operation_sites_match_across_backends() {
     for (source, location) in [
         ("let values = [1]\nprint values[2]\n", "locations.to:2:13:"),

@@ -26,8 +26,9 @@ See [Release Lines](#release-lines).
 The current Rust crate lives in `crates/tinylang_core/` (Cargo package
 `tinylang-v2`, Rust library `tinylang`) in this checkout. The allocator package is
 `tinylang_ralloc`, and shared test helpers are `tinylang_test_support`.
-The experimental binary ABI and SDKs remain separate in `tinylang_v2/`
-and are not included in the published core crate.
+The v2 binary ABI (`tinylang::v2`) and scalar engine (`tinylang::engine`) are
+part of this crate. Its language bindings, fuzz targets, and experiments are
+excluded from the published package.
 
 **Registry naming:** use the Cargo package `tinylang-v2` for this project;
 Rust imports remain `tinylang`. The unrelated crates.io package `tinylang`
@@ -82,6 +83,7 @@ See the [publication checklist](docs/CI_CD.md#cratesio-publication).
 - [Repository Layout](#repository-layout)
 - [Release Lines](#release-lines)
 - [Release Direction](#release-direction)
+  - [v2 Release Schedule and Stability](#v2-release-schedule-and-stability)
 - [LICENSE](#license)
 - [Feedback and Community](#feedback-and-community)
 
@@ -567,7 +569,7 @@ revision or release they need.
   and comparisons within basic blocks, remapping branch targets without
   moving expressions across control-flow boundaries.
 - The adaptive JIT is not native code generation.
-  The experimental standalone [v2 scalar engine](docs/v2/reports/COMPILER_ARCHITECTURE.md)
+  The experimental [v2 scalar engine](docs/v2/reports/COMPILER_ARCHITECTURE.md)
   adds a separate checked-i64 ASM path and optional Cranelift backend.
   See [implementation status](docs/v2/reports/V2_IMPLEMENTATION_STATUS.md) for capability
   limits and executed evidence.
@@ -580,8 +582,8 @@ revision or release they need.
 Invoke one isolated checked-i64 function without executing top-level code:
 
 ```powershell
-cargo run --manifest-path .\tinylang_v2\Cargo.toml --bin tinylang-v2 -- --backend asm .\tinylang_v2\examples\scalar.tinylang add 19 23
-cargo run --manifest-path .\tinylang_v2\Cargo.toml --features cranelift --bin tinylang-v2 -- --backend cranelift .\tinylang_v2\examples\scalar.tinylang add 19 23
+cargo run -p tinylang-v2 --bin tinylang-v2 -- --backend asm .\crates\tinylang_core\examples\scalar.tinylang add 19 23
+cargo run -p tinylang-v2 --features cranelift --bin tinylang-v2 -- --backend cranelift .\crates\tinylang_core\examples\scalar.tinylang add 19 23
 ```
 
 `--backend interpreter` selects the checked scalar reference path.
@@ -721,7 +723,7 @@ TinyLang has two active lines in this repository:
 
 | Line | Branch | Status | Accepts |
 | --- | --- | --- | --- |
-| TinyLang v2 | `main` | Active development | New language, runtime, JIT, ABI, and SDK work, including `tinylang_v2/` |
+| TinyLang v2 | `main` | Active development | New language, runtime, JIT, ABI, and SDK work, including `crates/tinylang_core/` |
 | TinyLang v1 | `release/v1` | Maintenance through 2027-01-31 | Bug fixes, security fixes, v1 ABI-conformance fixes, and documentation corrections |
 
 v1 releases are tagged `v1.x.y` from `release/v1`. The C ABI, header, and
@@ -736,6 +738,18 @@ you depend on v1. Branch and backport rules are in
 # Release Direction
 
 Active v2 language development is documented in `docs/v2-roadmap.md`.
+
+## v2 Release Schedule and Stability
+
+Further TinyLang v2.x feature releases will follow a monthly schedule.
+Interim patch-level releases (`v2.x.n`) will be published as needed, based on
+verification results, reported defects, or the need to consolidate and preserve
+ongoing development work. These releases do not follow a fixed schedule.
+
+**All `v2.x.n` patch releases must be considered unstable.** They are development
+builds and should not be relied upon for production use without independent
+testing. APIs, behavior, and compatibility may change between releases.
+
 The v2 release themes include:
 
 - consistent TinyLang package, Rust API, and C export names

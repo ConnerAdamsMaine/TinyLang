@@ -491,7 +491,9 @@ fn scaffold_types_are_constructible_and_round_trip() {
     let closure = closure_new("add", [10, 20])
     print type_of(closure)
     print closure_function(closure)
-    print len(closure_captures(closure))
+    unsafe {
+        print len(closure_captures(closure))
+    }
 
     let bare = sum_new(3)
     print type_of(bare)

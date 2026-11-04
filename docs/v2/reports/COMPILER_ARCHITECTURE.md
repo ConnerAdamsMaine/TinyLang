@@ -9,7 +9,7 @@ No new source typing, implicit conversion or reference-counting semantics
 are authorized by those documents.
 
 This milestone adds an experimental checked-i64 function execution profile
-inside the standalone ABI crate. The existing lexer, parser, module resolver,
+inside `tinylang_core` (`tinylang::engine`). The existing lexer, parser, module resolver,
 optimizer and verifier remain authoritative. Native engines consume an
 immutable, verified scalar IR, not independently parsed source.
 

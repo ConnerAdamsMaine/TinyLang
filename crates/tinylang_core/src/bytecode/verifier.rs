@@ -456,6 +456,17 @@ impl BytecodeVerifier {
                         chunk_name,
                     )?;
                 }
+                Op::MakeClosure => {
+                    visit(
+                        &mut seen,
+                        &mut todo,
+                        code,
+                        next_pc(pc)?,
+                        next_depth_after_popping_to_one(pc, depth, arg2, chunk_name)?,
+                        pc,
+                        chunk_name,
+                    )?;
+                }
                 Op::Return => {
                     if depth.value() != 1 {
                         return Err(TinyLangError::compile(format!(
@@ -537,6 +548,21 @@ impl BytecodeVerifier {
                     "Verifier: invalid function index {arg} at instruction {pc} in {chunk_name}"
                 ))
             })?;
+            if !context.modules.can_call(caller_function, function_index) {
+                return Err(module_access_error("function", &context.functions[function_index].name, chunk_name, pc));
+            }
+        }
+        if op == Op::MakeClosure {
+            let function_index = checked_index(arg, context.functions.len()).map_err(|_| {
+                TinyLangError::compile(format!(
+                    "Verifier: invalid closure function index {arg} at instruction {pc} in {chunk_name}"
+                ))
+            })?;
+            if arg2 < 0 {
+                return Err(TinyLangError::compile(format!(
+                    "Verifier: negative closure capture count {arg2} at instruction {pc} in {chunk_name}"
+                )));
+            }
             if !context.modules.can_call(caller_function, function_index) {
                 return Err(module_access_error("function", &context.functions[function_index].name, chunk_name, pc));
             }
@@ -855,9 +881,9 @@ fn stack_effect(op: Op) -> Option<StackEffect> {
         Op::Add | Op::Sub | Op::Mul | Op::Div | Op::Lt | Op::Lte | Op::Gt | Op::Gte | Op::Eq | Op::Ne | Op::Index => {
             (2, 1)
         }
-        Op::Neg | Op::GetField => (1, 1),
+        Op::Neg | Op::GetField | Op::MakeCell | Op::LoadCell => (1, 1),
         Op::SetIndex => (3, 0),
-        Op::SetField => (2, 0),
+        Op::SetField | Op::StoreCell => (2, 0),
         _ => return None,
     };
     Some(StackEffect { inputs, outputs })

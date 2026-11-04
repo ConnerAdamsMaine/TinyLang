@@ -759,7 +759,7 @@ pub(crate) const BUILTINS: &[BuiltinDef] = &[
         name:            "closure_captures",
         min_args:        1,
         max_args:        1,
-        requires_unsafe: false,
+        requires_unsafe: true,
     },
     BuiltinDef {
         name:            "sum_new",

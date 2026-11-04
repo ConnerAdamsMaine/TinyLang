@@ -431,6 +431,29 @@ impl VM {
                         let globals = global_memory.unwrap_or(&*memory);
                         stack.push(self.call_function_with_args(function_index, call_args, stdout, globals, budget)?);
                     }
+                    Op::MakeClosure => {
+                        let function_index = checked_non_negative_usize(instr.arg, "function index")?;
+                        if function_index >= self.program.functions.len() {
+                            return Err(TinyLangError::runtime(format!("Invalid function index {function_index}")));
+                        }
+                        let capture_count = checked_non_negative_usize(instr.arg2, "capture count")?;
+                        let captures = pop_args(&mut stack, capture_count)?;
+                        let closure = self.context.heap().alloc_closure(function_index as u32, captures)?;
+                        stack.push(Value::Heap(closure));
+                    }
+                    Op::MakeCell => {
+                        let value = vm_pop(&mut stack)?;
+                        stack.push(Value::Heap(self.context.heap().alloc_cell(value)?));
+                    }
+                    Op::LoadCell => {
+                        let cell = vm_pop(&mut stack)?;
+                        stack.push(self.context.heap().cell_load(&cell)?);
+                    }
+                    Op::StoreCell => {
+                        let cell = vm_pop(&mut stack)?;
+                        let value = vm_pop(&mut stack)?;
+                        self.context.heap().cell_store(&cell, &value)?;
+                    }
                     Op::MakeArray => {
                         let count = checked_non_negative_usize(instr.arg, "array arity")?;
                         let values = pop_args(&mut stack, count)?;

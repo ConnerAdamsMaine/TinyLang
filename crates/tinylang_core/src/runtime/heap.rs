@@ -525,6 +525,26 @@ impl TinyHeap {
         self.alloc_data(HeapData::Cell(bytes))
     }
 
+    /// Reads the value held by a capture cell created with `MakeCell`.
+    pub(crate) fn cell_load(&self, target: &Value) -> Result<Value> {
+        let object = self.get(target)?;
+        let HeapData::Cell(bytes) = &object.data else {
+            return Err(TinyLangError::runtime("LOAD_CELL expects a capture cell"));
+        };
+        Ok(decode_value_slot(bytes))
+    }
+
+    /// Replaces the value held by a capture cell created with `MakeCell`.
+    pub(crate) fn cell_store(&mut self, target: &Value, value: &Value) -> Result<()> {
+        let encoded = value_codec::encode_value(value)?;
+        let object = self.get_mut(target)?;
+        let HeapData::Cell(bytes) = &mut object.data else {
+            return Err(TinyLangError::runtime("STORE_CELL expects a capture cell"));
+        };
+        bytes.as_mut_slice().copy_from_slice(&encoded);
+        Ok(())
+    }
+
     pub(crate) fn alloc_mutex(&mut self, m: Arc<TinyMutex>) -> Result<HeapRef> {
         self.alloc_data(HeapData::Mutex(m))
     }

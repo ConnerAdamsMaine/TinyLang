@@ -517,6 +517,14 @@ arguments on transfer failure. The heap borrow ends before lowering or entering
 the callee. Dynamic callable identity, arity and depth checks remain in force;
 no closure-instance data is cached by this transfer path.
 
+Closure literals compile to `MakeClosure` (function index plus capture count),
+which builds the closure directly from the operand stack without an
+intermediate name string or capture array. Mutable shared captures live in heap
+cells created by `MakeCell` and accessed through `LoadCell`/`StoreCell`; a cell
+capture passes the cell itself, so sibling closures and the defining frame
+share one binding. The Cranelift backend runs these four ops through the
+interpreter fallback.
+
 Runtime maps retain insertion-ordered Ralloc entries and maintain a canonical
 key index for average constant-time `map_get`, `map_has`, and `map_set`
 lookup. Integer widths normalize by value, strings index by content, and heap

@@ -7,9 +7,9 @@ crate; this is its independent workspace's default release profile (opt-level
 RUSTFLAGS were set by this session. CPU frequency/governor was not controlled.
 
 ```powershell
-cargo build --release --locked --manifest-path tinylang_v2/Cargo.toml --target-dir target/abi-v2 --lib --example boundary_benchmark
+cargo build --release --locked -p tinylang-v2 --target-dir target/abi-v2 --lib --example boundary_benchmark
 ./target/abi-v2/release/examples/boundary_benchmark.exe
-cargo test --release --locked --manifest-path tinylang_v2/Cargo.toml --target-dir target/abi-v2
+cargo test --release --locked -p tinylang-v2 --target-dir target/abi-v2
 ```
 
 The benchmark performs one complete warm-up batch then seven timed batches.

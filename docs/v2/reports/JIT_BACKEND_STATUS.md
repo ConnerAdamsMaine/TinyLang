@@ -4,7 +4,7 @@ Status: **real Windows x86-64 scalar JIT implemented and tested; full-language
 backend remains partial**.
 
 The existing [decoded-opcode JIT](../../architecture.md) is retained. The new
-experimental ASM backend consumes [ScalarFunction](../../../tinylang_v2/src/engine/ir.rs)
+experimental ASM backend consumes [ScalarFunction](../../../crates/tinylang_core/src/engine/ir.rs)
 and is distinct from that executor.
 
 Verified acceptance: real x86-64 emission; checked arithmetic and floor-division

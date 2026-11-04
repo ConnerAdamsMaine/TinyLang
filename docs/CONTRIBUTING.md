@@ -20,7 +20,7 @@ listed under [Release Lines](../README.md#release-lines).
 
 | Branch | Line | Open PRs here for |
 |--------|------|-------------------|
-| `main` | TinyLang v2 development | New features, language/runtime/JIT changes, the v2 ABI and SDKs, `tinylang_v2/` |
+| `main` | TinyLang v2 development | New features, language/runtime/JIT changes, the v2 ABI and SDKs, `crates/tinylang_core/` |
 | `release/v1` | TinyLang v1 maintenance | Bug fixes, security fixes, v1 ABI-conformance fixes, documentation corrections |
 
 Rules for `release/v1`:

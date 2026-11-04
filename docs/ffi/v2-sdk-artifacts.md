@@ -15,7 +15,7 @@ interoperability, not a portable or frozen compiler-artifact schema.
 
 ## SDK APIs
 
-Python, with `tinylang_v2/bindings/python` on the module search path:
+Python, with `crates/tinylang_core/bindings/python` on the module search path:
 
 ```python
 from pathlib import Path
@@ -36,7 +36,7 @@ compiler_payload = program_load_payload(
 enum members are accepted. Booleans, floats, strings, `None`, and unknown
 integers raise `ValueError`.
 
-Node ESM, relative to `tinylang_v2/bindings/node`:
+Node ESM, relative to `crates/tinylang_core/bindings/node`:
 
 ```javascript
 import { readFileSync } from "node:fs";
@@ -75,20 +75,20 @@ dedicated target directory. No sibling checkout or virtual environment is
 required.
 
 ```powershell
-cargo build --locked --manifest-path tinylang_v2\Cargo.toml --target-dir target\sdk-artifacts --lib --example sdk_artifact
+cargo build --locked -p tinylang-v2 --target-dir target\sdk-artifacts --lib --example sdk_artifact
 if ($LASTEXITCODE -ne 0) { throw 'v2 DLL/example build failed' }
 & '.\target\sdk-artifacts\debug\examples\sdk_artifact.exe' '.\target\sdk-artifacts\add.compiler.bin'
 if ($LASTEXITCODE -ne 0) { throw 'compiler artifact generation failed' }
 
-$env:TINYLANG_V2_LIBRARY = (Resolve-Path '.\target\sdk-artifacts\debug\tinylang_v2.dll').Path
+$env:TINYLANG_V2_LIBRARY = (Resolve-Path '.\target\sdk-artifacts\debug\tinylang.dll').Path
 $env:TINYLANG_V2_COMPILER_ARTIFACT = (Resolve-Path '.\target\sdk-artifacts\add.compiler.bin').Path
-uv run --no-project python -m unittest discover -s tinylang_v2\bindings\python -p 'test_*.py' -v
-node --test tinylang_v2\bindings\node\artifact.test.mjs tinylang_v2\bindings\node\wire.test.mjs
+uv run --no-project python -m unittest discover -s crates\tinylang_core\bindings\python -p 'test_*.py' -v
+node --test crates\tinylang_core\bindings\node\artifact.test.mjs crates\tinylang_core\bindings\node\wire.test.mjs
 
-cargo test --locked --manifest-path tinylang_v2\Cargo.toml --target-dir target\sdk-artifacts --no-fail-fast
-cargo clippy --locked --manifest-path tinylang_v2\Cargo.toml --target-dir target\sdk-artifacts --example sdk_artifact -- -D warnings
-rustfmt --check --edition 2024 --config-path tinylang_v2\rustfmt.toml tinylang_v2\examples\sdk_artifact.rs
-node --check tinylang_v2\bindings\node\tinylang_v2_wire.mjs
+cargo test --locked -p tinylang-v2 --target-dir target\sdk-artifacts --no-fail-fast
+cargo clippy --locked -p tinylang-v2 --target-dir target\sdk-artifacts --example sdk_artifact -- -D warnings
+rustup run nightly cargo fmt --all --check
+node --check crates\tinylang_core\bindings\node\tinylang_v2_wire.mjs
 ```
 
 The dedicated Rust example calls `compile_source_unoptimized_verified` on

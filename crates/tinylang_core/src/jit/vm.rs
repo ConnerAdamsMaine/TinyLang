@@ -699,6 +699,29 @@ impl<'a> JitVm<'a> {
                             let values = pop_args(stack, count)?;
                             stack.push(runtime_make_array(&mut self.context, values)?);
                         }
+                        JitOp::MakeClosure(function_index, count) => {
+                            self.frame_memory.clear();
+                            if function_index >= self.verified_program.program().functions.len() {
+                                return Err(TinyLangError::runtime(format!("Invalid function index {function_index}")));
+                            }
+                            let captures = pop_args(stack, count)?;
+                            let closure = self.context.heap().alloc_closure(function_index as u32, captures)?;
+                            stack.push(Value::Heap(closure));
+                        }
+                        JitOp::MakeCell => {
+                            self.frame_memory.clear();
+                            let value = jit_pop(stack)?;
+                            stack.push(Value::Heap(self.context.heap().alloc_cell(value)?));
+                        }
+                        JitOp::LoadCell => {
+                            let cell = jit_pop(stack)?;
+                            stack.push(self.context.heap().cell_load(&cell)?);
+                        }
+                        JitOp::StoreCell => {
+                            let cell = jit_pop(stack)?;
+                            let value = jit_pop(stack)?;
+                            self.context.heap().cell_store(&cell, &value)?;
+                        }
                         JitOp::Index => {
                             self.frame_memory.clear();
                             let index = jit_pop(stack)?;

@@ -26,10 +26,10 @@ compile errors retain the compiler's diagnostics; profile errors identify
 the function and bytecode instruction. General source-located typed-HIR
 diagnostics and cross-module type resolution are not implemented.
 
-Tests: 9 [engine contract](../../../tinylang_v2/tests/engine_contract.rs) tests cover scalar
+Tests: 9 [engine contract](../../../crates/tinylang_core/tests/engine_contract.rs) tests cover scalar
 lowering, heap rejection, CFG joins, checked errors, VM loop parity and exact
-instruction fuel. [Execution pipeline](../../../tinylang_v2/tests/execution_pipeline.rs)
+instruction fuel. [Execution pipeline](../../../crates/tinylang_core/tests/execution_pipeline.rs)
 adds 64 deterministic generated integer functions shared by execution backends,
 generic-body and artifact execution, and legitimate Bool branch flow.
-Six [adversarial tests](../../../tinylang_v2/tests/scalar_adversarial.rs) exercise
+Six [adversarial tests](../../../crates/tinylang_core/tests/scalar_adversarial.rs) exercise
 malformed bytecode, unsupported values, zero-stack loops and analysis limits.

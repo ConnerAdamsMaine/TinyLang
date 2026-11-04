@@ -1204,6 +1204,39 @@ fn imports_and_artifact_roundtrip() {
 }
 
 #[test]
+fn source_closures_in_modules_preserve_exports_and_run_on_both_backends() {
+    let temp = TestDir::new("module-closure");
+    fs::write(
+        temp.path().join("closures.to"),
+        r#"
+        export fn make_adder(base) {
+          let add = fn(delta) { return base + delta }
+          return add
+        }
+        "#,
+    )
+    .expect("write module");
+
+    let main_path = temp.path().join("main.to");
+    fs::write(
+        &main_path,
+        r#"
+        import "closures.to" as closures
+        let add = closures.make_adder(40)
+        print add(2)
+        "#,
+    )
+    .expect("write main");
+
+    let program = compile_file(&main_path).expect("compile module closure");
+    assert_eq!(vec!["make_adder".to_string()], program.modules()[0].exported_functions());
+
+    for mode in ["vm", "jit"] {
+        assert_eq!("42\n", run_compiled(&program, mode, Vec::new()).expect("run module closure").0);
+    }
+}
+
+#[test]
 fn nested_imports_assemble_once_and_incremental_fragments_retain_dependencies() {
     let temp = TestDir::new("compiler-assembly");
     fs::write(
@@ -1280,6 +1313,35 @@ fn binary_artifact_roundtrips_modules_and_runs_both_backends() {
     assert!(fs::metadata(&artifact_path).expect("metadata").len() > 8);
     for mode in ["vm", "jit"] {
         assert_eq!("42\n", run_compiled(&loaded, mode, Vec::new()).expect("run artifact").0);
+    }
+}
+
+#[test]
+fn shared_closure_captures_survive_json_and_binary_artifact_roundtrips() {
+    let temp = TestDir::new("closure-artifact");
+    let main_path = temp.path().join("main.to");
+    fs::write(
+        &main_path,
+        "fn make_counter() {\n    let count = 0\n    let inc = fn() {\n        count = count + 1\n        return \
+         count\n    }\n    let dec = fn() {\n        count = count - 1\n        return count\n    }\n    return [inc, \
+         dec]\n}\nlet c = make_counter()\nlet other = make_counter()\nprint c[0]()\nprint c[0]()\nprint \
+         c[1]()\nprint c[0]()\nprint other[0]()\nprint (fn(x) { return x * 2 })(21)\n",
+    )
+    .expect("write main");
+    let program = compile_file(&main_path).expect("compile closures");
+    let expected = "1\n2\n1\n2\n1\n42\n";
+    for (name, binary) in [("main.tobc.json", false), ("main.tob", true)] {
+        let artifact_path = temp.path().join(name);
+        if binary {
+            write_binary_artifact(&program, &artifact_path).expect("write binary artifact");
+        } else {
+            write_artifact(&program, &artifact_path).expect("write json artifact");
+        }
+        let loaded = Arc::new(load_artifact(&artifact_path).expect("load artifact"));
+        assert_eq!(program.fingerprint(), loaded.fingerprint());
+        for mode in ["vm", "jit"] {
+            assert_eq!(expected, run_compiled(&loaded, mode, Vec::new()).expect("run artifact").0, "{name} {mode}");
+        }
     }
 }
 

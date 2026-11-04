@@ -896,6 +896,9 @@ pub fn b_closure_new(
     captures: &Value,
 ) -> Result<Value> {
     let name = expect_string(context, function_name, "closure_new")?;
+    if name.starts_with(crate::compiler::parser::CLOSURE_NAME_PREFIX) {
+        return Err(TinyLangError::runtime("closure_new: compiler-generated closure functions cannot be named"));
+    }
     let captured_values = {
         let heap = context.heap();
         let object = heap.get(captures)?;
@@ -931,7 +934,16 @@ pub fn b_closure_captures(context: &mut TinyRuntimeContext, target: &Value) -> R
         let HeapData::Closure { captures, .. } = &object.data else {
             return Err(TinyLangError::runtime("closure_captures expects a Closure"));
         };
-        crate::runtime::heap::decode_array_values(captures)
+        let raw = crate::runtime::heap::decode_array_values(captures);
+        // Shared capture cells are an implementation detail: expose snapshots of their contents.
+        raw.into_iter()
+            .map(|value| {
+                match heap.get(&value) {
+                    Ok(object) if matches!(object.data, HeapData::Cell(_)) => heap.cell_load(&value),
+                    _ => Ok(value),
+                }
+            })
+            .collect::<Result<Vec<_>>>()?
     };
     Ok(Value::Heap(context.heap().alloc_array(values)?))
 }

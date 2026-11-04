@@ -1,0 +1,33 @@
+{
+  "schema": "tinylang-v2-artifact-vectors/1",
+  "artifact_version": "2.0",
+  "profile": 0,
+  "byte_order": "little-endian",
+  "generator": "cargo run -p tinylang-v2 --example generate_vectors",
+  "artifacts": [
+    {
+      "file": "minimal_halt.tlbc",
+      "bytes": 120,
+      "sha256": "fc6a7280027af968109e4111d338cdb2f9f914bb2cdbe0914366c24148c9da28",
+      "load_status": "OK"
+    },
+    {
+      "file": "push_print_halt.tlbc",
+      "bytes": 168,
+      "sha256": "b140553376ddaa3bdb95e1332f0fb07dbfa60c461515b245d1eecf565cd12ab6",
+      "load_status": "OK"
+    },
+    {
+      "file": "arithmetic_print.tlbc",
+      "bytes": 216,
+      "sha256": "eb3421155954000e74d96b75d592f0ed8c8a316129da07aa4e4ca32165a58d2a",
+      "load_status": "OK"
+    },
+    {
+      "file": "invalid_bad_opcode.tlbc",
+      "bytes": 120,
+      "sha256": "2be7cac596a5892a56e18507d25d08b0efe57bbab55533d108cd834ab8f798d4",
+      "load_status": "INVALID_ARTIFACT"
+    }
+  ]
+}

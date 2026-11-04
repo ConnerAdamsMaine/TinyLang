@@ -316,6 +316,10 @@ pub(crate) enum JitOp {
     SampleCallValue(usize, CallSample),
     GuardedCallValue(GuardedCall),
     UnseenCallValue(usize),
+    MakeClosure(usize, usize),
+    MakeCell,
+    LoadCell,
+    StoreCell,
     BuiltinDirect(JitBuiltin),
     Builtin(usize, usize),
     Return,
@@ -380,6 +384,15 @@ impl JitOp {
             Op::PushFloat => Self::PushFloat(instr.arg as u64),
             Op::PushFunction => Self::PushFunction(jit_operand(instr.arg, "function index")?),
             Op::CallValue => Self::CallValue(jit_operand(instr.arg, "call arity")?),
+            Op::MakeClosure => {
+                Self::MakeClosure(
+                    jit_operand(instr.arg, "closure function index")?,
+                    jit_operand(instr.arg2, "closure capture count")?,
+                )
+            }
+            Op::MakeCell => Self::MakeCell,
+            Op::LoadCell => Self::LoadCell,
+            Op::StoreCell => Self::StoreCell,
             Op::Builtin => {
                 let index = jit_operand(instr.arg, "builtin index")?;
                 let arg_count = jit_operand(instr.arg2, "builtin arity")?;
@@ -575,6 +588,10 @@ impl JitOp {
                 format!("call.value.hot f{} args={}", guard.function_index(), guard.arg_count())
             }
             Self::UnseenCallValue(count) => format!("call.value.unseen args={count}"),
+            Self::MakeClosure(index, count) => format!("make.closure fn={index} captures={count}"),
+            Self::MakeCell => "make.cell".to_string(),
+            Self::LoadCell => "load.cell".to_string(),
+            Self::StoreCell => "store.cell".to_string(),
             Self::BuiltinDirect(builtin) => format!("builtin.direct.{}", builtin.name()),
             Self::Builtin(index, arg_count) => format!("builtin b{index} argc={arg_count}"),
             Self::Return => "return".to_string(),
@@ -684,6 +701,10 @@ impl JitOp {
             Self::SampleCallValue(..) => "sample.call.value",
             Self::GuardedCallValue(_) => "call.value.hot",
             Self::UnseenCallValue(_) => "call.value.unseen",
+            Self::MakeClosure(_, _) => "make.closure",
+            Self::MakeCell => "make.cell",
+            Self::LoadCell => "load.cell",
+            Self::StoreCell => "store.cell",
             Self::BuiltinDirect(builtin) => {
                 match builtin {
                     JitBuiltin::Len => "builtin.direct.len",
@@ -749,6 +770,9 @@ impl JitOp {
             Self::BuiltinDirect(builtin) => (1, builtin.arg_count()),
             Self::CallValue(args) | Self::SampleCallValue(args, _) | Self::UnseenCallValue(args) => (1, args + 1),
             Self::GuardedCallValue(guard) => (1, guard.arg_count() + 1),
+            Self::MakeClosure(_, count) => (1, count),
+            Self::MakeCell | Self::LoadCell => (1, 1),
+            Self::StoreCell => (0, 2),
             Self::MakeArray(count) | Self::MakeStruct(_, count) | Self::MakeEnum(_, count) => (1, count),
             Self::SetIndex => (0, 3),
             Self::SetField(_) => (0, 2),

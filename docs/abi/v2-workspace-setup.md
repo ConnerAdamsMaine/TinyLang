@@ -15,13 +15,13 @@ Set-Location $abiCheckout
 git status --short --branch
 ```
 
-All implementation files live below `tinylang_v2/`. The crate is deliberately
-not added to an existing workspace or v1 module tree.
+The v2 scalar engine (`tinylang::engine`), binary ABI (`tinylang::v2`), and
+`tinylang-v2` CLI are part of this crate and build in the root workspace.
 
 Run the implementations independently:
 
 ```powershell
-cargo test --manifest-path .\tinylang_v2\Cargo.toml
+cargo test -p tinylang-v2
 cargo test --workspace --all-features
 ```
 

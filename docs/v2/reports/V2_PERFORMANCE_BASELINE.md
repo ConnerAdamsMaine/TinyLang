@@ -2,15 +2,15 @@
 
 Status: **executed local release baseline**, 2026-11-01.
 
-The [benchmark](../../../tinylang_v2/examples/engine_bench.rs) executes the compiler-
+The [benchmark](../../../crates/tinylang_core/examples/engine_bench.rs) executes the compiler-
 produced `sum(100)` and independently checks the result is 4950. It separates
 lexing, frontend plus lowering, scalar lowering, backend preparation, and
 warm execution. VM and native measurements include argument/frame/result
 overhead, not just arithmetic instruction timing.
 
 ```powershell
-cargo run --release --manifest-path .\tinylang_v2\Cargo.toml --example engine_bench --locked
-cargo run --release --manifest-path .\tinylang_v2\Cargo.toml --features cranelift --example engine_bench --locked
+cargo run --release -p tinylang-v2 --example engine_bench --locked
+cargo run --release -p tinylang-v2 --features cranelift --example engine_bench --locked
 ```
 
 101 samples per metric follow 8 warmups; warm execution batches 256
@@ -52,7 +52,7 @@ state were not controlled.
 ## CLI process wall time and binary size
 
 31 fresh processes per backend, Cranelift-enabled release CLI, persistent
-[example](../../../tinylang_v2/examples/scalar.tinylang), `sum 100`; every output checked
+[example](../../../crates/tinylang_core/examples/scalar.tinylang), `sum 100`; every output checked
 4950. These measurements include PowerShell launch, process startup, file
 compilation/cache handling, preparation and execution. Source/OS caches were
 warm, so they are not uncached cold-source measurements. With 31 samples P99
@@ -69,11 +69,11 @@ and executed successfully. These are CLI sizes, not DLL/object-file sizes.
 
 ## Optional LLVM 20.1.8 object baseline
 
-The [repeatable LLVM benchmark](../../../tinylang_v2/examples/llvm_bench.py) uses the
+The [repeatable LLVM benchmark](../../../crates/tinylang_core/examples/llvm_bench.py) uses the
 same checked `sum(100) = 4950` workload, 8 warmups and 101 samples:
 
 ```powershell
-& '.\tinylang_v2\target\llvm-validation\Scripts\python.exe' '.\tinylang_v2\examples\llvm_bench.py'
+& '.\target\llvm-validation\Scripts\python.exe' '.\crates\tinylang_core\examples\llvm_bench.py'
 ```
 
 Use the pinned environment setup in [LLVM integration](LLVM_CRANELIFT_INTEGRATION.md).

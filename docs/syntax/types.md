@@ -89,7 +89,7 @@ that are themselves heap objects are not freed.
 
 | Type | Construction and access |
 | --- | --- |
-| `Closure` | `closure_new(function_name, captures)`, `closure_function`, `closure_captures` |
+| `Closure` | `fn(args) { ... }` literals, `closure_new(function_name, captures)`, `closure_function`, `unsafe closure_captures` |
 | `Sum` | `sum_new(tag[, payload])`, `sum_tag`, `sum_has_payload`, `sum_unwrap` |
 | `TaggedUnion` | `tagged_union_new(tag, payload)`, `tagged_union_tag`, `tagged_union_unwrap` |
 | `Dyn` | `dyn_new(type_id, vtable_id, value)`, `dyn_type_id`, `dyn_vtable_id`, `dyn_unwrap` |
@@ -98,9 +98,60 @@ that are themselves heap objects are not freed.
 | `Record` / `Dictionary` | `record_new(struct_value)`, `dictionary_new(map_value)` |
 | `Alloc` / `FileDescriptor` | `unsafe alloc_new(type_name, buffer)`, `unsafe fd_new(fd)` |
 
-`Closure` currently stores a function identity and captures. Invoking a
-closure uses normal call syntax (`let f = closure_new("add", [10])`, then
-`f(7)`). Captures are prepended to the explicit call arguments.
+`Closure` stores a function identity and captures. Invoking a closure uses
+normal call syntax (`let f = closure_new("add", [10])`, then `f(7)`).
+Captures are prepended to the explicit call arguments.
+
+### Closure literals
+
+`fn(args) { ... }` creates a closure. Captures are automatic and lexical:
+
+```tinylang
+fn make_counter() {
+    let count = 0
+    let increment = fn() {
+        count = count + 1
+        return count
+    }
+    let decrement = fn() {
+        count = count - 1
+        return count
+    }
+    return [increment, decrement]
+}
+
+let counters = make_counter()
+print counters[0]()   // 1
+print counters[0]()   // 2
+print counters[1]()   // 1
+print counters[0]()   // 2
+```
+
+- Closures capture bindings, not copies. Sibling closures created by one
+  invocation share each captured binding, mutations persist between calls,
+  and mutations in the enclosing function are visible to its closures.
+- Each call of the enclosing function creates independent bindings, which
+  stay alive after that function returns. Nested closures forward the same
+  binding rather than a copy.
+- Only bindings that are reassigned somewhere and captured by a nested
+  function are stored in shared cells; other captures are copied by value.
+  Top-level variables are globals and are always read live.
+- Shared captures have no implicit synchronization. Cross-thread sharing
+  must follow TinyLang's concurrency rules.
+- `break` and `continue` inside a closure body cannot target loops of the
+  enclosing function, and an enclosing `unsafe` block does not extend into
+  the closure body.
+- `()` is a postfix operator on any expression, so
+  `(fn(x) { return x * 2 })(21)` and `callbacks[0](42)` are valid. A call on
+  a new line is not joined to the previous expression. Local bindings
+  shadow functions and builtins of the same name in call position.
+- Names beginning with `__tiny_closure_` are reserved for compiler-generated
+  closure functions and are rejected in declarations and `closure_new`.
+- Captured environments are opaque. `closure_captures` requires `unsafe`
+  and returns a snapshot of the current captured values.
+
+Literals compile to a single `MakeClosure function_index, capture_count`
+instruction; shared bindings use `MakeCell`, `LoadCell` and `StoreCell`.
 
 ---
 

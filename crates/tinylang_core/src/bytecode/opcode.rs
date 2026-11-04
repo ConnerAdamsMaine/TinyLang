@@ -38,6 +38,10 @@ pub enum Op {
     PushFloat,
     PushFunction,
     CallValue,
+    MakeClosure,
+    MakeCell,
+    LoadCell,
+    StoreCell,
 }
 
 impl Op {
@@ -79,6 +83,10 @@ impl Op {
             Op::PushFloat => "PUSH_FLOAT",
             Op::PushFunction => "PUSH_FUNCTION",
             Op::CallValue => "CALL_VALUE",
+            Op::MakeClosure => "MAKE_CLOSURE",
+            Op::MakeCell => "MAKE_CELL",
+            Op::LoadCell => "LOAD_CELL",
+            Op::StoreCell => "STORE_CELL",
         }
     }
 
@@ -120,6 +128,10 @@ impl Op {
             "PUSH_FLOAT" => Op::PushFloat,
             "PUSH_FUNCTION" => Op::PushFunction,
             "CALL_VALUE" => Op::CallValue,
+            "MAKE_CLOSURE" => Op::MakeClosure,
+            "MAKE_CELL" => Op::MakeCell,
+            "LOAD_CELL" => Op::LoadCell,
+            "STORE_CELL" => Op::StoreCell,
             _ => return Err(TinyLangError::compile(format!("Unknown opcode {name:?}"))),
         })
     }
@@ -162,6 +174,10 @@ impl Op {
             Op::PushFloat => 34,
             Op::PushFunction => 35,
             Op::CallValue => 36,
+            Op::MakeClosure => 37,
+            Op::MakeCell => 38,
+            Op::LoadCell => 39,
+            Op::StoreCell => 40,
         }
     }
 
@@ -203,6 +219,10 @@ impl Op {
             34 => Op::PushFloat,
             35 => Op::PushFunction,
             36 => Op::CallValue,
+            37 => Op::MakeClosure,
+            38 => Op::MakeCell,
+            39 => Op::LoadCell,
+            40 => Op::StoreCell,
             _ => {
                 return Err(TinyLangError::compile(format!("Unknown opcode ordinal {ordinal}")));
             }

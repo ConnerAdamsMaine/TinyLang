@@ -33,6 +33,7 @@ mod compile_cache;
 mod compiler;
 mod config;
 mod decorators;
+pub mod engine;
 mod error;
 mod ffi;
 #[cfg(any(test, feature = "testing-hooks"))]
@@ -114,6 +115,8 @@ pub use decorators::{Decorator, DecoratorArgument};
 pub use error::{Result, TinyLangError};
 #[doc(hidden)]
 pub use ffi::sandbox_worker_main;
+/// TinyLang v2 binary ABI: framed requests, handles, sessions, and wire values.
+pub use ffi::v2;
 pub use jit::{
     DEFAULT_COMPILED_CACHE_MAX_BYTES,
     DEFAULT_COMPILED_CACHE_MAX_ENTRIES,
