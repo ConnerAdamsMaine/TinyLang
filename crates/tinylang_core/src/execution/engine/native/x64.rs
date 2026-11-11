@@ -1,12 +1,26 @@
 //! Small purpose-built assembler for the verified scalar profile.
 //!
-//! Windows x64 volatile register assignment:
+//! Volatile register assignment, valid under both supported ABIs (Windows x64
+//! and SysV AMD64 on Linux) because every register listed is caller-saved on
+//! both:
 //! R10 = frame, R8 = locals, R9 = operand stack, R11 = remaining fuel;
 //! RAX/RCX/RDX = arithmetic scratch. No calls, pushes or RSP adjustments.
 //! Static stack offsets rely on the CFG entry heights proven during lowering.
+//! The single pointer argument arrives in RCX on Windows and in RDI on Linux
+//! (see [`ENTRY_ARG_TO_R10`]); on Windows RDI is nonvolatile but never used
+//! past the prologue read, so the image preserves the nonvolatile set of both
+//! ABIs.
 
 use super::{CallFrame, DIVISION_BY_ZERO, EngineError, FUEL_EXHAUSTED, OVERFLOW, ScalarFunction};
 use crate::execution::engine::{BinaryOp, Instruction};
+
+/// Loads the callee's one pointer argument into R10. This is the only
+/// instruction the ABIs disagree on: Windows x64 passes the first argument in
+/// RCX, SysV AMD64 (Linux) in RDI.
+#[cfg(all(target_arch = "x86_64", target_os = "windows"))]
+const ENTRY_ARG_TO_R10: [u8; 3] = [0x49, 0x89, 0xca]; // mov r10, rcx
+#[cfg(all(target_arch = "x86_64", target_os = "linux"))]
+const ENTRY_ARG_TO_R10: [u8; 3] = [0x49, 0x89, 0xfa]; // mov r10, rdi
 
 #[derive(Clone, Copy)]
 struct Label(usize);
@@ -134,9 +148,9 @@ pub(super) fn emit(function: &ScalarFunction) -> Result<Vec<u8>, EngineError> {
     let division_zero = code.label();
     let exhausted = code.label();
 
+    code.emit(&[0xf3, 0x0f, 0x1e, 0xfa]); // endbr64: valid indirect entry on CET/IBT hosts
+    code.emit(&ENTRY_ARG_TO_R10); // r10 = frame pointer (ABI-selected argument register)
     code.emit(&[
-        0xf3, 0x0f, 0x1e, 0xfa, // endbr64: valid indirect entry on CET/IBT hosts
-        0x49, 0x89, 0xca, // mov r10, rcx (Windows x64 first argument)
         0x4d, 0x8b, 0x02, // mov r8, [r10] (slots)
         0x4d, 0x8b, 0x4a, 0x08, // mov r9, [r10+8] (operand stack)
         0x4d, 0x8b, 0x5a, 0x10, // mov r11, [r10+16] (fuel)
@@ -219,12 +233,17 @@ type AssembledBody = (Vec<u8>, Vec<CrossCall>);
 
 /// Machine-code ABI for the program profile (all functions in one image).
 ///
-/// Volatile register assignment:
-/// R10 = per-invocation context (volatile on Windows x64, so no callee ever
+/// Volatile register assignment (volatile under both the Windows x64 and
+/// SysV AMD64 ABIs):
+/// R10 = per-invocation context (volatile on both ABIs, so no callee ever
 /// has to preserve it), R8 = current
 /// frame slots base, R9 = current frame operand-stack base, R11 = remaining
 /// fuel (threaded through calls: every executed instruction deducts from the
 /// one shared budget), RAX/RCX/RDX = arithmetic scratch.
+///
+/// Cross-function `call rel32` edges stay inside the image and the bodies
+/// never read the hardware stack beyond popping their return address, so
+/// SysV's 16-byte RSP alignment rule is not observable inside the image.
 ///
 /// Context layout (u64 offsets): 0x00 call depth, 0x08 trap code (u32),
 /// 0x10 entry fuel, 0x18 frame bank base, 0x20 failing instruction. The
@@ -244,14 +263,16 @@ pub(super) fn emit_program(
     depth_limit: usize,
 ) -> Result<Vec<u8>, EngineError> {
     const CALL_DEPTH: u32 = 4;
-    /// Host-side entry cue: the image starts with it, immediately followed by
-    /// the entry function body. It exists only for the host's indirect call;
-    /// cross-function calls patch straight to the bodies.
-    const HOST_CUE: [u8; 11] = [
+    // Host-side entry cue: the image starts with it, immediately followed by
+    // the entry function body. It exists only for the host's indirect call;
+    // cross-function calls patch straight to the bodies. Bytes 4..7 are the
+    // ABI-selected argument load (see `ENTRY_ARG_TO_R10`).
+    let mut host_cue = [
         0xf3, 0x0f, 0x1e, 0xfa, // endbr64: valid indirect entry on CET/IBT hosts
-        0x49, 0x89, 0xca, // mov r10, rcx (invocation context)
+        0, 0, 0, // patched below: mov r10, <abi argument register>
         0x4d, 0x8b, 0x5a, 0x10, // mov r11, [r10+0x10] (initial fuel)
     ];
+    host_cue[4..7].copy_from_slice(&ENTRY_ARG_TO_R10);
     let stride_bytes = (slots_cap + stack_cap) * size_of::<i64>();
     // Immediates use the 32-bit forms selected throughout the emitter.
     let bound = |value: i64, name: &str| -> Result<i32, EngineError> {
@@ -455,7 +476,7 @@ pub(super) fn emit_program(
         }
     }
     ordered.extend(deferred);
-    image.extend_from_slice(&HOST_CUE);
+    image.extend_from_slice(&host_cue);
     for (slot_index, (bytes, pending)) in ordered {
         let body = image.len();
         entries[slot_index] = Some(body);

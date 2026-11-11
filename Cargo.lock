@@ -771,6 +771,7 @@ dependencies = [
  "cranelift-native",
  "ed25519-dalek",
  "hex",
+ "libc",
  "memmap2",
  "serde",
  "serde_json",

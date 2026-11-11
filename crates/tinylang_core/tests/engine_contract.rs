@@ -9,7 +9,7 @@ fn execution_backends_declare_target_and_codegen_requirements() {
     assert_eq!(interpreter.required_feature, None);
 
     let asm = ExecutionBackend::NativeAsm.capabilities();
-    assert_eq!(asm.target, BackendTargetRequirement::WindowsX86_64);
+    assert_eq!(asm.target, BackendTargetRequirement::NativeX86_64);
     assert!(asm.emits_machine_code);
     assert_eq!(asm.required_feature, None);
 

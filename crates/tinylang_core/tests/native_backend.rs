@@ -1,10 +1,8 @@
 use tinylang::engine::native::NativeFunction;
 use tinylang::engine::{EngineError, ScalarFunction};
 
-#[cfg(all(target_arch = "x86_64", target_os = "windows"))]
-mod windows_x64 {
-    use std::ffi::c_void;
-
+#[cfg(all(target_arch = "x86_64", any(target_os = "windows", target_os = "linux")))]
+mod native_x64 {
     use tinylang::engine::{BinaryOp, Instruction, TrapKind};
     use tinylang::{
         Function, Instr, Op, Program, RuntimeValue, VM, VerifiedProgram, VmExecutionLimits,
@@ -366,50 +364,86 @@ mod windows_x64 {
         }
     }
 
-    #[repr(C)]
-    struct MemoryBasicInformation {
-        base_address: *mut c_void,
-        allocation_base: *mut c_void,
-        allocation_protect: u32,
-        partition_id: u16,
-        region_size: usize,
-        state: u32,
-        protect: u32,
-        kind: u32,
-    }
-
-    #[link(name = "kernel32")]
-    unsafe extern "system" {
-        fn VirtualQuery(address: *const c_void, information: *mut MemoryBasicInformation, length: usize) -> usize;
-    }
-
     // Protection is inspected at the actual entry-point mapping, not asserted
-    // from source text; executable pages must not remain writable.
-    #[test]
-    fn published_machine_code_is_read_execute_not_writable() {
-        let program = fixture(0, &[(Op::PushInt, 42), (Op::Return, 0)]);
-        let native = NativeFunction::compile(&scalar(&program, 0)).unwrap();
-        let mut information = std::mem::MaybeUninit::<MemoryBasicInformation>::uninit();
-        // SAFETY: VirtualQuery writes this correctly sized Windows x64 struct;
-        // the queried address belongs to a live NativeFunction.
-        let written = unsafe {
-            VirtualQuery(
-                native.code_bytes().as_ptr().cast(),
-                information.as_mut_ptr(),
-                std::mem::size_of::<MemoryBasicInformation>(),
-            )
-        };
-        assert_eq!(written, std::mem::size_of::<MemoryBasicInformation>());
-        // SAFETY: VirtualQuery succeeded and initialized the complete struct.
-        let information = unsafe { information.assume_init() };
-        assert_eq!(information.state, 0x1000); // MEM_COMMIT
-        assert_eq!(information.protect, 0x20); // PAGE_EXECUTE_READ
-        assert_eq!(information.allocation_protect, 0x04); // Originally PAGE_READWRITE
-        assert_eq!(native.invoke(&[], 2).unwrap(), 42);
+    // from source text; executable pages must not remain writable. Each host
+    // inspects with its own facility.
+    #[cfg(target_os = "windows")]
+    mod windows_page_protection {
+        use std::ffi::c_void;
+
+        use super::*;
+
+        #[repr(C)]
+        struct MemoryBasicInformation {
+            base_address: *mut c_void,
+            allocation_base: *mut c_void,
+            allocation_protect: u32,
+            partition_id: u16,
+            region_size: usize,
+            state: u32,
+            protect: u32,
+            kind: u32,
+        }
+
+        #[link(name = "kernel32")]
+        unsafe extern "system" {
+            fn VirtualQuery(address: *const c_void, information: *mut MemoryBasicInformation, length: usize) -> usize;
+        }
+
+        #[test]
+        fn published_machine_code_is_read_execute_not_writable() {
+            let program = fixture(0, &[(Op::PushInt, 42), (Op::Return, 0)]);
+            let native = NativeFunction::compile(&scalar(&program, 0)).unwrap();
+            let mut information = std::mem::MaybeUninit::<MemoryBasicInformation>::uninit();
+            // SAFETY: VirtualQuery writes this correctly sized Windows x64 struct;
+            // the queried address belongs to a live NativeFunction.
+            let written = unsafe {
+                VirtualQuery(
+                    native.code_bytes().as_ptr().cast(),
+                    information.as_mut_ptr(),
+                    std::mem::size_of::<MemoryBasicInformation>(),
+                )
+            };
+            assert_eq!(written, std::mem::size_of::<MemoryBasicInformation>());
+            // SAFETY: VirtualQuery succeeded and initialized the complete struct.
+            let information = unsafe { information.assume_init() };
+            assert_eq!(information.state, 0x1000); // MEM_COMMIT
+            assert_eq!(information.protect, 0x20); // PAGE_EXECUTE_READ
+            assert_eq!(information.allocation_protect, 0x04); // Originally PAGE_READWRITE
+            assert_eq!(native.invoke(&[], 2).unwrap(), 42);
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    mod linux_page_protection {
+        use super::*;
+
+        /// Whether a `/proc/self/maps` line covers `address`.
+        fn covers(line: &str, address: usize) -> bool {
+            let mut fields = line.split_whitespace();
+            let Some(range) = fields.next() else { return false };
+            let Some((start, end)) = range.split_once('-') else { return false };
+            let (Ok(start), Ok(end)) = (usize::from_str_radix(start, 16), usize::from_str_radix(end, 16)) else {
+                return false;
+            };
+            (start..end).contains(&address)
+        }
+
+        #[test]
+        fn published_machine_code_is_read_execute_not_writable() {
+            let program = fixture(0, &[(Op::PushInt, 42), (Op::Return, 0)]);
+            let native = NativeFunction::compile(&scalar(&program, 0)).unwrap();
+            let address = native.code_bytes().as_ptr() as usize;
+            let maps = std::fs::read_to_string("/proc/self/maps").unwrap();
+            let entry = maps.lines().find(|line| covers(line, address)).expect("emitted code must appear in /proc/self/maps");
+            let permissions = entry.split_whitespace().nth(1).expect("maps lines record permissions");
+            assert_eq!(permissions, "r-xp", "code mapping must be read-execute, never writable");
+            assert_eq!(native.invoke(&[], 2).unwrap(), 42);
+        }
     }
 }
 
-#[cfg(not(all(target_arch = "x86_64", target_os = "windows")))]
+#[cfg(not(all(target_arch = "x86_64", any(target_os = "windows", target_os = "linux"))))]
 #[test]
 fn unsupported_target_is_explicitly_unavailable() {
     let function = tinylang::engine::compile_scalar_source("fn answer() { return 42 }", "answer").unwrap();

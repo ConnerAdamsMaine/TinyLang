@@ -1,29 +1,34 @@
-//! Checked scalar IR compiled directly to a leaf Windows x86-64 function.
+//! Checked scalar IR compiled directly to a leaf native x86-64 function.
+//!
+//! Supported hosts: x86-64 Windows and x86-64 Linux. The emitted image uses
+//! only registers that are volatile under both the Windows x64 and SysV AMD64
+//! ABIs, so the sole ABI difference is the argument register selected in
+//! `x64::ENTRY_ARG_TO_R10`.
 //!
 //! No bytecode dispatcher, host arithmetic callback or interpreter fallback is
 //! involved. Code can only originate from the verified `ScalarFunction` capability.
 
-#[cfg(all(target_arch = "x86_64", target_os = "windows"))]
+#[cfg(all(target_arch = "x86_64", any(target_os = "windows", target_os = "linux")))]
 mod executable;
-#[cfg(all(target_arch = "x86_64", target_os = "windows"))]
+#[cfg(all(target_arch = "x86_64", any(target_os = "windows", target_os = "linux")))]
 mod x64;
 
-#[cfg(all(target_arch = "x86_64", target_os = "windows"))]
+#[cfg(all(target_arch = "x86_64", any(target_os = "windows", target_os = "linux")))]
 use super::TrapKind;
 use super::{EngineError, ScalarFunction};
 
 /// Owns immutable RX machine code and the bounded scalar frame specification.
 pub struct NativeFunction {
-    #[cfg(all(target_arch = "x86_64", target_os = "windows"))]
+    #[cfg(all(target_arch = "x86_64", any(target_os = "windows", target_os = "linux")))]
     function: ScalarFunction,
-    #[cfg(all(target_arch = "x86_64", target_os = "windows"))]
+    #[cfg(all(target_arch = "x86_64", any(target_os = "windows", target_os = "linux")))]
     code: executable::ExecutableMemory,
 }
 
 // repr(C) field offsets are shared with the private emitter via offset_of!.
 // Slots/stack point to separate host allocations; the leaf never uses the
 // machine stack except for its caller-provided return address.
-#[cfg(all(target_arch = "x86_64", target_os = "windows"))]
+#[cfg(all(target_arch = "x86_64", any(target_os = "windows", target_os = "linux")))]
 #[repr(C)]
 struct CallFrame {
     slots: *mut i64,
@@ -34,18 +39,18 @@ struct CallFrame {
     instruction: u64,
 }
 
-#[cfg(all(target_arch = "x86_64", target_os = "windows"))]
+#[cfg(all(target_arch = "x86_64", any(target_os = "windows", target_os = "linux")))]
 const OVERFLOW: u32 = 1;
-#[cfg(all(target_arch = "x86_64", target_os = "windows"))]
+#[cfg(all(target_arch = "x86_64", any(target_os = "windows", target_os = "linux")))]
 const DIVISION_BY_ZERO: u32 = 2;
-#[cfg(all(target_arch = "x86_64", target_os = "windows"))]
+#[cfg(all(target_arch = "x86_64", any(target_os = "windows", target_os = "linux")))]
 const FUEL_EXHAUSTED: u32 = 3;
-#[cfg(all(target_arch = "x86_64", target_os = "windows"))]
+#[cfg(all(target_arch = "x86_64", any(target_os = "windows", target_os = "linux")))]
 const CALL_DEPTH: u32 = 4;
 
 impl NativeFunction {
     pub fn compile(function: &ScalarFunction) -> Result<Self, EngineError> {
-        #[cfg(all(target_arch = "x86_64", target_os = "windows"))]
+        #[cfg(all(target_arch = "x86_64", any(target_os = "windows", target_os = "linux")))]
         {
             let bytes = x64::emit(function)?;
             let code = executable::ExecutableMemory::from_emitted(&bytes)?;
@@ -54,7 +59,7 @@ impl NativeFunction {
                 code,
             })
         }
-        #[cfg(not(all(target_arch = "x86_64", target_os = "windows")))]
+        #[cfg(not(all(target_arch = "x86_64", any(target_os = "windows", target_os = "linux"))))]
         {
             let _ = function;
             Err(unavailable())
@@ -62,7 +67,7 @@ impl NativeFunction {
     }
 
     pub fn invoke(&self, args: &[i64], fuel: u64) -> Result<i64, EngineError> {
-        #[cfg(all(target_arch = "x86_64", target_os = "windows"))]
+        #[cfg(all(target_arch = "x86_64", any(target_os = "windows", target_os = "linux")))]
         {
             let (mut slots, mut stack) = self.function.frame(args)?;
             let mut frame = CallFrame {
@@ -74,9 +79,12 @@ impl NativeFunction {
                 instruction: 0,
             };
             // SAFETY: Only our emitter can create this private RX allocation.
-            // Its entry follows the Windows x64 one-pointer leaf ABI, preserves
-            // all nonvolatile registers and RSP, and accesses only these live,
-            // bounded frame buffers at offsets proven by scalar lowering.
+            // Its entry follows a one-pointer leaf ABI (argument in RCX on
+            // Windows, RDI on Linux), preserves every register that is
+            // nonvolatile under the host ABI, leaves RSP unchanged, and
+            // accesses only these live, bounded frame buffers at offsets
+            // proven by scalar lowering. `extern "system"` denotes exactly the
+            // host ABI here (Windows x64, SysV AMD64 on Linux).
             // No executable pointer or arbitrary-code constructor is public.
             let entry: unsafe extern "system" fn(*mut CallFrame) = unsafe { std::mem::transmute(self.code.as_ptr()) };
             // SAFETY: The mapping and frame buffers outlive this synchronous
@@ -96,7 +104,7 @@ impl NativeFunction {
                 instruction: frame.instruction as usize,
             })
         }
-        #[cfg(not(all(target_arch = "x86_64", target_os = "windows")))]
+        #[cfg(not(all(target_arch = "x86_64", any(target_os = "windows", target_os = "linux"))))]
         {
             let _ = (args, fuel);
             Err(unavailable())
@@ -105,28 +113,28 @@ impl NativeFunction {
 
     /// Inspect immutable emitted bytes; there is no arbitrary-code invocation API.
     pub fn code_bytes(&self) -> &[u8] {
-        #[cfg(all(target_arch = "x86_64", target_os = "windows"))]
+        #[cfg(all(target_arch = "x86_64", any(target_os = "windows", target_os = "linux")))]
         {
             self.code.bytes()
         }
-        #[cfg(not(all(target_arch = "x86_64", target_os = "windows")))]
+        #[cfg(not(all(target_arch = "x86_64", any(target_os = "windows", target_os = "linux"))))]
         {
             &[]
         }
     }
 }
 
-#[cfg(not(all(target_arch = "x86_64", target_os = "windows")))]
+#[cfg(not(all(target_arch = "x86_64", any(target_os = "windows", target_os = "linux"))))]
 fn unavailable() -> EngineError {
     EngineError::BackendUnavailable {
         backend: "x86-64 ASM",
-        reason: "this backend requires Windows x86-64".to_owned(),
+        reason: "this backend requires x86-64 Windows or Linux".to_owned(),
     }
 }
 
 /// Per-invocation machine state shared by every function of one program
 /// execution. Layout is fixed by `x64::emit_program` (u64 offsets).
-#[cfg(all(target_arch = "x86_64", target_os = "windows"))]
+#[cfg(all(target_arch = "x86_64", any(target_os = "windows", target_os = "linux")))]
 #[repr(C)]
 struct ProgramContext {
     depth: u64,
@@ -140,17 +148,17 @@ struct ProgramContext {
 /// Owns the machine-code image of a whole scalar call closure plus its
 /// runtime frame-bank specification.
 pub struct NativeProgram {
-    #[cfg(all(target_arch = "x86_64", target_os = "windows"))]
+    #[cfg(all(target_arch = "x86_64", any(target_os = "windows", target_os = "linux")))]
     parameters: usize,
-    #[cfg(all(target_arch = "x86_64", target_os = "windows"))]
+    #[cfg(all(target_arch = "x86_64", any(target_os = "windows", target_os = "linux")))]
     depth_limit: usize,
-    #[cfg(all(target_arch = "x86_64", target_os = "windows"))]
+    #[cfg(all(target_arch = "x86_64", any(target_os = "windows", target_os = "linux")))]
     stride_values: usize,
-    #[cfg(all(target_arch = "x86_64", target_os = "windows"))]
+    #[cfg(all(target_arch = "x86_64", any(target_os = "windows", target_os = "linux")))]
     code: executable::ExecutableMemory,
 }
 
-#[cfg(all(target_arch = "x86_64", target_os = "windows"))]
+#[cfg(all(target_arch = "x86_64", any(target_os = "windows", target_os = "linux")))]
 impl NativeProgram {
     /// Compiles one whole call closure into a single image. Frame-bank and
     /// context conventions here must stay in lockstep with `x64::emit_program`.
@@ -184,12 +192,14 @@ impl NativeProgram {
             code,
         })
     }
+}
 
+impl NativeProgram {
     /// Runs the entry function with `args` and one shared fuel budget, mirroring
     /// `ScalarProgram::interpret` including trap categories and failing program
     /// counters.
     pub fn invoke(&self, args: &[i64], fuel: u64) -> Result<i64, EngineError> {
-        #[cfg(all(target_arch = "x86_64", target_os = "windows"))]
+        #[cfg(all(target_arch = "x86_64", any(target_os = "windows", target_os = "linux")))]
         {
             if args.len() != self.parameters {
                 return Err(EngineError::InvalidArguments {
@@ -220,9 +230,10 @@ impl NativeProgram {
                 pc: 0,
             };
             // SAFETY: Only our emitter can create this private RX allocation. Its
-            // entry follows the Windows x64 one-pointer leaf ABI for the program
-            // profile: it touches only volatile registers (the invocation
-            // context lives in R10), preserves all nonvolatile registers and
+            // entry follows a one-pointer leaf ABI (RCX on Windows, RDI on
+            // Linux) for the program profile: it touches only registers that
+            // are volatile under the host ABI (the invocation context lives in
+            // R10, volatile on both), preserves all nonvolatile registers and
             // RSP, uses the hardware stack only for return addresses bounded by
             // the emitted depth limit, and accesses only this live bank through
             // the context.
@@ -247,7 +258,7 @@ impl NativeProgram {
                 instruction: context.pc as usize,
             })
         }
-        #[cfg(not(all(target_arch = "x86_64", target_os = "windows")))]
+        #[cfg(not(all(target_arch = "x86_64", any(target_os = "windows", target_os = "linux"))))]
         {
             let _ = (args, fuel);
             Err(unavailable())
@@ -256,11 +267,11 @@ impl NativeProgram {
 
     /// Inspect immutable emitted bytes; there is no arbitrary-code invocation API.
     pub fn code_bytes(&self) -> &[u8] {
-        #[cfg(all(target_arch = "x86_64", target_os = "windows"))]
+        #[cfg(all(target_arch = "x86_64", any(target_os = "windows", target_os = "linux")))]
         {
             self.code.bytes()
         }
-        #[cfg(not(all(target_arch = "x86_64", target_os = "windows")))]
+        #[cfg(not(all(target_arch = "x86_64", any(target_os = "windows", target_os = "linux"))))]
         {
             &[]
         }

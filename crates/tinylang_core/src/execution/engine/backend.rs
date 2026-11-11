@@ -18,8 +18,9 @@ pub enum BackendTargetRequirement {
     Any,
     /// A 64-bit x86 host.
     X86_64,
-    /// A 64-bit x86 host running Windows.
-    WindowsX86_64,
+    /// A 64-bit x86 host running an operating system with native-codegen
+    /// support (Windows or Linux).
+    NativeX86_64,
 }
 
 /// Static build and code-generation properties of an execution backend.
@@ -53,7 +54,7 @@ impl ExecutionBackend {
                 required_feature: None,
             },
             Self::NativeAsm => BackendCapabilities {
-                target: BackendTargetRequirement::WindowsX86_64,
+                target: BackendTargetRequirement::NativeX86_64,
                 emits_machine_code: true,
                 required_feature: None,
             },
@@ -129,16 +130,16 @@ impl ExecutionBackend {
         match self {
             Self::Interpreter => Ok(PreparedProgram::Interpreter(program.clone())),
             Self::NativeAsm => {
-                #[cfg(all(target_arch = "x86_64", target_os = "windows"))]
+                #[cfg(all(target_arch = "x86_64", any(target_os = "windows", target_os = "linux")))]
                 {
                     Ok(PreparedProgram::NativeAsm(NativeProgram::compile(program)?))
                 }
-                #[cfg(not(all(target_arch = "x86_64", target_os = "windows")))]
+                #[cfg(not(all(target_arch = "x86_64", any(target_os = "windows", target_os = "linux"))))]
                 {
                     let _ = program;
                     Err(EngineError::BackendUnavailable {
                         backend: "x86-64 ASM",
-                        reason: "this backend requires Windows x86-64".to_owned(),
+                        reason: "this backend requires x86-64 Windows or Linux".to_owned(),
                     })
                 }
             }
