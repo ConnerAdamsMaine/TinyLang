@@ -6,7 +6,7 @@ use std::sync::Arc;
 use crate::language::compile_cache;
 use crate::{
     CompileCacheStatus, Compiler, CompilerSharedState, Lexer, ModuleCapabilities, ModulePermissions, ModuleResolver,
-    PeepholeOptimizer, Program, Result, SourceMap, TinyLangError, VerifiedProgram, read_source_file,
+    PeepholeOptimizer, Program, Result, SourceMap, TinyLangError, VerifiedProgram, module_source_hash, read_source_file,
 };
 
 /// Compile `source` into a verified program and return it as a shareable `Program`.
@@ -109,6 +109,61 @@ pub fn compile_source_with_filename(source: &str, filename: &str) -> Result<Arc<
 pub fn compile_source_verified_with_filename(source: &str, filename: &str) -> Result<VerifiedProgram> {
     let program = PeepholeOptimizer::optimize(compile_source_unoptimized_program(source, filename)?);
     VerifiedProgram::verify(program)
+}
+
+/// Validate an authorized-execution digest expectation.
+///
+/// The expected value must use the canonical `sha256:<lowercase-hex>` form.
+///
+/// # Errors
+///
+/// Returns [`Err`] when the digest is malformed.
+pub fn validate_authorized_digest(expected_digest: &str) -> Result<()> {
+    let encoded = expected_digest
+        .strip_prefix("sha256:")
+        .ok_or_else(|| TinyLangError::compile("authorized execution requires a sha256:<lowercase-hex> digest"))?;
+    if encoded.len() != 64
+        || !encoded
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    {
+        return Err(TinyLangError::compile(
+            "authorized execution requires a sha256:<lowercase-hex> digest",
+        ));
+    }
+    Ok(())
+}
+
+/// Compile `source_bytes` for authorized execution after binding them to
+/// `expected_digest`.
+///
+/// This is the digest-binding entry point for package runtimes: the caller
+/// reads the authorized bytes once, passes them here together with the digest
+/// the trust layer verified, and only those exact bytes can reach
+/// compilation and execution. There is no filesystem access after this
+/// point, so a swap of the original file cannot change what runs
+/// (time-of-check/time-of-use is closed at the read boundary).
+///
+/// # Errors
+///
+/// Returns [`Err`] when `expected_digest` is malformed, the digest of
+/// `source_bytes` does not match, the bytes are not UTF-8, or compilation or
+/// verification fails.
+pub fn compile_authorized_source_verified(
+    source_bytes: &[u8],
+    expected_digest: &str,
+    filename: &str,
+) -> Result<VerifiedProgram> {
+    validate_authorized_digest(expected_digest)?;
+    let digest = module_source_hash(source_bytes);
+    if digest != expected_digest {
+        return Err(TinyLangError::compile(format!(
+            "authorized execution refused: source digest mismatch (expected {expected_digest}, got {digest})"
+        )));
+    }
+    let text = String::from_utf8(source_bytes.to_vec())
+        .map_err(|error| TinyLangError::compile(format!("authorized source must be UTF-8: {error}")))?;
+    compile_source_verified_with_filename(&text, filename)
 }
 
 /// Compile the source file at `path`.
@@ -314,4 +369,64 @@ fn compile_canonical_file(
         program
     };
     Ok((VerifiedProgram::verify(program)?, source, resolver))
+}
+
+#[cfg(test)]
+mod authorized_execution_tests {
+    use super::*;
+
+    const AUTHORIZED_SOURCE: &str = "fn add(left, right) {\n  return left + right\n}\nlet answer = add(40, 2)\nprint answer\n";
+
+    fn digest_of(source: &str) -> String {
+        module_source_hash(source.as_bytes())
+    }
+
+    #[test]
+    fn authorized_digest_form_is_validated() {
+        assert!(validate_authorized_digest(&format!("sha256:{}", "a".repeat(64))).is_ok());
+        assert!(validate_authorized_digest("a".repeat(70).as_str()).is_err());
+        assert!(validate_authorized_digest("sha256:ABC").is_err());
+        assert!(validate_authorized_digest("sha256:").is_err());
+        // uppercase hex is not the canonical form
+        assert!(validate_authorized_digest(&format!("sha256:{}", "A".repeat(64))).is_err());
+    }
+
+    #[test]
+    fn authorized_source_compiles_from_verified_bytes() {
+        let expected = digest_of(AUTHORIZED_SOURCE);
+        let program = compile_authorized_source_verified(
+            AUTHORIZED_SOURCE.as_bytes(),
+            &expected,
+            "<authorized-source>",
+        )
+        .expect("authorized compile succeeds for matching bytes");
+        let plain = compile_source_verified(AUTHORIZED_SOURCE).expect("plain compile succeeds");
+        assert_eq!(program.fingerprint(), plain.fingerprint());
+    }
+
+    #[test]
+    fn authorized_source_refuses_digest_mismatch_before_compiling() {
+        // The source is malformed, but the digest gate must reject first so the
+        // reported failure is the trust failure, not a parse error.
+        let malformed = b"let = ;";
+        let error = compile_authorized_source_verified(malformed, &digest_of(AUTHORIZED_SOURCE), "x")
+            .expect_err("mismatched digest must refuse");
+        assert!(error.to_string().contains("source digest mismatch"));
+    }
+
+    #[test]
+    fn authorized_source_refuses_malformed_digest_form() {
+        assert!(
+            compile_authorized_source_verified(AUTHORIZED_SOURCE.as_bytes(), "not-a-digest", "x").is_err()
+        );
+    }
+
+    #[test]
+    fn authorized_source_refuses_non_utf8_bytes() {
+        let bytes: [u8; 3] = [0xFF, 0xFE, 0x00];
+        let expected = module_source_hash(&bytes);
+        let error = compile_authorized_source_verified(&bytes, &expected, "x")
+            .expect_err("non-UTF-8 bytes must refuse");
+        assert!(error.to_string().contains("UTF-8"));
+    }
 }

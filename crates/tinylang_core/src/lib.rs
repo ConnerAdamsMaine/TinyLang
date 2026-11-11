@@ -46,14 +46,17 @@ pub mod testing;
 pub mod vm_hooks;
 
 pub use api::{
-    compile_file, compile_file_cached, compile_file_cached_verified, compile_file_cached_verified_with_options,
-    compile_file_cached_verified_with_status, compile_file_unoptimized, compile_file_unoptimized_verified,
-    compile_file_verified, compile_source, compile_source_unoptimized, compile_source_unoptimized_verified,
-    compile_source_unoptimized_verified_with_filename, compile_source_unoptimized_with_filename,
-    compile_source_verified, compile_source_verified_with_filename, compile_source_with_filename, lex_source,
-    optimize_program,
+    compile_authorized_source_verified, compile_file, compile_file_cached, compile_file_cached_verified,
+    compile_file_cached_verified_with_options, compile_file_cached_verified_with_status, compile_file_unoptimized,
+    compile_file_unoptimized_verified, compile_file_verified, compile_source, compile_source_unoptimized,
+    compile_source_unoptimized_verified, compile_source_unoptimized_verified_with_filename,
+    compile_source_unoptimized_with_filename, compile_source_verified, compile_source_verified_with_filename,
+    compile_source_with_filename, lex_source, optimize_program, validate_authorized_digest,
 };
-pub use artifact_io::{load_artifact, load_verified_artifact, write_artifact, write_binary_artifact};
+pub use artifact_io::{
+    artifact_byte_limit, load_authorized_artifact, load_artifact, load_verified_artifact, load_verified_artifact_bytes,
+    write_artifact, write_binary_artifact,
+};
 pub(crate) use builtins::{BUILTINS, builtin_index};
 pub(crate) use config::ProjectConfig;
 pub use config::{

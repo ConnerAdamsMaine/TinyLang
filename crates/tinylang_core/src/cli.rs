@@ -15,6 +15,9 @@ struct Args {
     emit_bytecode: Option<String>,
     emit_jit: Option<String>,
     run_bytecode: Option<String>,
+    expect_source_digest: Option<String>,
+    expect_artifact_digest: Option<String>,
+    source_from_stdin: bool,
     inputs: Vec<String>,
     stdin: bool,
     verbose: bool,
@@ -33,6 +36,9 @@ impl Default for Args {
             emit_bytecode: None,
             emit_jit: None,
             run_bytecode: None,
+            expect_source_digest: None,
+            expect_artifact_digest: None,
+            source_from_stdin: false,
             inputs: Vec::new(),
             stdin: false,
             verbose: false,
@@ -79,6 +85,13 @@ fn parse_args(argv: impl IntoIterator<Item = String>) -> Result<Args, String> {
             "--run-bytecode" => {
                 args.run_bytecode = Some(iter.next().ok_or("--run-bytecode requires a path")?);
             }
+            "--expect-source-digest" => {
+                args.expect_source_digest = Some(iter.next().ok_or("--expect-source-digest requires a value")?);
+            }
+            "--expect-artifact-digest" => {
+                args.expect_artifact_digest = Some(iter.next().ok_or("--expect-artifact-digest requires a value")?);
+            }
+            "--source-from-stdin" => args.source_from_stdin = true,
             "--input" => {
                 args.inputs.push(iter.next().ok_or("--input requires a value")?);
             }
@@ -112,6 +125,14 @@ fn print_help() {
     println!("  --emit-bytecode PATH    Write JSON, or compact binary when PATH ends in .tob");
     println!("  --emit-jit PATH         Write a JIT listing to PATH");
     println!("  --run-bytecode PATH     Run a compiled bytecode artifact");
+    println!("  --expect-source-digest DIGEST");
+    println!("                          Authorized execution: refuse to compile source");
+    println!("                          unless its sha256: digest matches (implies --no-cache)");
+    println!("  --expect-artifact-digest DIGEST");
+    println!("                          Authorized execution: refuse to run --run-bytecode");
+    println!("                          bytes unless their sha256: digest matches");
+    println!("  --source-from-stdin     Read the program source from stdin (authorized");
+    println!("                          package runtimes bind verified bytes this way)");
     println!("  --input VALUE           Supply a program input value (repeatable)");
     println!("  --stdin                 Read input values from stdin");
     println!("  --verbose               Print program metadata before running");
@@ -134,19 +155,53 @@ pub(crate) fn run() -> Result<i32, TinyLangError> {
 
     let mut cache_status = None;
     let program = if let Some(path) = args.run_bytecode {
-        load_verified_artifact(path)?
+        match (&args.expect_artifact_digest, &args.expect_source_digest) {
+            (Some(expected), _) => {
+                let bytes = read_authorized_artifact_bytes(&path)?;
+                tinylang::load_authorized_artifact(&bytes, expected)?
+            }
+            (None, Some(_)) => {
+                return Err(TinyLangError::Compile(
+                    "--expect-source-digest applies to source execution, not --run-bytecode".to_string(),
+                ));
+            }
+            (None, None) => load_verified_artifact(path)?,
+        }
+    } else if args.source_from_stdin {
+        let expected = args
+            .expect_source_digest
+            .as_deref()
+            .ok_or_else(|| TinyLangError::Compile("--source-from-stdin requires --expect-source-digest".to_string()))?;
+        if args.path.is_some() {
+            return Err(TinyLangError::Compile(
+                "--source-from-stdin takes no source path".to_string(),
+            ));
+        }
+        let mut bytes = Vec::new();
+        io::stdin()
+            .read_to_end(&mut bytes)
+            .map_err(|error| TinyLangError::Compile(format!("stdin read error: {error}")))?;
+        tinylang::compile_authorized_source_verified(&bytes, expected, "<authorized-source>")?
     } else {
         let Some(path) = args.path else {
             return Err(TinyLangError::Compile("File error: a source path is required".to_string()));
         };
-        if args.cache {
-            let (program, status) = compile_file_cached_verified_with_options(path, args.optimize)?;
-            cache_status = Some(status);
-            program
-        } else if args.optimize {
-            compile_file_verified(path)?
-        } else {
-            compile_file_unoptimized_verified(path)?
+        match &args.expect_source_digest {
+            Some(expected) => {
+                let bytes = read_authorized_source_bytes(&path)?;
+                tinylang::compile_authorized_source_verified(&bytes, expected, &path)?
+            }
+            None => {
+                if args.cache {
+                    let (program, status) = compile_file_cached_verified_with_options(path, args.optimize)?;
+                    cache_status = Some(status);
+                    program
+                } else if args.optimize {
+                    compile_file_verified(path)?
+                } else {
+                    compile_file_unoptimized_verified(path)?
+                }
+            }
         }
     };
 
@@ -187,6 +242,61 @@ pub(crate) fn run() -> Result<i32, TinyLangError> {
         run_verified_program_with_jit_options(&program, &args.mode, &mut stdout, args.inputs, jit_options)?;
     }
     Ok(0)
+}
+
+/// Read authorized source bytes exactly once with a bounded size.
+///
+/// The executed bytes are the returned bytes; callers must pass them (or
+/// equivalent stdin bytes) to the digest-binding compile entry point.
+fn read_authorized_source_bytes(path: &str) -> Result<Vec<u8>, TinyLangError> {
+    const MAX_AUTHORIZED_SOURCE_BYTES: u64 = 16 * 1024 * 1024;
+    let mut file = std::fs::File::open(path).map_err(|error| TinyLangError::Compile(format!("File error: {error}")))?;
+    let size = file
+        .metadata()
+        .map_err(|error| TinyLangError::Compile(format!("File error: {error}")))?
+        .len();
+    if size > MAX_AUTHORIZED_SOURCE_BYTES {
+        return Err(TinyLangError::Compile(format!(
+            "authorized execution refused: source size limit {MAX_AUTHORIZED_SOURCE_BYTES} bytes exceeded"
+        )));
+    }
+    let mut bytes = Vec::new();
+    file.by_ref()
+        .take(MAX_AUTHORIZED_SOURCE_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|error| TinyLangError::Compile(format!("File error: {error}")))?;
+    if bytes.len() as u64 > MAX_AUTHORIZED_SOURCE_BYTES {
+        return Err(TinyLangError::Compile(format!(
+            "authorized execution refused: source size limit {MAX_AUTHORIZED_SOURCE_BYTES} bytes exceeded"
+        )));
+    }
+    Ok(bytes)
+}
+
+/// Read authorized artifact bytes exactly once with the artifact size limit.
+fn read_authorized_artifact_bytes(path: &str) -> Result<Vec<u8>, TinyLangError> {
+    let mut file = std::fs::File::open(path).map_err(|error| TinyLangError::Compile(format!("Artifact read error: {error}")))?;
+    let max_bytes = tinylang::artifact_byte_limit();
+    let size = file
+        .metadata()
+        .map_err(|error| TinyLangError::Compile(format!("Artifact metadata error: {error}")))?
+        .len();
+    if size > max_bytes as u64 {
+        return Err(TinyLangError::Compile(format!(
+            "Artifact rejected: byte size limit {max_bytes} exceeded (got {size})"
+        )));
+    }
+    let mut bytes = Vec::new();
+    file.by_ref()
+        .take(max_bytes as u64 + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|error| TinyLangError::Compile(format!("Artifact read error: {error}")))?;
+    if bytes.len() > max_bytes {
+        return Err(TinyLangError::Compile(format!(
+            "Artifact rejected: byte size limit {max_bytes} exceeded"
+        )));
+    }
+    Ok(bytes)
 }
 
 #[cfg(test)]
