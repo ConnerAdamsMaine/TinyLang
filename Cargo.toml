@@ -47,7 +47,7 @@ lto            = "off"
 
 # Thin link-time optimization
 [profile.thin]
-inherts        = "release"
+inherits        = "release"
 opt-level      = 3
 codegen-units  = 4
 incremental    = false
@@ -55,7 +55,7 @@ lto            = "thin"
 
 # Fat link-time optimization
 [profile.fat]
-inherts        = "release"
+inherits        = "release"
 opt-level      = 3
 codegen-units  = 4
 incremental    = false
