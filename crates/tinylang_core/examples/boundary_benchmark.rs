@@ -43,11 +43,11 @@ fn request(opcode: u16, payload: &[u8]) -> Vec<u8> {
 fn measure(runtime: TinyRuntimeHandle, name: &str, request: Vec<u8>, iterations: usize, data_bytes: usize) {
     let mut output = vec![0; request.len()];
     let input = TinyBuffer {
-        data:   request.as_ptr(),
+        data: request.as_ptr(),
         length: request.len() as u64,
     };
     let destination = TinyMutableBuffer {
-        data:     output.as_mut_ptr(),
+        data: output.as_mut_ptr(),
         capacity: output.len() as u64,
     };
     let mut written = 0;

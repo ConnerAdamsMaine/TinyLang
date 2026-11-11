@@ -71,17 +71,11 @@ fn integer_execution_checks_overflow_division_and_fuel() {
     assert!(matches!(
         add.interpret(&[1, 2], 0),
         Err(EngineError::Trap {
-            kind:        tinylang::engine::TrapKind::FuelExhausted,
+            kind: tinylang::engine::TrapKind::FuelExhausted,
             instruction: 0,
         })
     ));
-    assert!(matches!(
-        add.interpret(&[1], 100),
-        Err(EngineError::InvalidArguments {
-            expected: 2,
-            actual:   1,
-        })
-    ));
+    assert!(matches!(add.interpret(&[1], 100), Err(EngineError::InvalidArguments { expected: 2, actual: 1 })));
     let div = ScalarFunction::lower(&program, 1).unwrap();
     assert!(matches!(
         div.interpret(&[1, 0], 100),

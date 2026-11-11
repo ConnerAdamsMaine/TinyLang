@@ -8,10 +8,10 @@ use tinylang::testing;
 
 #[derive(Debug)]
 struct Fixture {
-    path:            PathBuf,
+    path: PathBuf,
     expected_stdout: Option<String>,
-    inputs:          Vec<String>,
-    expected_error:  Option<String>,
+    inputs: Vec<String>,
+    expected_error: Option<String>,
 }
 
 #[derive(Debug, Default)]
@@ -54,28 +54,28 @@ impl SuiteReport {
 
 #[derive(Debug)]
 struct FixtureResult {
-    path:   String,
+    path: String,
     passed: bool,
     detail: String,
-    error:  Option<String>,
+    error: Option<String>,
 }
 
 impl FixtureResult {
     fn pass(path: &Path, detail: impl Into<String>) -> Self {
         Self {
-            path:   display_path(path),
+            path: display_path(path),
             passed: true,
             detail: detail.into(),
-            error:  None,
+            error: None,
         }
     }
 
     fn fail(path: &Path, detail: impl Into<String>, error: impl Into<String>) -> Self {
         Self {
-            path:   display_path(path),
+            path: display_path(path),
             passed: false,
             detail: detail.into(),
-            error:  Some(error.into()),
+            error: Some(error.into()),
         }
     }
 }
@@ -272,12 +272,10 @@ fn check_runtime_fail_fixture(fixture: &Fixture) -> FixtureResult {
         Some(expected) => {
             FixtureResult::pass(&fixture.path, format!("vm+jit matched {expected:?}, inputs={}", fixture.inputs.len()))
         }
-        None => {
-            FixtureResult::pass(
-                &fixture.path,
-                format!("vm+jit failed at runtime as expected, inputs={}", fixture.inputs.len()),
-            )
-        }
+        None => FixtureResult::pass(
+            &fixture.path,
+            format!("vm+jit failed at runtime as expected, inputs={}", fixture.inputs.len()),
+        ),
     }
 }
 

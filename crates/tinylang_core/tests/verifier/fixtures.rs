@@ -21,31 +21,25 @@ impl VerifierFixture {
             0,
         );
         let program = match self {
-            Self::Functions(count) => {
-                program.with_functions(
-                    (0..count)
-                        .map(|index| {
-                            Function::new(
-                                format!("sample_{index}"),
-                                0,
-                                vec![Instr::new(Op::PushInt, 0, 0), Instr::new(Op::Return, 0, 0)],
-                                0,
-                            )
-                        })
-                        .collect(),
-                )
-            }
-            Self::Names(count) => {
-                program
-                    .with_slot_count(count)
-                    .with_names((0..count).map(|index| format!("slot_{index}")).collect())
-            }
-            Self::StructFields(count) => {
-                program.with_structs(vec![StructDef::new(
-                    "Record",
-                    (0..count).map(|index| format!("field_{index}")).collect(),
-                )])
-            }
+            Self::Functions(count) => program.with_functions(
+                (0..count)
+                    .map(|index| {
+                        Function::new(
+                            format!("sample_{index}"),
+                            0,
+                            vec![Instr::new(Op::PushInt, 0, 0), Instr::new(Op::Return, 0, 0)],
+                            0,
+                        )
+                    })
+                    .collect(),
+            ),
+            Self::Names(count) => program
+                .with_slot_count(count)
+                .with_names((0..count).map(|index| format!("slot_{index}")).collect()),
+            Self::StructFields(count) => program.with_structs(vec![StructDef::new(
+                "Record",
+                (0..count).map(|index| format!("field_{index}")).collect(),
+            )]),
         };
         VerifiedProgram::verify(program).expect("valid verifier metadata fixture")
     }

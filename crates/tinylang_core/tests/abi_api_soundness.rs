@@ -9,22 +9,8 @@ use std::sync::Arc;
 
 use serde_json::{Value as JsonValue, json};
 use tinylang::{
-    BytecodeVerifier,
-    Instr,
-    JitCache,
-    JitProgram,
-    Op,
-    Program,
-    TinyMemory,
-    VM,
-    VerifiedProgram,
-    compile_source,
-    load_artifact,
-    run_program,
-    run_program_report,
-    run_program_with_env,
-    run_source,
-    write_jit_listing,
+    BytecodeVerifier, Instr, JitCache, JitProgram, Op, Program, TinyMemory, VM, VerifiedProgram, compile_source,
+    load_artifact, run_program, run_program_report, run_program_with_env, run_source, write_jit_listing,
 };
 use tinylang_test_support::expect_error_contains;
 
@@ -75,7 +61,7 @@ fn frozen_c_compile_responses_preserve_function_shape_and_refuse_lossy_decorator
 
 struct TestDir {
     _temp: tempfile::TempDir,
-    path:  PathBuf,
+    path: PathBuf,
 }
 
 impl TestDir {

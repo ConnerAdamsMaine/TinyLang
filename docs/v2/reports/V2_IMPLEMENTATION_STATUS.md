@@ -1,4 +1,4 @@
-# TinyLang v2 implementation status
+﻿# TinyLang v2 implementation status
 
 Mission 2, 2026-11-01. This is an incremental implementation, not certification
 of the entire language roadmap.
@@ -9,13 +9,13 @@ of the entire language roadmap.
 | General static typing and inference | Blocked | TLP-0001/2/3 are unpublished, unaccepted drafts; published roadmap retains erased generics |
 | Checked scalar IR | Partially implemented | Immutable i64 function profile, CFG stack/type-flow inference and checked operations; Bool arithmetic/return coercions rejected |
 | Interpreter and VM | Implemented existing path | Persistent VM, 4 fuel tests and 6 session tests passed; new scalar interpreter uses the shared IR |
-| Native ASM | Partially implemented, tested | Real Windows x86-64 emission; loops, checked arithmetic/floor division, fuel, W^X and VM parity |
-| Cranelift | Partially implemented, tested | Real optional Windows x86-64 JIT; same IR, VM parity, W^X and mapping release |
-| LLVM | Partially implemented, tested | IR verified, compiled to AMD64 ELF objects and executed via optional LLVM 20.1.8; native Rust/COFF linkage not implemented |
+| Native ASM | Implemented for checked scalar functions and program closures | Real Windows x86-64 emission; loops, checked arithmetic/floor division, fuel, W^X, VM parity; whole-call-chain program images with interpreter/VM parity, per-fuel trap-trace equality and hand-decoded emission review |
+| Cranelift | Partially implemented, tested | Real optional Windows x86-64 JIT; same IR, VM parity, W^X and mapping release; function and program profiles (program parity 11/11, executed 2026-11-10); Unix mapping code untested |
+| LLVM | Partially implemented, tested | IR verified and executed for leaf functions and, since this milestone, whole call closures: program-profile emission (`llvm/program.rs`) mirrors the Cranelift program ABI and is executed through llvmlite 20.1.8 against the real VM (recursion, zero-arg calls, trap tags 1/2/4, shared-fuel boundary, RX pages); native Rust/COFF linkage not implemented |
 | Runtime ownership | Partially implemented | Existing Ralloc/VM model preserved; 16 allocator tests passed; automatic RC and VM slab redesign not implemented |
 | SDKs | Partially implemented, tested | Python executes real compiler artifacts through DLL; Node codec supports format 2; heap/aggregate marshalling incomplete |
 | Standard libraries | Implemented existing path | 25 VM/decoded-JIT parity tests passed; no new `std`/`stx` features |
-| Testing and performance | Implemented milestone | Default 73 / Cranelift 77 tests passed; 435 preserved checks, 25 SDK checks and 4 real LLVM tests; release baseline recorded |
+| Testing and performance | Implemented milestone | 2026-11-10 re-run: default 676 / all-features 712 tests passed, program call-chain parity 12/12 native and 11/11 Cranelift, LLVM program-profile emission structurally tested (6/6) and executed through llvmlite (7/7 including 3 new program tests); earlier milestone recorded 671 default, 73/77 standalone, 435 preserved checks, 25 SDK checks and 4 real LLVM tests |
 
 ## Specification conflicts and decisions
 
@@ -49,7 +49,29 @@ an isolated pinned llvmlite wheel, not by pretending emission was execution.
 The clang-specific test remains explicitly ignored because clang is absent.
 
 Remaining milestones: accepted type/ownership proposals; typed HIR and general
-inference; calls/globals/heap lowering; automatic retain/release optimization;
+inference; globals/heap lowering (direct calls are lowered end to end across
+interpreter, native ASM, Cranelift and LLVM program emission); automatic
+retain/release optimization;
 general SDK values and host registration; backend ABI integration; source-
 level native debug metadata; architecture/platform expansion; sustained fuzz,
 sanitizer and regression-performance runs.
+
+
+## Deliverables
+
+All 12 required deliverables exist in `docs/v2/reports/` as of 2026-11-08:
+
+| Deliverable | Status |
+| --- | --- |
+| V2_IMPLEMENTATION_STATUS.md | Current |
+| COMPILER_ARCHITECTURE.md | Existing |
+| TYPE_SYSTEM_STATUS.md | Existing |
+| JIT_BACKEND_STATUS.md | Existing |
+| LLVM_CRANELIFT_INTEGRATION.md | Existing |
+| RUNTIME_MEMORY_MODEL.md | Existing |
+| SDK_COMPATIBILITY_MATRIX.md | Existing |
+| V2_TEST_REPORT.md | Existing |
+| V2_PERFORMANCE_BASELINE.md | Existing |
+| V2_PROFILING_REPORT.md | Created 2026-11-08 |
+| V2_BENCHMARK_REGRESSIONS.md | Created 2026-11-08 |
+| BUILD_PROFILE_POLICY.md | Created 2026-11-08 |

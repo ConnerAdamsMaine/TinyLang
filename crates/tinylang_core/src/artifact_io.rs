@@ -2,8 +2,8 @@ use std::fs::{self, File};
 use std::io::Read;
 use std::path::Path;
 
-use crate::bytecode::artifact::MAX_ARTIFACT_BYTES;
-use crate::bytecode::binary::{BINARY_ARTIFACT_MAGIC, MAX_BINARY_ARTIFACT_BYTES};
+use crate::language::bytecode::artifact::MAX_ARTIFACT_BYTES;
+use crate::language::bytecode::binary::{BINARY_ARTIFACT_MAGIC, MAX_BINARY_ARTIFACT_BYTES};
 use crate::{Program, Result, TinyLangError, VerifiedProgram};
 
 /// Loads a program artifact from disk and returns the verified [`Program`].

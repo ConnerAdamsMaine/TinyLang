@@ -1,11 +1,7 @@
 #![cfg(feature = "testing-hooks")]
 
 use tinylang::testing::{
-    TestRuntimeCostCounters,
-    compile_source_fixture,
-    reset_runtime_cost_counters,
-    run_backend,
-    runtime_cost_counters,
+    TestRuntimeCostCounters, compile_source_fixture, reset_runtime_cost_counters, run_backend, runtime_cost_counters,
 };
 
 static PROFILE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());

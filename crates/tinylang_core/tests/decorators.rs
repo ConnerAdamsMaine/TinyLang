@@ -1,16 +1,8 @@
 use std::fs;
 
 use tinylang::{
-    CompileCacheStatus,
-    DecoratorArgument,
-    Op,
-    Program,
-    VerifiedProgram,
-    compile_file_cached_verified_with_status,
-    compile_file_verified,
-    compile_source_unoptimized_verified,
-    compile_source_verified,
-    run_verified_program,
+    CompileCacheStatus, DecoratorArgument, Op, Program, VerifiedProgram, compile_file_cached_verified_with_status,
+    compile_file_verified, compile_source_unoptimized_verified, compile_source_verified, run_verified_program,
 };
 
 const MULTIPLY: &str =

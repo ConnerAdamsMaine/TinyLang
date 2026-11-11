@@ -7,19 +7,12 @@ use std::hint::black_box;
 use std::time::{Duration, Instant};
 
 use tinylang::testing::{
-    FrontendMeasurement as Measurement,
-    FrontendOptimization as Optimization,
-    FrontendPhase as Phase,
-    FrontendProfile,
+    FrontendMeasurement as Measurement, FrontendOptimization as Optimization, FrontendPhase as Phase, FrontendProfile,
     capture_source_compilation,
 };
 use tinylang::{
-    JitOptions,
-    JitProgram,
-    VerifiedProgram,
-    compile_source_unoptimized_verified_with_filename,
-    compile_source_verified_with_filename,
-    run_verified_program,
+    JitOptions, JitProgram, VerifiedProgram, compile_source_unoptimized_verified_with_filename,
+    compile_source_verified_with_filename, run_verified_program,
 };
 
 const FILENAME: &str = "frontend-profile.to";
@@ -144,27 +137,23 @@ fn timed_batch(iterations: u64, mut operation: impl FnMut()) -> Duration {
 
 fn control_batch(source: &str, optimization: Optimization, iterations: u64) -> Duration {
     match optimization {
-        Optimization::Enabled => {
-            timed_batch(iterations, || {
-                drop(black_box(compile_source_verified_with_filename(source, FILENAME).expect("public compiler")));
-            })
-        }
-        Optimization::Disabled => {
-            timed_batch(iterations, || {
-                drop(black_box(
-                    compile_source_unoptimized_verified_with_filename(source, FILENAME).expect("public compiler"),
-                ));
-            })
-        }
+        Optimization::Enabled => timed_batch(iterations, || {
+            drop(black_box(compile_source_verified_with_filename(source, FILENAME).expect("public compiler")));
+        }),
+        Optimization::Disabled => timed_batch(iterations, || {
+            drop(black_box(
+                compile_source_unoptimized_verified_with_filename(source, FILENAME).expect("public compiler"),
+            ));
+        }),
     }
 }
 
 #[derive(Default)]
 struct ObservedBatch {
-    elapsed:  Duration,
+    elapsed: Duration,
     captured: Duration,
-    phases:   [Duration; 4],
-    calls:    [u64; 4],
+    phases: [Duration; 4],
+    calls: [u64; 4],
 }
 
 fn observed_batch(source: &str, optimization: Optimization, iterations: u64) -> ObservedBatch {

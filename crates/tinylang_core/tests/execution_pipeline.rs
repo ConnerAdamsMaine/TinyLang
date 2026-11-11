@@ -74,14 +74,14 @@ fn executable_reports_fuel_and_arithmetic_traps_without_poisoning_reuse() {
         assert!(matches!(
             executable.invoke(&[1, 2], 3),
             Err(EngineError::Trap {
-                kind:        TrapKind::FuelExhausted,
+                kind: TrapKind::FuelExhausted,
                 instruction: 3,
             })
         ));
         assert!(matches!(
             executable.invoke(&[i64::MAX, 1], 100),
             Err(EngineError::Trap {
-                kind:        TrapKind::Overflow,
+                kind: TrapKind::Overflow,
                 instruction: 2,
             })
         ));

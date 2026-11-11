@@ -1,4 +1,4 @@
-[package]
+﻿[package]
 name                   = "tinylang-v2"
 version                = "2.1.0"
 edition.workspace      = true

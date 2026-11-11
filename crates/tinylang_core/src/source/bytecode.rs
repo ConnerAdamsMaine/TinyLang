@@ -28,15 +28,13 @@ impl BytecodeSite {
         };
         let (source, instruction) = match self {
             Self::Main { instruction } => (program.source.as_deref(), instruction),
-            Self::Function { index, instruction } => {
-                (
-                    program
-                        .functions
-                        .get(index)
-                        .and_then(|function| function.source.as_deref()),
-                    instruction,
-                )
-            }
+            Self::Function { index, instruction } => (
+                program
+                    .functions
+                    .get(index)
+                    .and_then(|function| function.source.as_deref()),
+                instruction,
+            ),
         };
         match source.and_then(|source| source.format(instruction, &message)) {
             Some(diagnostic) => TinyLangError::Runtime(diagnostic),
@@ -52,7 +50,7 @@ pub(crate) struct SourceOffset(pub(crate) usize);
 
 #[derive(Debug, Clone)]
 pub(crate) struct BytecodeSource {
-    source:  Arc<SourceMap>,
+    source: Arc<SourceMap>,
     offsets: Box<[SourceOffset]>,
 }
 
@@ -139,12 +137,8 @@ impl crate::Program {
 mod tests {
     use super::*;
     use crate::{
-        Op,
-        PeepholeOptimizer,
-        VerifiedProgram,
-        compile_source_unoptimized_verified_with_filename,
-        compile_source_verified_with_filename,
-        run_verified_program,
+        Op, PeepholeOptimizer, VerifiedProgram, compile_source_unoptimized_verified_with_filename,
+        compile_source_verified_with_filename, run_verified_program,
     };
 
     #[test]

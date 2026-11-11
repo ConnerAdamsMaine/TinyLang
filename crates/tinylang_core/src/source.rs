@@ -3,14 +3,14 @@ pub(crate) mod bytecode;
 #[derive(Debug)]
 pub(crate) struct SourceMap {
     filename: String,
-    source:   String,
+    source: String,
 }
 
 impl SourceMap {
     pub(crate) fn new(source: impl Into<String>, filename: impl Into<String>) -> Self {
         Self {
             filename: filename.into(),
-            source:   source.into(),
+            source: source.into(),
         }
     }
 

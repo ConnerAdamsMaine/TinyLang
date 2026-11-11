@@ -25,14 +25,14 @@ const CENTRAL_ROOTS_ENV: Option<&str> = option_env!("TINYLANG_CENTRAL_AUTHORITY_
 /// entries remain available for projects that have not migrated yet.
 #[derive(Debug, Clone)]
 pub(crate) struct ConfigModule {
-    pub(crate) path:         String,
+    pub(crate) path: String,
     pub(crate) capabilities: ModuleCapabilities,
 }
 
 #[derive(Debug, Clone, Default)]
 struct SigningPolicy {
     require_module_signatures: bool,
-    authorities:               HashMap<String, AuthorityCertificate>,
+    authorities: HashMap<String, AuthorityCertificate>,
 }
 
 /// A company module-signing key that a `TinyLang` central root has certified.
@@ -48,61 +48,61 @@ struct AuthorityCertificate {
 /// each published artifact can be signed and rotated independently.
 #[derive(Debug, Clone)]
 struct ModuleManifest {
-    name:                    String,
-    version:                 String,
-    publisher:               String,
-    purpose:                 String,
-    network_outbound:        bool,
-    network_listen:          bool,
-    filesystem_read:         bool,
-    filesystem_write:        bool,
-    process_spawn:           bool,
-    environment_read:        Vec<String>,
-    ffi_allowed:             bool,
-    graphics_gpu:            bool,
-    hardware_access:         bool,
-    threads_allowed:         bool,
-    unsafe_memory_allowed:   bool,
+    name: String,
+    version: String,
+    publisher: String,
+    purpose: String,
+    network_outbound: bool,
+    network_listen: bool,
+    filesystem_read: bool,
+    filesystem_write: bool,
+    process_spawn: bool,
+    environment_read: Vec<String>,
+    ffi_allowed: bool,
+    graphics_gpu: bool,
+    hardware_access: bool,
+    threads_allowed: bool,
+    unsafe_memory_allowed: bool,
     linux_pipelines_allowed: bool,
-    dependencies:            BTreeMap<String, String>,
+    dependencies: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone)]
 struct SignatureMetadata {
-    source_hash:          String,
-    binary_hash:          Option<String>,
+    source_hash: String,
+    binary_hash: Option<String>,
     dependency_lock_hash: String,
-    compiler_version:     String,
-    language_version:     String,
-    authority_id:         String,
-    policy_version:       String,
-    issued_at:            u64,
-    expires_at:           u64,
-    signing_record_id:    String,
-    signature:            Option<Signature>,
+    compiler_version: String,
+    language_version: String,
+    authority_id: String,
+    policy_version: String,
+    issued_at: u64,
+    expires_at: u64,
+    signing_record_id: String,
+    signature: Option<Signature>,
 }
 
 /// Data the resolver must retain as compiler-cache inputs after a signed
 /// module has been checked.
 #[derive(Debug, Clone)]
 pub(crate) struct SignatureVerification {
-    pub(crate) inputs:                Vec<(PathBuf, [u8; 16], usize)>,
+    pub(crate) inputs: Vec<(PathBuf, [u8; 16], usize)>,
     pub(crate) declared_capabilities: ModuleCapabilities,
-    pub(crate) declared_permissions:  ModulePermissions,
-    pub(crate) expires_at:            u64,
+    pub(crate) declared_permissions: ModulePermissions,
+    pub(crate) expires_at: u64,
 }
 
 /// Policy discovered from the nearest ancestor `Config.toml`.
 #[derive(Debug, Clone)]
 pub(crate) struct ProjectConfig {
-    project_root:               PathBuf,
-    sandbox_enabled:            bool,
+    project_root: PathBuf,
+    sandbox_enabled: bool,
     require_configured_modules: bool,
-    root_capabilities:          ModuleCapabilities,
-    vm_settings:                VmSettings,
-    modules:                    HashMap<String, ConfigModule>,
-    signing:                    SigningPolicy,
-    input:                      Option<(PathBuf, [u8; 16])>,
+    root_capabilities: ModuleCapabilities,
+    vm_settings: VmSettings,
+    modules: HashMap<String, ConfigModule>,
+    signing: SigningPolicy,
+    input: Option<(PathBuf, [u8; 16])>,
 }
 
 impl ProjectConfig {
@@ -138,14 +138,14 @@ impl ProjectConfig {
         }
 
         Ok(Self {
-            project_root:               entry_parent.to_path_buf(),
-            sandbox_enabled:            true,
+            project_root: entry_parent.to_path_buf(),
+            sandbox_enabled: true,
             require_configured_modules: false,
-            root_capabilities:          ModuleCapabilities::all(),
-            vm_settings:                VmSettings::default(),
-            modules:                    HashMap::new(),
-            signing:                    SigningPolicy::default(),
-            input:                      None,
+            root_capabilities: ModuleCapabilities::all(),
+            vm_settings: VmSettings::default(),
+            modules: HashMap::new(),
+            signing: SigningPolicy::default(),
+            input: None,
         })
     }
 
@@ -1311,17 +1311,17 @@ mod tests {
         fs::write(root.join(MODULE_SIGNATURE_FILE), signature).expect("signature manifest");
 
         let config = ProjectConfig {
-            project_root:               root.clone(),
-            sandbox_enabled:            true,
+            project_root: root.clone(),
+            sandbox_enabled: true,
             require_configured_modules: false,
-            root_capabilities:          ModuleCapabilities::all(),
-            vm_settings:                VmSettings::default(),
-            modules:                    HashMap::new(),
-            signing:                    SigningPolicy {
+            root_capabilities: ModuleCapabilities::all(),
+            vm_settings: VmSettings::default(),
+            modules: HashMap::new(),
+            signing: SigningPolicy {
                 require_module_signatures: true,
                 authorities,
             },
-            input:                      None,
+            input: None,
         };
         let verified = config
             .verify_module_signature("example-module", &module_path, source)

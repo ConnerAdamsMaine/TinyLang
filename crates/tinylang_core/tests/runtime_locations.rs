@@ -1,10 +1,6 @@
 use tinylang::{
-    JitOptions,
-    JitProgram,
-    VerifiedProgram,
-    compile_source_unoptimized_verified_with_filename,
-    compile_source_verified_with_filename,
-    run_verified_program_with_jit_options,
+    JitOptions, JitProgram, VerifiedProgram, compile_source_unoptimized_verified_with_filename,
+    compile_source_verified_with_filename, run_verified_program_with_jit_options,
 };
 
 type SourceCompiler = fn(&str, &str) -> tinylang::Result<VerifiedProgram>;

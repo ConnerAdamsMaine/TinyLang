@@ -40,24 +40,9 @@ use blake2::{Blake2b512, Digest};
 use ralloc::{RallocBuffer, VmAllocator};
 use serde_json::{Value as JsonValue, json};
 use tinylang::{
-    BytecodeVerifier,
-    CompileCacheStatus,
-    JitCache,
-    JitOptions,
-    JitProgram,
-    Program,
-    RuntimeValue,
-    TinyLangError,
-    TinyMemory,
-    VerifiedProgram,
-    compile_file_cached_verified_with_status,
-    compile_file_verified,
-    compile_source,
-    compile_source_unoptimized,
-    compile_source_verified,
-    lex_source,
-    optimize_program,
-    run_source,
+    BytecodeVerifier, CompileCacheStatus, JitCache, JitOptions, JitProgram, Program, RuntimeValue, TinyLangError,
+    TinyMemory, VerifiedProgram, compile_file_cached_verified_with_status, compile_file_verified, compile_source,
+    compile_source_unoptimized, compile_source_verified, lex_source, optimize_program, run_source,
     run_verified_program,
 };
 
@@ -101,14 +86,14 @@ unsafe extern "system" {
 #[repr(C)]
 #[derive(Default)]
 struct FileTime {
-    low:  u32,
+    low: u32,
     high: u32,
 }
 
 #[cfg(target_os = "linux")]
 #[repr(C)]
 struct LinuxTimespec {
-    seconds:     std::ffi::c_long,
+    seconds: std::ffi::c_long,
     nanoseconds: std::ffi::c_long,
 }
 
@@ -184,7 +169,7 @@ fn thread_cpu_time_ns() -> Option<u64> {
 fn thread_cpu_time_ns() -> Option<u64> {
     const CLOCK_THREAD_CPUTIME_ID: std::ffi::c_int = 3;
     let mut time = LinuxTimespec {
-        seconds:     0,
+        seconds: 0,
         nanoseconds: 0,
     };
     // SAFETY: `time` is writable and CLOCK_THREAD_CPUTIME_ID is the Linux
@@ -827,11 +812,11 @@ while i < {count} {{
 
 #[derive(Clone)]
 struct CorrectnessCase {
-    name:        &'static str,
-    source:      &'static str,
-    expected:    &'static str,
-    inputs:      Vec<String>,
-    mode:        &'static str,
+    name: &'static str,
+    source: &'static str,
+    expected: &'static str,
+    inputs: Vec<String>,
+    mode: &'static str,
     jit_options: JitOptions,
 }
 
@@ -880,8 +865,8 @@ impl Write for Sink {
 /// Keeping cleanup in `Drop` makes `build_benchmarks` safe to use from tests.
 struct FileFixture {
     directory: PathBuf,
-    main:      PathBuf,
-    inputs:    Vec<PathBuf>,
+    main: PathBuf,
+    inputs: Vec<PathBuf>,
 }
 
 fn benchmark_fixture_root() -> PathBuf {
@@ -969,10 +954,10 @@ enum AllocatorWorkerCommand {
 }
 
 struct AllocatorContention {
-    commands:  Vec<Sender<AllocatorWorkerCommand>>,
+    commands: Vec<Sender<AllocatorWorkerCommand>>,
     completed: Receiver<()>,
-    start:     Arc<Barrier>,
-    workers:   Vec<JoinHandle<()>>,
+    start: Arc<Barrier>,
+    workers: Vec<JoinHandle<()>>,
 }
 
 impl AllocatorContention {
@@ -1038,8 +1023,8 @@ impl Drop for AllocatorContention {
 
 #[derive(Clone)]
 struct Fixture {
-    raw:      Arc<Program>,
-    program:  Arc<Program>,
+    raw: Arc<Program>,
+    program: Arc<Program>,
     verified: VerifiedProgram,
     artifact: JsonValue,
 }
@@ -1058,9 +1043,9 @@ fn make_fixture(source: &str) -> Fixture {
 }
 
 struct Benchmark {
-    name:       &'static str,
+    name: &'static str,
     iterations: u64,
-    run:        Box<dyn FnMut()>,
+    run: Box<dyn FnMut()>,
 }
 
 fn bench(name: &'static str, iterations: u64, run: impl FnMut() + 'static) -> Benchmark {
@@ -1073,11 +1058,11 @@ fn bench(name: &'static str, iterations: u64, run: impl FnMut() + 'static) -> Be
 
 #[derive(Clone)]
 struct BenchmarkResult {
-    name:        &'static str,
-    iterations:  u64,
-    best_ns:     f64,
-    mean_ns:     f64,
-    stdev_ns:    f64,
+    name: &'static str,
+    iterations: u64,
+    best_ns: f64,
+    mean_ns: f64,
+    stdev_ns: f64,
     best_cycles: Option<f64>,
     mean_cycles: Option<f64>,
     best_cpu_ns: Option<f64>,
@@ -1135,14 +1120,14 @@ impl BenchmarkResult {
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct EvidenceQuality {
     decision_eligible: bool,
-    rejections:        Vec<String>,
+    rejections: Vec<String>,
 }
 
 impl EvidenceQuality {
     fn accepted() -> Self {
         Self {
             decision_eligible: true,
-            rejections:        Vec::new(),
+            rejections: Vec::new(),
         }
     }
 
@@ -1188,43 +1173,43 @@ fn assess_current_evidence(args: &Args, results: &[BenchmarkResult], correctness
 
 #[derive(Clone)]
 struct Args {
-    quick:              bool,
-    json:               bool,
-    filter:             String,
-    repeats:            usize,
-    sample_scale:       u64,
-    skip_correctness:   bool,
-    correctness_only:   bool,
-    baseline:           Option<String>,
-    save_baseline:      Option<String>,
+    quick: bool,
+    json: bool,
+    filter: String,
+    repeats: usize,
+    sample_scale: u64,
+    skip_correctness: bool,
+    correctness_only: bool,
+    baseline: Option<String>,
+    save_baseline: Option<String>,
     save_baseline_auto: bool,
-    priority_3_only:    bool,
-    priority_3_gate:    bool,
-    priority_5_only:    bool,
-    priority_5_gate:    bool,
-    machine_label:      Option<String>,
-    power_policy:       Option<String>,
+    priority_3_only: bool,
+    priority_3_gate: bool,
+    priority_5_only: bool,
+    priority_5_gate: bool,
+    machine_label: Option<String>,
+    power_policy: Option<String>,
 }
 
 impl Default for Args {
     fn default() -> Self {
         Self {
-            quick:              false,
-            json:               false,
-            filter:             String::new(),
-            repeats:            5,
-            sample_scale:       1,
-            skip_correctness:   false,
-            correctness_only:   false,
-            baseline:           None,
-            save_baseline:      None,
+            quick: false,
+            json: false,
+            filter: String::new(),
+            repeats: 5,
+            sample_scale: 1,
+            skip_correctness: false,
+            correctness_only: false,
+            baseline: None,
+            save_baseline: None,
             save_baseline_auto: false,
-            priority_3_only:    false,
-            priority_3_gate:    false,
-            priority_5_only:    false,
-            priority_5_gate:    false,
-            machine_label:      None,
-            power_policy:       None,
+            priority_3_only: false,
+            priority_3_gate: false,
+            priority_5_only: false,
+            priority_5_gate: false,
+            machine_label: None,
+            power_policy: None,
         }
     }
 }
@@ -2655,11 +2640,9 @@ fn verify_priority_3_gate(results: &[BenchmarkResult], baseline: &[JsonValue]) -
         {
             continue;
         }
-        let metric = |name: &str, improvement: Option<f64>| {
-            match improvement {
-                Some(improvement) => format!("{name} {improvement:.2}%"),
-                None => format!("{name} unavailable"),
-            }
+        let metric = |name: &str, improvement: Option<f64>| match improvement {
+            Some(improvement) => format!("{name} {improvement:.2}%"),
+            None => format!("{name} unavailable"),
         };
         failures.push(format!(
             "{label} needs >= {PRIORITY_3_MIN_IMPROVEMENT_PCT:.0}% CPU-time or cycle reduction ({}; {})",
@@ -3149,11 +3132,11 @@ mod tests {
     #[test]
     fn metadata_document_uses_versioned_schema() {
         let result = BenchmarkResult {
-            name:        "test.row",
-            iterations:  1,
-            best_ns:     1.0,
-            mean_ns:     1.0,
-            stdev_ns:    0.0,
+            name: "test.row",
+            iterations: 1,
+            best_ns: 1.0,
+            mean_ns: 1.0,
+            stdev_ns: 0.0,
             best_cycles: Some(2.0),
             mean_cycles: Some(2.0),
             best_cpu_ns: Some(1.0),

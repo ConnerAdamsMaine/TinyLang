@@ -265,10 +265,10 @@ fn hook_panicking_hook_does_not_propagate() {
 
     // Should NOT panic; the panic is expected to be caught inside dispatch().
     registry.dispatch(MemoryEvent::Allocated {
-        vm_address:    0xDEAD,
+        vm_address: 0xDEAD,
         vm_generation: 1,
-        size:          64,
-        type_name:     "Buffer",
+        size: 64,
+        type_name: "Buffer",
     });
 
     // The counting hook must have received the event.
@@ -360,9 +360,9 @@ fn tiny_allocator_stale_pointer_fires_hook() {
 #[test]
 fn tiny_allocator_log_grows_bounded() {
     let alloc = TinyAllocator::new(TinyAllocatorConfig {
-        log_capacity:          10,
+        log_capacity: 10,
         error_pusher_capacity: 256,
-        enable_logging:        true,
+        enable_logging: true,
     });
 
     for i in 0usize..100 {
@@ -630,10 +630,10 @@ fn hook_registry_concurrent_register_and_dispatch_no_deadlock() {
         handles.push(thread::spawn(move || {
             for _ in 0..100 {
                 reg.dispatch(MemoryEvent::Allocated {
-                    vm_address:    0x5000,
+                    vm_address: 0x5000,
                     vm_generation: 1,
-                    size:          16,
-                    type_name:     "Char",
+                    size: 16,
+                    type_name: "Char",
                 });
             }
         }));
@@ -668,16 +668,16 @@ fn memory_error_pusher_exactly_at_capacity_no_panic() {
     for i in 0u64..3 {
         let ui = usize::try_from(i).expect("Failed to cast i as a usize!");
         registry.dispatch(MemoryEvent::StalePointer {
-            vm_address:   ui,
+            vm_address: ui,
             expected_gen: 1,
-            actual_gen:   2,
+            actual_gen: 2,
         });
     }
     assert_eq!(pusher.error_count(), 3, "pusher must hold exactly 3 events");
 
     // Push one more — must evict oldest without panic.
     registry.dispatch(MemoryEvent::DoubleFree {
-        vm_address:    99,
+        vm_address: 99,
         vm_generation: 1,
     });
     assert_eq!(pusher.error_count(), 3, "pusher must still hold exactly 3 events after eviction");

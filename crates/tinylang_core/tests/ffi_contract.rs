@@ -55,11 +55,11 @@ fn reports_version_and_round_trips_canonical_values() {
         tinylang_v2_call(
             runtime,
             TinyBuffer {
-                data:   input.as_ptr(),
+                data: input.as_ptr(),
                 length: input.len() as u64,
             },
             TinyMutableBuffer {
-                data:     output.as_mut_ptr(),
+                data: output.as_mut_ptr(),
                 capacity: output.len() as u64,
             },
             &mut written,
@@ -94,11 +94,11 @@ fn utf8_value_accessor_and_echo_preserve_valid_text() {
         tinylang_v2_call(
             runtime,
             TinyBuffer {
-                data:   input.as_ptr(),
+                data: input.as_ptr(),
                 length: input.len() as u64,
             },
             TinyMutableBuffer {
-                data:     output.as_mut_ptr(),
+                data: output.as_mut_ptr(),
                 capacity: output.len() as u64,
             },
             &mut written,
@@ -121,11 +121,11 @@ fn capacity_probe_does_not_write_response() {
         tinylang_v2_call(
             runtime,
             TinyBuffer {
-                data:   input.as_ptr(),
+                data: input.as_ptr(),
                 length: input.len() as u64,
             },
             TinyMutableBuffer {
-                data:     sentinel.as_mut_ptr(),
+                data: sentinel.as_mut_ptr(),
                 capacity: sentinel.len() as u64,
             },
             &mut written,
@@ -147,11 +147,11 @@ fn rejects_overlapping_buffers_before_parsing() {
         tinylang_v2_call(
             runtime,
             TinyBuffer {
-                data:   input.as_ptr(),
+                data: input.as_ptr(),
                 length: input.len() as u64,
             },
             TinyMutableBuffer {
-                data:     input.as_mut_ptr(),
+                data: input.as_mut_ptr(),
                 capacity: input.len() as u64,
             },
             &mut written,
@@ -186,11 +186,11 @@ fn zero_length_buffers_may_be_null() {
         tinylang_v2_call(
             runtime,
             TinyBuffer {
-                data:   ptr::null(),
+                data: ptr::null(),
                 length: 0,
             },
             TinyMutableBuffer {
-                data:     ptr::null_mut(),
+                data: ptr::null_mut(),
                 capacity: 0,
             },
             &mut written,

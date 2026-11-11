@@ -4,14 +4,7 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use tinylang::{
-    JitOptions,
-    JitProgram,
-    Program,
-    TinyLangError,
-    VerifiedProgram,
-    compile_file,
-    run_program,
-    write_binary_artifact,
+    JitOptions, JitProgram, Program, TinyLangError, VerifiedProgram, compile_file, run_program, write_binary_artifact,
 };
 
 struct TestDir(PathBuf);

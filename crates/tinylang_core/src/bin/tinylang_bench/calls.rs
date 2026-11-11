@@ -2,14 +2,7 @@
 //! Source preparation, verification, fingerprinting and golden checks are untimed.
 
 use super::{
-    Benchmark,
-    JitOptions,
-    JitProgram,
-    VerifiedProgram,
-    bench,
-    compile_source_verified,
-    leak_name,
-    run_compiled_jit,
+    Benchmark, JitOptions, JitProgram, VerifiedProgram, bench, compile_source_verified, leak_name, run_compiled_jit,
     run_verified_program,
 };
 
@@ -46,22 +39,18 @@ impl CallShape {
             Self::FunctionValue => {
                 ("fn target(value) { return value + 3 }", "let callback = target", "", "callback(i)")
             }
-            Self::Closure => {
-                (
-                    "fn target(capture, value) { return capture + value }",
-                    "let callback = closure_new(\"target\", [3])",
-                    "",
-                    "callback(i)",
-                )
-            }
-            Self::Alternating => {
-                (
-                    "fn first(value) { return value + 3 } fn second(value) { return value + 5 }",
-                    "let callback = first let selector = 0",
-                    "if selector == 0 { callback = first } else { callback = second } selector = 1 - selector",
-                    "callback(i)",
-                )
-            }
+            Self::Closure => (
+                "fn target(capture, value) { return capture + value }",
+                "let callback = closure_new(\"target\", [3])",
+                "",
+                "callback(i)",
+            ),
+            Self::Alternating => (
+                "fn first(value) { return value + 3 } fn second(value) { return value + 5 }",
+                "let callback = first let selector = 0",
+                "if selector == 0 { callback = first } else { callback = second } selector = 1 - selector",
+                "callback(i)",
+            ),
         };
         format!(
             "{declarations} {setup} let i = 0 let total = 0 \

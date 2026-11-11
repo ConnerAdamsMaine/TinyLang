@@ -8,50 +8,42 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
 
-pub use crate::compiler::profile::{
-    FrontendMeasurement,
-    FrontendOptimization,
-    FrontendPhase,
-    FrontendProfile,
-    FrontendProfileError,
-    capture_source_compilation,
+pub use crate::execution::jit::preparation_profile::{
+    PreparationMeasurement, PreparationPhase, PreparationProfile, PreparationProfileError, capture_jit_preparation,
 };
-pub use crate::jit::preparation_profile::{
-    PreparationMeasurement,
-    PreparationPhase,
-    PreparationProfile,
-    PreparationProfileError,
-    capture_jit_preparation,
+pub use crate::language::compiler::profile::{
+    FrontendMeasurement, FrontendOptimization, FrontendPhase, FrontendProfile, FrontendProfileError,
+    capture_source_compilation,
 };
 use crate::{Program, Result, RuntimeValue, TinyHeapStats, internal_testing};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TestProgramInspection {
-    pub fingerprint:    String,
-    pub slot_count:     usize,
-    pub main_ops:       Vec<String>,
+    pub fingerprint: String,
+    pub slot_count: usize,
+    pub main_ops: Vec<String>,
     pub function_names: Vec<String>,
-    pub string_count:   usize,
-    pub struct_names:   Vec<String>,
-    pub module_names:   Vec<String>,
-    pub opcode_counts:  BTreeMap<String, usize>,
+    pub string_count: usize,
+    pub struct_names: Vec<String>,
+    pub module_names: Vec<String>,
+    pub opcode_counts: BTreeMap<String, usize>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct TestBackendRun {
-    pub mode:                 &'static str,
-    pub stdout:               String,
-    pub memory:               Vec<RuntimeValue>,
+    pub mode: &'static str,
+    pub stdout: String,
+    pub memory: Vec<RuntimeValue>,
     pub heap_before_shutdown: TinyHeapStats,
-    pub heap_after_shutdown:  TinyHeapStats,
+    pub heap_after_shutdown: TinyHeapStats,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TestJitInspection {
     pub fingerprint: String,
-    pub listing:     String,
+    pub listing: String,
     pub chunk_count: usize,
-    pub op_count:    usize,
+    pub op_count: usize,
 }
 
 /// Process-wide counters for isolating runtime collection costs in tests.
@@ -60,13 +52,13 @@ pub struct TestRuntimeCostCounters {
     /// Calls that acquired the shared TinyLang heap mutex.
     pub heap_lock_acquisitions: u64,
     /// Fixed-width value encoding attempts.
-    pub value_encodes:          u64,
+    pub value_encodes: u64,
     /// Fixed-width value decodes.
-    pub value_decodes:          u64,
+    pub value_decodes: u64,
     /// Successful Ralloc buffer growth operations.
-    pub ralloc_growth_events:   u64,
+    pub ralloc_growth_events: u64,
     /// Bytes copied while Ralloc moved live allocations during growth.
-    pub ralloc_bytes_copied:    u64,
+    pub ralloc_bytes_copied: u64,
 }
 
 /// Returns the current process-wide runtime cost counters.
@@ -119,14 +111,14 @@ pub fn write_backend_report(
 impl From<internal_testing::ProgramInspection> for TestProgramInspection {
     fn from(value: internal_testing::ProgramInspection) -> Self {
         Self {
-            fingerprint:    value.fingerprint,
-            slot_count:     value.slot_count,
-            main_ops:       value.main_ops,
+            fingerprint: value.fingerprint,
+            slot_count: value.slot_count,
+            main_ops: value.main_ops,
             function_names: value.function_names,
-            string_count:   value.string_count,
-            struct_names:   value.struct_names,
-            module_names:   value.module_names,
-            opcode_counts:  value.opcode_counts,
+            string_count: value.string_count,
+            struct_names: value.struct_names,
+            module_names: value.module_names,
+            opcode_counts: value.opcode_counts,
         }
     }
 }
@@ -134,11 +126,11 @@ impl From<internal_testing::ProgramInspection> for TestProgramInspection {
 impl From<internal_testing::BackendRunInspection> for TestBackendRun {
     fn from(value: internal_testing::BackendRunInspection) -> Self {
         Self {
-            mode:                 value.mode,
-            stdout:               value.stdout,
-            memory:               value.memory,
+            mode: value.mode,
+            stdout: value.stdout,
+            memory: value.memory,
             heap_before_shutdown: value.heap_before_shutdown,
-            heap_after_shutdown:  value.heap_after_shutdown,
+            heap_after_shutdown: value.heap_after_shutdown,
         }
     }
 }
@@ -147,9 +139,9 @@ impl From<internal_testing::JitInspection> for TestJitInspection {
     fn from(value: internal_testing::JitInspection) -> Self {
         Self {
             fingerprint: value.fingerprint,
-            listing:     value.listing,
+            listing: value.listing,
             chunk_count: value.chunk_count,
-            op_count:    value.op_count,
+            op_count: value.op_count,
         }
     }
 }
@@ -158,10 +150,10 @@ impl From<internal_testing::RuntimeCostInspection> for TestRuntimeCostCounters {
     fn from(value: internal_testing::RuntimeCostInspection) -> Self {
         Self {
             heap_lock_acquisitions: value.heap_lock_acquisitions,
-            value_encodes:          value.value_encodes,
-            value_decodes:          value.value_decodes,
-            ralloc_growth_events:   value.ralloc_growth_events,
-            ralloc_bytes_copied:    value.ralloc_bytes_copied,
+            value_encodes: value.value_encodes,
+            value_decodes: value.value_decodes,
+            ralloc_growth_events: value.ralloc_growth_events,
+            ralloc_bytes_copied: value.ralloc_bytes_copied,
         }
     }
 }

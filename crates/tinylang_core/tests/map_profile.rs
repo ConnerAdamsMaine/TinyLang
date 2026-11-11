@@ -148,11 +148,9 @@ impl QueryKey {
                 let missing = "m".repeat(bytes);
                 format!("let key = \"{text}\" let absent = \"{missing}\"")
             }
-            Self::FieldPointer => {
-                "struct Pair { left, right } let pair = Pair(7, 8) \
+            Self::FieldPointer => "struct Pair { left, right } let pair = Pair(7, 8) \
                  let key = fieldptr(pair, \"right\") let absent = fieldptr(pair, \"left\")"
-                    .to_owned()
-            }
+                .to_owned(),
         }
     }
 }

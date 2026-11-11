@@ -7,14 +7,7 @@ mod windows_x64 {
 
     use tinylang::engine::{BinaryOp, Instruction, TrapKind};
     use tinylang::{
-        Function,
-        Instr,
-        Op,
-        Program,
-        RuntimeValue,
-        VM,
-        VerifiedProgram,
-        VmExecutionLimits,
+        Function, Instr, Op, Program, RuntimeValue, VM, VerifiedProgram, VmExecutionLimits,
         compile_source_unoptimized_verified,
     };
 
@@ -207,41 +200,26 @@ mod windows_x64 {
         assert_eq!(native.invoke(&[], 4).unwrap(), 42);
         assert_eq!(native.invoke(&[], u64::MAX).unwrap(), 42);
         assert_eq!(vm_outcome(&program, 0, &[], 4), Outcome::Value(42));
-        assert!(matches!(
-            native.invoke(&[1], 0),
-            Err(EngineError::InvalidArguments {
-                expected: 0,
-                actual:   1,
-            })
-        ));
+        assert!(matches!(native.invoke(&[1], 0), Err(EngineError::InvalidArguments { expected: 0, actual: 1 })));
 
         let program = fixture(2, &[(Op::Load, 0), (Op::Load, 1), (Op::Div, 0), (Op::Return, 0)]);
         let native = NativeFunction::compile(&scalar(&program, 0)).unwrap();
-        assert!(matches!(
-            native.invoke(&[1], 100),
-            Err(EngineError::InvalidArguments {
-                expected: 2,
-                actual:   1,
-            })
-        ));
+        assert!(matches!(native.invoke(&[1], 100), Err(EngineError::InvalidArguments { expected: 2, actual: 1 })));
         assert!(matches!(
             native.invoke(&[1, 2, 3], 100),
-            Err(EngineError::InvalidArguments {
-                expected: 2,
-                actual:   3,
-            })
+            Err(EngineError::InvalidArguments { expected: 2, actual: 3 })
         ));
         assert!(matches!(
             native.invoke(&[1, 0], 2),
             Err(EngineError::Trap {
-                kind:        TrapKind::FuelExhausted,
+                kind: TrapKind::FuelExhausted,
                 instruction: 2,
             })
         ));
         assert!(matches!(
             native.invoke(&[1, 0], 3),
             Err(EngineError::Trap {
-                kind:        TrapKind::DivisionByZero,
+                kind: TrapKind::DivisionByZero,
                 instruction: 2,
             })
         ));
@@ -312,7 +290,7 @@ mod windows_x64 {
         assert!(matches!(
             native.invoke(&[], 10_000),
             Err(EngineError::Trap {
-                kind:        TrapKind::FuelExhausted,
+                kind: TrapKind::FuelExhausted,
                 instruction: 0,
             })
         ));
@@ -390,14 +368,14 @@ mod windows_x64 {
 
     #[repr(C)]
     struct MemoryBasicInformation {
-        base_address:       *mut c_void,
-        allocation_base:    *mut c_void,
+        base_address: *mut c_void,
+        allocation_base: *mut c_void,
         allocation_protect: u32,
-        partition_id:       u16,
-        region_size:        usize,
-        state:              u32,
-        protect:            u32,
-        kind:               u32,
+        partition_id: u16,
+        region_size: usize,
+        state: u32,
+        protect: u32,
+        kind: u32,
     }
 
     #[link(name = "kernel32")]

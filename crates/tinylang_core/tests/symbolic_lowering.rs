@@ -1,13 +1,5 @@
 use tinylang::{
-    Instr,
-    JitOptions,
-    JitProgram,
-    Op,
-    Program,
-    RuntimeValue,
-    TinyMemory,
-    VerifiedProgram,
-    compile_source_verified,
+    Instr, JitOptions, JitProgram, Op, Program, RuntimeValue, TinyMemory, VerifiedProgram, compile_source_verified,
     run_verified_program,
 };
 
@@ -49,11 +41,9 @@ fn scalar_memory_signature(memory: &TinyMemory) -> Vec<String> {
     memory
         .snapshot()
         .into_iter()
-        .map(|value| {
-            match value {
-                RuntimeValue::Float { kind, bits } => format!("Float({kind:?}, {:016x})", bits.to_bits()),
-                value => format!("{value:?}"),
-            }
+        .map(|value| match value {
+            RuntimeValue::Float { kind, bits } => format!("Float({kind:?}, {:016x})", bits.to_bits()),
+            value => format!("{value:?}"),
         })
         .collect()
 }

@@ -30,19 +30,19 @@ pub enum MemoryEvent {
     /// A new heap object was allocated.
     Allocated {
         /// VM-internal address of the allocated object.
-        vm_address:    usize,
+        vm_address: usize,
         /// Heap generation counter at the time of allocation.
         vm_generation: u64,
         /// Size of the allocation in bytes.
-        size:          usize,
+        size: usize,
         /// Canonical type name of the allocated object.
-        type_name:     &'static str,
+        type_name: &'static str,
     },
 
     /// A heap object was freed.
     Freed {
         /// VM-internal address of the freed object.
-        vm_address:    usize,
+        vm_address: usize,
         /// Heap generation counter at the time of the free.
         vm_generation: u64,
     },
@@ -50,25 +50,25 @@ pub enum MemoryEvent {
     /// A heap object was reallocated (resized in place or moved).
     Reallocated {
         /// VM-internal address of the object after reallocation.
-        vm_address:    usize,
+        vm_address: usize,
         /// Heap generation counter at the time of reallocation.
         vm_generation: u64,
         /// Size of the object before reallocation, in bytes.
-        old_size:      usize,
+        old_size: usize,
         /// Size of the object after reallocation, in bytes.
-        new_size:      usize,
+        new_size: usize,
     },
 
     /// An access violation was attempted (bounds check, null dereference, etc.).
     AccessViolation {
         /// VM-internal address that was accessed illegally.
-        vm_address:    usize,
+        vm_address: usize,
         /// Heap generation counter at the time of the violation.
         vm_generation: u64,
         /// The operation that triggered the violation (e.g. `"load"`, `"store"`).
-        operation:     &'static str,
+        operation: &'static str,
         /// Human-readable reason for the violation.
-        reason:        &'static str,
+        reason: &'static str,
     },
 
     /// The allocator ran out of memory.
@@ -76,25 +76,25 @@ pub enum MemoryEvent {
         /// Number of bytes that were requested when the failure occurred.
         requested_size: usize,
         /// Total live bytes at the time of the failure.
-        live_bytes:     usize,
+        live_bytes: usize,
         /// Configured heap byte limit.
-        limit_bytes:    usize,
+        limit_bytes: usize,
     },
 
     /// A stale or dangling pointer was detected.
     StalePointer {
         /// VM-internal address of the stale pointer.
-        vm_address:   usize,
+        vm_address: usize,
         /// Generation the pointer was created in.
         expected_gen: u64,
         /// Generation currently recorded for the slot.
-        actual_gen:   u64,
+        actual_gen: u64,
     },
 
     /// A double-free was attempted.
     DoubleFree {
         /// VM-internal address of the object that was freed twice.
-        vm_address:    usize,
+        vm_address: usize,
         /// Heap generation counter at the time of the second free attempt.
         vm_generation: u64,
     },
@@ -102,13 +102,13 @@ pub enum MemoryEvent {
     /// A buffer out-of-bounds read or write was attempted.
     BufferOverflow {
         /// VM-internal address of the buffer.
-        vm_address:    usize,
+        vm_address: usize,
         /// Heap generation counter at the time of the access.
         vm_generation: u64,
         /// Index that was out of range.
-        index:         usize,
+        index: usize,
         /// Current length of the buffer.
-        len:           usize,
+        len: usize,
     },
 
     /// VM shutdown — reports final live allocation counts.
@@ -193,7 +193,7 @@ pub trait VmMemoryHook: Send + Sync {
 ///
 /// `HookRegistry` is `Send + Sync` and is intended to be shared via [`Arc`].
 pub struct HookRegistry {
-    hooks:      RwLock<Vec<Arc<dyn VmMemoryHook>>>,
+    hooks: RwLock<Vec<Arc<dyn VmMemoryHook>>>,
     hook_count: AtomicUsize,
 }
 
@@ -202,7 +202,7 @@ impl HookRegistry {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            hooks:      RwLock::new(Vec::new()),
+            hooks: RwLock::new(Vec::new()),
             hook_count: AtomicUsize::new(0),
         }
     }
@@ -335,7 +335,7 @@ pub struct MemoryErrorPusher {
     capacity: usize,
     /// The bounded error queue.
     /// `VecDeque` gives O(1) front/back push-pop for FIFO eviction.
-    queue:    Mutex<std::collections::VecDeque<MemoryEvent>>,
+    queue: Mutex<std::collections::VecDeque<MemoryEvent>>,
 }
 
 impl MemoryErrorPusher {
@@ -455,18 +455,18 @@ mod tests {
 
     fn alloc_event() -> MemoryEvent {
         MemoryEvent::Allocated {
-            vm_address:    0x1000,
+            vm_address: 0x1000,
             vm_generation: 1,
-            size:          64,
-            type_name:     "Array",
+            size: 64,
+            type_name: "Array",
         }
     }
 
     fn oom_event() -> MemoryEvent {
         MemoryEvent::OutOfMemory {
             requested_size: 1024,
-            live_bytes:     900,
-            limit_bytes:    1000,
+            live_bytes: 900,
+            limit_bytes: 1000,
         }
     }
 
@@ -477,17 +477,17 @@ mod tests {
         assert!(!alloc_event().is_error());
         assert!(
             !MemoryEvent::Freed {
-                vm_address:    0x1000,
+                vm_address: 0x1000,
                 vm_generation: 1,
             }
             .is_error()
         );
         assert!(
             !MemoryEvent::Reallocated {
-                vm_address:    0x1000,
+                vm_address: 0x1000,
                 vm_generation: 1,
-                old_size:      64,
-                new_size:      128,
+                old_size: 64,
+                new_size: 128,
             }
             .is_error()
         );
@@ -505,34 +505,34 @@ mod tests {
         assert!(oom_event().is_error());
         assert!(
             MemoryEvent::AccessViolation {
-                vm_address:    0x1000,
+                vm_address: 0x1000,
                 vm_generation: 1,
-                operation:     "load",
-                reason:        "null deref",
+                operation: "load",
+                reason: "null deref",
             }
             .is_error()
         );
         assert!(
             MemoryEvent::StalePointer {
-                vm_address:   0x1000,
+                vm_address: 0x1000,
                 expected_gen: 1,
-                actual_gen:   2,
+                actual_gen: 2,
             }
             .is_error()
         );
         assert!(
             MemoryEvent::DoubleFree {
-                vm_address:    0x1000,
+                vm_address: 0x1000,
                 vm_generation: 1,
             }
             .is_error()
         );
         assert!(
             MemoryEvent::BufferOverflow {
-                vm_address:    0x1000,
+                vm_address: 0x1000,
                 vm_generation: 1,
-                index:         10,
-                len:           5,
+                index: 10,
+                len: 5,
             }
             .is_error()
         );
@@ -639,9 +639,9 @@ mod tests {
         // Fill to capacity + 1
         for i in 0..4u64 {
             pusher.on_memory_event(&MemoryEvent::StalePointer {
-                vm_address:   i as usize,
+                vm_address: i as usize,
                 expected_gen: 0,
-                actual_gen:   1,
+                actual_gen: 1,
             });
         }
         assert_eq!(pusher.error_count(), 3);

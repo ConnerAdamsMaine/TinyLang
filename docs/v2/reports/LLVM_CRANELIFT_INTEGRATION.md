@@ -8,10 +8,29 @@ declares the 0.125 family; the root workspace lockfile records the resolved vers
 It consumes the same checked-i64 IR as ASM; no independent language parser
 or implicit interpreter fallback is permitted.
 
-LLVM lowering emits IR for the same function profile. `--backend llvm`
-means **IR emission**, not execution or a claim of a linked LLVM JIT.
-Actual LLVM verification, object compilation and host execution require an
-available LLVM toolchain and are reported separately from emitted text.
+LLVM lowering emits IR for the same function profile and, since this
+milestone, for the whole call-closure **program profile**
+(`llvm/program.rs::emit_program_llvm_ir`). The program emitter mirrors the
+Cranelift program ABI exactly: one shared invocation context (depth@0 u64,
+trap@8 u32, fuel@16 u64, bank@24 ptr, pc@32 u64), a uniform frame bank
+addressed by call depth, the same trap tags (1 overflow, 2 division by zero,
+3 fuel exhausted, 4 call-stack overflow) and the same argument order and
+trap propagation. It emits every closure member as
+`define i64 @tinylang_program_N(ptr %context)`; the header comment documents
+the entry symbol, stride and depth limit. The checked binary/floor-division
+lowering is shared with the leaf profile through the `TrapSink` trait, so
+trap categories cannot drift between profiles. The CLI escalates a leaf
+`CALL` rejection to program emission instead of reporting a gap.
+
+`--backend llvm` means **IR emission**, not execution or a claim of a
+linked LLVM JIT. Actual LLVM verification, object compilation and host
+execution require an available LLVM toolchain and are reported separately
+from emitted text. The llvmlite harness (`test_llvm_execution.py`) executes
+the actual emitted program IR through MCJIT and checks parity with the real
+VM: recursion and zero-argument call results, trap tags 1/2/4, the
+shared-fuel budget boundary (minimum-1 traps with tag 3, minimum succeeds)
+and RX-only generated pages. Exact per-fuel equality with the interpreter is
+covered by the Rust program-parity suites.
 
 Default builds select no Cranelift dependencies for compilation. Requesting
 Cranelift without the feature returns an explicit availability error.

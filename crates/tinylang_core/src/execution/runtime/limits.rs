@@ -1,0 +1,92 @@
+use crate::RuntimeValue;
+
+// These are temporary safety caps, NOT design philosophy. TinyLang does not
+// intend to limit users. Each constant below exists because the allocator
+// backend (Ralloc integration, GAT, IRC, FrameRegion) is not yet
+// production-grade. As those systems mature, these become configurable or
+// are removed entirely. See `phase_2_allocator.md` for the removal roadmap.
+//
+// MAX_CALL_DEPTH is the one exception: it is load-bearing until the shadow
+// stack / FrameRegion system (phase_2_allocator.md [REGION-1]) is built,
+// because the heap shutdown walk assumes bounded recursion. All others are
+// pure safety caps with no structural dependency.
+pub(crate) const MAX_CALL_DEPTH: usize = 16;
+pub(crate) const MAX_HEAP_OBJECTS: usize = 1_000_000;
+pub(crate) const MAX_HEAP_BYTES: usize = 4 * 1024 * 1024;
+pub(crate) const MAX_ARRAY_LENGTH: usize = 65_536;
+pub(crate) const MAX_BUFFER_BYTES: usize = 1024 * 1024;
+pub(crate) const VALUE_BYTES: usize = std::mem::size_of::<RuntimeValue>();
+
+/// Validated per-VM limits. These can only tighten the runtime hard caps.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct VmExecutionLimits {
+    pub(crate) heap_bytes: usize,
+    pub(crate) heap_objects: usize,
+    pub(crate) call_depth: usize,
+}
+
+impl VmExecutionLimits {
+    /// Construct a bounded execution policy.
+    ///
+    /// # Errors
+    /// Rejects zero values and limits exceeding the runtime hard caps.
+    pub fn new(heap_bytes: usize, heap_objects: usize, call_depth: usize) -> crate::Result<Self> {
+        if heap_bytes == 0
+            || heap_bytes > MAX_HEAP_BYTES
+            || heap_objects == 0
+            || heap_objects > MAX_HEAP_OBJECTS
+            || call_depth == 0
+            || call_depth > MAX_CALL_DEPTH
+        {
+            return Err(crate::TinyLangError::runtime("VM execution limits exceed supported bounds"));
+        }
+        Ok(Self {
+            heap_bytes,
+            heap_objects,
+            call_depth,
+        })
+    }
+}
+
+impl Default for VmExecutionLimits {
+    fn default() -> Self {
+        Self {
+            heap_bytes: MAX_HEAP_BYTES,
+            heap_objects: MAX_HEAP_OBJECTS,
+            call_depth: MAX_CALL_DEPTH,
+        }
+    }
+}
+
+/// Per-program VM policy persisted in bytecode artifacts.
+///
+/// Limits can only tighten the runtime's hard safety ceiling. Keeping the
+/// ceiling in the runtime avoids a project configuration accidentally turning
+/// an embedding application into an unbounded executor.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct VmSettings {
+    pub(crate) max_call_depth: usize,
+}
+
+impl VmSettings {
+    pub(crate) const fn defaulted() -> Self {
+        Self {
+            max_call_depth: MAX_CALL_DEPTH,
+        }
+    }
+
+    pub(crate) fn with_max_call_depth(max_call_depth: usize) -> crate::Result<Self> {
+        if max_call_depth == 0 || max_call_depth > MAX_CALL_DEPTH {
+            return Err(crate::TinyLangError::compile(format!(
+                "VM max_call_depth must be between 1 and {MAX_CALL_DEPTH}"
+            )));
+        }
+        Ok(Self { max_call_depth })
+    }
+}
+
+impl Default for VmSettings {
+    fn default() -> Self {
+        Self::defaulted()
+    }
+}

@@ -1,13 +1,5 @@
 use tinylang::{
-    Function,
-    Instr,
-    JitCache,
-    JitOptions,
-    JitProgram,
-    Op,
-    Program,
-    VerifiedProgram,
-    compile_source_verified,
+    Function, Instr, JitCache, JitOptions, JitProgram, Op, Program, VerifiedProgram, compile_source_verified,
     run_verified_program,
 };
 

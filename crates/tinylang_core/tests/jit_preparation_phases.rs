@@ -12,14 +12,7 @@ use fixtures::{LARGE_CASES, PreparationFixture};
 use sources::SOURCE_CASES;
 use tinylang::testing::{PreparationPhase as Phase, PreparationProfile, capture_jit_preparation};
 use tinylang::{
-    Instr,
-    JitCache,
-    JitOptions,
-    JitProgram,
-    Op,
-    Program,
-    VerifiedProgram,
-    compile_source_verified,
+    Instr, JitCache, JitOptions, JitProgram, Op, Program, VerifiedProgram, compile_source_verified,
     run_verified_program,
 };
 

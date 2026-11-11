@@ -5,72 +5,65 @@ use std::io::Write;
 use std::sync::Arc;
 
 use crate::{
-    JitProgram,
-    Program,
-    Result,
-    RuntimeValue,
-    TinyHeapStats,
-    TinyLangError,
-    compile_file,
-    compile_source_with_filename,
-    run_program_report,
+    JitProgram, Program, Result, RuntimeValue, TinyHeapStats, TinyLangError, compile_file,
+    compile_source_with_filename, run_program_report,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ProgramInspection {
-    pub(crate) fingerprint:    String,
-    pub(crate) slot_count:     usize,
-    pub(crate) main_ops:       Vec<String>,
+    pub(crate) fingerprint: String,
+    pub(crate) slot_count: usize,
+    pub(crate) main_ops: Vec<String>,
     pub(crate) function_names: Vec<String>,
-    pub(crate) string_count:   usize,
-    pub(crate) struct_names:   Vec<String>,
-    pub(crate) module_names:   Vec<String>,
-    pub(crate) opcode_counts:  BTreeMap<String, usize>,
+    pub(crate) string_count: usize,
+    pub(crate) struct_names: Vec<String>,
+    pub(crate) module_names: Vec<String>,
+    pub(crate) opcode_counts: BTreeMap<String, usize>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct BackendRunInspection {
-    pub(crate) mode:                 &'static str,
-    pub(crate) stdout:               String,
-    pub(crate) memory:               Vec<RuntimeValue>,
+    pub(crate) mode: &'static str,
+    pub(crate) stdout: String,
+    pub(crate) memory: Vec<RuntimeValue>,
     pub(crate) heap_before_shutdown: TinyHeapStats,
-    pub(crate) heap_after_shutdown:  TinyHeapStats,
+    pub(crate) heap_after_shutdown: TinyHeapStats,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct JitInspection {
     pub(crate) fingerprint: String,
-    pub(crate) listing:     String,
+    pub(crate) listing: String,
     pub(crate) chunk_count: usize,
-    pub(crate) op_count:    usize,
+    pub(crate) op_count: usize,
 }
 
 #[cfg(feature = "testing-hooks")]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub(crate) struct RuntimeCostInspection {
     pub(crate) heap_lock_acquisitions: u64,
-    pub(crate) value_encodes:          u64,
-    pub(crate) value_decodes:          u64,
-    pub(crate) ralloc_growth_events:   u64,
-    pub(crate) ralloc_bytes_copied:    u64,
+    pub(crate) value_encodes: u64,
+    pub(crate) value_decodes: u64,
+    pub(crate) ralloc_growth_events: u64,
+    pub(crate) ralloc_bytes_copied: u64,
 }
 
 #[cfg(feature = "testing-hooks")]
 pub(crate) fn runtime_cost_counters() -> RuntimeCostInspection {
-    let runtime = crate::runtime::instrumentation::snapshot();
+    let runtime = crate::execution::runtime::instrumentation::snapshot();
     let allocator = ralloc::testing::instrumentation_snapshot();
     RuntimeCostInspection {
         heap_lock_acquisitions: runtime.heap_lock_acquisitions,
-        value_encodes:          runtime.value_encodes,
-        value_decodes:          runtime.value_decodes,
-        ralloc_growth_events:   allocator.growth_events,
-        ralloc_bytes_copied:    allocator.bytes_copied,
+        value_encodes: runtime.value_encodes,
+        value_decodes: runtime.value_decodes,
+        ralloc_growth_events: allocator.growth_events,
+        ralloc_bytes_copied: allocator.bytes_copied,
     }
 }
 
 #[cfg(feature = "testing-hooks")]
 pub(crate) fn reset_runtime_cost_counters() {
-    crate::runtime::instrumentation::reset();
+    crate::execution::runtime::instrumentation::reset();
     ralloc::testing::reset_instrumentation();
 }
 
@@ -106,27 +99,23 @@ pub(crate) fn inspect_program(program: &Program) -> ProgramInspection {
 
 pub(crate) fn inspect_jit(program: &Program) -> JitInspection {
     match JitProgram::compile(program) {
-        Ok(compiled) => {
-            JitInspection {
-                fingerprint: compiled.fingerprint().to_string(),
-                listing:     compiled.listing(),
-                chunk_count: compiled.chunks.iter().flatten().count(),
-                op_count:    compiled
-                    .chunks
-                    .iter()
-                    .flatten()
-                    .map(|chunk| chunk.ops.len())
-                    .sum::<usize>(),
-            }
-        }
-        Err(error) => {
-            JitInspection {
-                fingerprint: program.fingerprint(),
-                listing:     format!("; tinylang adaptive-jit unavailable: {error}"),
-                chunk_count: 0,
-                op_count:    0,
-            }
-        }
+        Ok(compiled) => JitInspection {
+            fingerprint: compiled.fingerprint().to_string(),
+            listing: compiled.listing(),
+            chunk_count: compiled.chunks.iter().flatten().count(),
+            op_count: compiled
+                .chunks
+                .iter()
+                .flatten()
+                .map(|chunk| chunk.ops.len())
+                .sum::<usize>(),
+        },
+        Err(error) => JitInspection {
+            fingerprint: program.fingerprint(),
+            listing: format!("; tinylang adaptive-jit unavailable: {error}"),
+            chunk_count: 0,
+            op_count: 0,
+        },
     }
 }
 

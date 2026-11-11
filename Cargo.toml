@@ -24,6 +24,22 @@ panic            = "unwind"
 lto              = "off"
 # trim-paths = "none" # requires cargo-features = ["trim-paths"] + nightly
 
+[profile.fast]
+inherits     = "dev"
+opt-level     = 0
+debug         = 0
+debug-assertions = false
+overflow-checks = false
+codegen-units = 256
+incremental   = false
+strip         = "none"
+panic         = "unwind"
+lto           = "off"
+
+[profile.fast.package."*"]
+inherits = "fast"
+
+
 [profile.release]
 opt-level     = 3
 codegen-units = 1

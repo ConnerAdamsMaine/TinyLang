@@ -11,11 +11,11 @@ use ralloc::{RallocBuffer, RallocError, VmAllocator};
 use tinylang::{JitOptions, JitProgram, RuntimeValue, TinyMemory, compile_source_verified, run_verified_program};
 
 struct ExhaustionFixture {
-    name:             &'static str,
-    source:           String,
-    failed_output:    &'static str,
+    name: &'static str,
+    source: String,
+    failed_output: &'static str,
     recovered_output: &'static str,
-    error:            &'static str,
+    error: &'static str,
 }
 
 fn exhaustion_fixtures() -> [ExhaustionFixture; 4] {

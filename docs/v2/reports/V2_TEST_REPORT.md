@@ -93,6 +93,67 @@ The actual core VM, not a normalization helper, supplies differential results.
 Python syntax validation passed. Reproduction commands and dependency pin
 are in [LLVM integration](LLVM_CRANELIFT_INTEGRATION.md).
 
+## Program-profile call-chain parity (executed 2026-11-10)
+
+`engine_program_native_parity.rs` runs 12 differential tests in which the
+native program image, the scalar interpreter and the authoritative VM (via
+fixtures mirroring `engine_program_parity.rs`) must agree exactly: results,
+the one shared minimum fuel budget, trap categories and failing instruction
+indexes, including a fuel 1..=67 sweep asserting identical trap traces for a
+non-terminating recursive fixture, and the depth boundary where the 17th
+nested call traps. 12/12 pass.
+
+The optional Cranelift backend executes the same program profile with the
+same fixtures in `engine_program_cranelift_parity.rs` (compiled under
+`--features cranelift`); 11/11 pass. Its lowering shares the verified
+binary/floor-division lowering with the single-function profile through a
+trap-sink trait, so trap categories cannot drift between profiles. Without
+the feature the same backend reports `BackendUnavailable` explicitly; the
+gap test covers both configurations.
+
+| Check | Result |
+| --- | --- |
+| Program native parity suite (`engine_program_native_parity`) | 12 passed, 0 failed |
+| Program Cranelift parity suite (`engine_program_cranelift_parity`, feature `cranelift`) | 11 passed, 0 failed |
+| Full default regression (50 suites) | 671 passed, 0 failed, 15 ignored |
+| Full regression with `--features cranelift` (50 suites) | 686 passed, 0 failed, 15 ignored |
+| Release CLI program fallback, executed end-to-end | `asm` fact(5)=120, `interpreter` fact(10)=3628800; release `--backend cranelift` fact(5)=120, fact(10)=3628800, fact(18) traps `Call stack overflow after 16 nested call(s) at instruction 10`; `llvm` emits program-profile IR (see the 2026-11-10 milestone section below, which supersedes the earlier gap report) |
+| Strict clippy, all targets, `-D warnings` (2026-11-10 re-run) | Passed without warnings in both build configurations |
+| Formatting on all files touched 2026-11-10 | `rustfmt --check` clean (pre-existing diffs elsewhere in the restructured tree are untouched) |
+| Emitted-image independent byte review | 654-byte `fact` image decoded by hand: call rel32 resolves to the body offset (cue skipped), every trap edge resolves, stub order overflow=1, division-zero=2, fuel=3, depth=4, propagate |
+
+## LLVM program-profile milestone (2026-11-10)
+
+The LLVM backend gained whole call-closure emission (`llvm/program.rs::
+emit_program_llvm_ir`) mirroring the Cranelift program ABI exactly. Two
+defects found by executed tests were fixed rather than normalized: the shared
+leaf `binary` helper originally emitted leaf-profile trap blocks into program
+IR (the structural tests caught tag-1/2 status codes written to
+`%error_instruction` instead of the context tag field), so trap emission now
+routes through the shared `TrapSink` trait with a program-profile sink; and
+header comments initially carried a leading space that broke the harness's
+entry-symbol regex.
+
+| Check | Result |
+| --- | --- |
+| Program emission structural tests (`llvm_program_emission`) | 6 passed, 0 failed |
+| Full default regression | 676 passed, 0 failed, 15 ignored |
+| Full regression with all features | 712 passed, 0 failed, 28 ignored |
+| Program parity suites (native / Cranelift / engine) | 12/12, 11/11, 12/12 |
+| Strict clippy, all targets/features, `-D warnings` | Passed without warnings |
+| `rustfmt --check` on touched files | Clean |
+| Real llvmlite execution (`test_llvm_execution.py`, isolated venv, LLVM 20.1.8) | 7 passed: 4 leaf + 3 program-profile (recursion/zero-arg parity with the real VM, trap tags 1/2/4, shared-fuel boundary min-1→tag 3/min→success, RX-page check) |
+| Release CLI, `--backend llvm` on a call closure | Emits program IR with `; entry:` header, all closure members and cross-call sites |
+
+Two emitter defects found by these executed tests were fixed rather than
+normalized: cross-call frame restore encoded `r9` where `r8` was intended, and
+the program image initially kept its invocation context in nonvolatile RDI,
+clobbering the host caller (observed as `STATUS_ACCESS_VIOLATION`,
+`0xc0000005`). The context now lives in volatile R10. A follow-up modrm slip
+in the re-encoded R10 bytes reproduced the same crash until every byte was
+re-derived from the verified single-function encodings; the parity suite
+pinned both failures before the fixes landed.
+
 ## Limits of evidence
 
 No passing build is treated as runtime proof. No full-language native parity,

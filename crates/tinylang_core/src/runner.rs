@@ -3,15 +3,7 @@ use std::io::Write;
 use std::sync::Arc;
 
 use crate::{
-    JitOptions,
-    JitProgram,
-    Program,
-    Result,
-    TinyLangError,
-    TinyMemory,
-    TinyRunReport,
-    VM,
-    VerifiedProgram,
+    JitOptions, JitProgram, Program, Result, TinyLangError, TinyMemory, TinyRunReport, VM, VerifiedProgram,
     compile_source_verified,
 };
 

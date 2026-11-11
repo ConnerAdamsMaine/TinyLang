@@ -1,7 +1,7 @@
 use std::hint::black_box;
 use std::time::Instant;
 
-use tinylang::engine::{ExecutionBackend, ScalarFunction};
+use tinylang::engine::{ExecutionBackend, ScalarFunction, ScalarProgram};
 use tinylang::{RuntimeValue, VM, VmExecutionLimits, compile_source_unoptimized_verified};
 
 const SOURCE: &str = "fn sum(n) { let t=0 let i=0 while i<n { t=t+i i=i+1 } return t }";
@@ -67,6 +67,36 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             Ok(())
         })?;
         let executable = backend.prepare(&scalar)?;
+        measure(&format!("{name}_warm_sum100"), BATCH, || {
+            let result = executable.invoke(black_box(&[100]), 10000)?;
+            if result != 4950 {
+                return Err("backend produced an incorrect result".into());
+            }
+            black_box(result);
+            Ok(())
+        })?;
+    }
+    // Program profile: the same checked workload through the whole-call
+    // closure pipeline, directly comparable with the single-function rows
+    // above. LLVM has no program backend; the parity suite covers its
+    // explicit `BackendUnavailable` error.
+    let scalar_program = ScalarProgram::lower(&program, 0)?;
+    measure("program_scalar_lower", BATCH, || {
+        black_box(ScalarProgram::lower(black_box(&program), 0)?);
+        Ok(())
+    })?;
+    let program_backends = [
+        ("program_interpreter", ExecutionBackend::Interpreter),
+        ("program_asm", ExecutionBackend::NativeAsm),
+        #[cfg(feature = "cranelift")]
+        ("program_cranelift", ExecutionBackend::Cranelift),
+    ];
+    for (name, backend) in program_backends {
+        measure(&format!("{name}_prepare"), 1, || {
+            black_box(backend.prepare_program(black_box(&scalar_program))?);
+            Ok(())
+        })?;
+        let executable = backend.prepare_program(&scalar_program)?;
         measure(&format!("{name}_warm_sum100"), BATCH, || {
             let result = executable.invoke(black_box(&[100]), 10000)?;
             if result != 4950 {

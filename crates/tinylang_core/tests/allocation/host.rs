@@ -77,12 +77,12 @@ unsafe impl GlobalAlloc for CountedHostAllocator {
 
 #[derive(Debug)]
 pub(super) struct HostAllocationCounts {
-    pub(super) allocations:       usize,
-    pub(super) deallocations:     usize,
-    pub(super) reallocations:     usize,
-    pub(super) allocated_bytes:   usize,
+    pub(super) allocations: usize,
+    pub(super) deallocations: usize,
+    pub(super) reallocations: usize,
+    pub(super) allocated_bytes: usize,
     pub(super) reallocated_bytes: usize,
-    pub(super) size_buckets:      [usize; 4],
+    pub(super) size_buckets: [usize; 4],
 }
 
 pub(super) struct HostAllocationInterval;
@@ -109,12 +109,12 @@ impl HostAllocationInterval {
     pub(super) fn finish(self) -> HostAllocationCounts {
         drop(self);
         HostAllocationCounts {
-            allocations:       ALLOCATIONS.load(Relaxed),
-            deallocations:     DEALLOCATIONS.load(Relaxed),
-            reallocations:     REALLOCATIONS.load(Relaxed),
-            allocated_bytes:   ALLOCATED_BYTES.load(Relaxed),
+            allocations: ALLOCATIONS.load(Relaxed),
+            deallocations: DEALLOCATIONS.load(Relaxed),
+            reallocations: REALLOCATIONS.load(Relaxed),
+            allocated_bytes: ALLOCATED_BYTES.load(Relaxed),
             reallocated_bytes: REALLOCATED_BYTES.load(Relaxed),
-            size_buckets:      std::array::from_fn(|index| SIZE_BUCKETS[index].load(Relaxed)),
+            size_buckets: std::array::from_fn(|index| SIZE_BUCKETS[index].load(Relaxed)),
         }
     }
 }

@@ -67,11 +67,11 @@ fn call(runtime: TinyRuntimeHandle, input: &[u8]) -> TinyStatus {
         tinylang_v2_call(
             runtime,
             TinyBuffer {
-                data:   input.as_ptr(),
+                data: input.as_ptr(),
                 length: input.len() as u64,
             },
             TinyMutableBuffer {
-                data:     output.as_mut_ptr(),
+                data: output.as_mut_ptr(),
                 capacity: output.len() as u64,
             },
             &mut written,

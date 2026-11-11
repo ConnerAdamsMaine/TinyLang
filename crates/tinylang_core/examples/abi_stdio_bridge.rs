@@ -34,11 +34,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             tinylang_v2_call(
                 runtime,
                 TinyBuffer {
-                    data:   request.as_ptr(),
+                    data: request.as_ptr(),
                     length: request.len() as u64,
                 },
                 TinyMutableBuffer {
-                    data:     response.as_mut_ptr(),
+                    data: response.as_mut_ptr(),
                     capacity: response.len() as u64,
                 },
                 &mut written,

@@ -169,20 +169,8 @@ mod jit {
     fn cranelift_arity_and_module_lifetime_are_owned() {
         for _ in 0..32 {
             let jit = CraneliftFunction::compile(&scalar("fn test(a) { return a + 1 }")).unwrap();
-            assert!(matches!(
-                jit.invoke(&[], 100),
-                Err(EngineError::InvalidArguments {
-                    expected: 1,
-                    actual:   0,
-                })
-            ));
-            assert!(matches!(
-                jit.invoke(&[1, 2], 100),
-                Err(EngineError::InvalidArguments {
-                    expected: 1,
-                    actual:   2,
-                })
-            ));
+            assert!(matches!(jit.invoke(&[], 100), Err(EngineError::InvalidArguments { expected: 1, actual: 0 })));
+            assert!(matches!(jit.invoke(&[1, 2], 100), Err(EngineError::InvalidArguments { expected: 1, actual: 2 })));
             for n in -8..8 {
                 assert_eq!(jit.invoke(&[n], 100).unwrap(), n + 1);
             }
@@ -349,5 +337,115 @@ int main(int argc, char **argv) {{
         for fuel in 0..100 {
             assert_eq!(run(&binary, &[3], fuel).0, vm_outcome(LOOP, &[3], fuel));
         }
+    }
+}
+
+/// Structural checks on the program-profile LLVM emission. These do not
+/// execute anything: the actual execution validation happens through the
+/// llvmlite harness in `test_llvm_execution.py`, which consumes the same
+/// emitted IR.
+mod llvm_program_emission {
+    use tinylang::compile_source_unoptimized_verified;
+    use tinylang::engine::ScalarProgram;
+    use tinylang::engine::llvm::emit_program_llvm_ir;
+
+    fn program(source: &str, entry: usize) -> ScalarProgram {
+        let verified = compile_source_unoptimized_verified(source).expect("source compiles");
+        ScalarProgram::lower(&verified, entry).expect("closure lowers")
+    }
+
+    #[test]
+    fn emits_whole_closure_with_entry_header_and_trap_tags() {
+        let scalar = program("fn fact(n) { if n < 2 { return 1 } return n * fact(n - 1) }", 0);
+        let ir = emit_program_llvm_ir(&scalar).expect("program emission succeeds");
+        assert!(ir.contains("; entry: tinylang_program_0"));
+        assert!(ir.contains("define i64 @tinylang_program_0(ptr %context)"));
+        // Overflow (1), fuel (3) and call-depth (4) tags appear through their
+        // dedicated trap blocks; this fixture multiplies but never divides, so
+        // the division-by-zero tag is checked separately below.
+        assert!(ir.contains("store i32 1, ptr %trap_ptr"));
+        assert!(ir.contains("store i32 3, ptr %trap_ptr"));
+        assert!(ir.contains("store i32 4, ptr %trap_ptr"));
+        // The call depth gate guards touching the callee segment.
+        assert!(ir.contains("icmp sgt i64 %nested"));
+        // Self recursion is emitted as a direct call to the same symbol.
+        assert!(ir.contains("call i64 @tinylang_program_0(ptr %context)"));
+    }
+
+    #[test]
+    fn division_trap_tag_appears_for_guarded_division() {
+        let scalar = program(
+            "fn division(cond) { if cond == 1 { return 7 / 0 } return 0 }\nfn overflow(n) { return n * 4294967296 * 4294967296 }",
+            0,
+        );
+        let ir = emit_program_llvm_ir(&scalar).expect("program emission succeeds");
+        assert!(ir.contains("store i32 2, ptr %trap_ptr"));
+    }
+
+    #[test]
+    fn emits_every_closure_member_and_skips_holes() {
+        let scalar = program("fn answer() { return 7 * 6 }\nfn probe() { return answer() + answer() }", 1);
+        let ir = emit_program_llvm_ir(&scalar).expect("program emission succeeds");
+        // Both closure members are defined; the entry index is probe's index 1.
+        assert!(ir.contains("define i64 @tinylang_program_0(ptr %context)"));
+        assert!(ir.contains("define i64 @tinylang_program_1(ptr %context)"));
+        assert!(ir.contains("; entry: tinylang_program_1"));
+        // Probe calls answer twice.
+        assert!(ir.contains("call i64 @tinylang_program_0(ptr %context)"));
+    }
+
+    #[test]
+    fn mutual_recursion_emits_both_symbols_and_cross_calls() {
+        // Source-level mutual recursion is not expressible in the single-pass
+        // frontend, so the same hand-built odd/even cycle as the parity suite
+        // drives the emission instead.
+        use tinylang::{Function, Instr, Op, Program};
+        let odd_code = vec![
+            Instr::new(Op::Load, 0, 0),
+            Instr::new(Op::PushInt, 0, 0),
+            Instr::new(Op::Eq, 0, 0),
+            Instr::new(Op::JumpIfZero, 6, 0),
+            Instr::new(Op::PushInt, 0, 0),
+            Instr::new(Op::Return, 0, 0),
+            Instr::new(Op::Load, 0, 0),
+            Instr::new(Op::PushInt, 1, 0),
+            Instr::new(Op::Sub, 0, 0),
+            Instr::new(Op::Call, 1, 1),
+            Instr::new(Op::Return, 0, 0),
+        ];
+        let even_code = vec![
+            Instr::new(Op::Load, 0, 0),
+            Instr::new(Op::PushInt, 0, 0),
+            Instr::new(Op::Eq, 0, 0),
+            Instr::new(Op::JumpIfZero, 6, 0),
+            Instr::new(Op::PushInt, 1, 0),
+            Instr::new(Op::Return, 0, 0),
+            Instr::new(Op::Load, 0, 0),
+            Instr::new(Op::PushInt, 1, 0),
+            Instr::new(Op::Sub, 0, 0),
+            Instr::new(Op::Call, 0, 1),
+            Instr::new(Op::Return, 0, 0),
+        ];
+        let program = Program::new(vec![Instr::new(Op::Halt, 0, 0)], 0).with_functions(vec![
+            Function::new("odd", 1, odd_code, 1),
+            Function::new("even", 1, even_code, 1),
+        ]);
+        let verified = tinylang::VerifiedProgram::verify(program).expect("bytecode verifies");
+        let scalar = ScalarProgram::lower(&verified, 0).expect("cycle lowers");
+        let ir = emit_program_llvm_ir(&scalar).expect("program emission succeeds");
+        assert!(ir.contains("define i64 @tinylang_program_0(ptr %context)"));
+        assert!(ir.contains("define i64 @tinylang_program_1(ptr %context)"));
+        assert!(ir.contains("call i64 @tinylang_program_1(ptr %context)"));
+        assert!(ir.contains("call i64 @tinylang_program_0(ptr %context)"));
+    }
+
+    #[test]
+    fn argument_copy_and_result_store_are_present() {
+        let scalar = program("fn pack(a, b, c) { return (a - b) * c }\nfn drive() { return pack(10, 3, 2) }", 1);
+        let ir = emit_program_llvm_ir(&scalar).expect("program emission succeeds");
+        // Argument copies into the callee segment and the result store into
+        // the caller's operand stack both exist.
+        assert!(ir.contains("%callee_segment"));
+        assert!(ir.contains("store i64 %callee_result"));
     }
 }

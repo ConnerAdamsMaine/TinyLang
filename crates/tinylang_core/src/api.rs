@@ -3,22 +3,10 @@ use std::path::Path;
 use std::rc::Rc;
 use std::sync::Arc;
 
+use crate::language::compile_cache;
 use crate::{
-    CompileCacheStatus,
-    Compiler,
-    CompilerSharedState,
-    Lexer,
-    ModuleCapabilities,
-    ModulePermissions,
-    ModuleResolver,
-    PeepholeOptimizer,
-    Program,
-    Result,
-    SourceMap,
-    TinyLangError,
-    VerifiedProgram,
-    compile_cache,
-    read_source_file,
+    CompileCacheStatus, Compiler, CompilerSharedState, Lexer, ModuleCapabilities, ModulePermissions, ModuleResolver,
+    PeepholeOptimizer, Program, Result, SourceMap, TinyLangError, VerifiedProgram, read_source_file,
 };
 
 /// Compile `source` into a verified program and return it as a shareable `Program`.

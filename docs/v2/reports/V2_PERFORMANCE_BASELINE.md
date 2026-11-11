@@ -43,6 +43,40 @@ Times are nanoseconds per operation.
 | Cranelift preparation | 690,900 | 766,100 | 843,200 | 1 |
 | Cranelift warm invocation | 1,835 | 1,935 | 1,978 | 256 |
 
+### Program-profile rows (executed 2026-11-10)
+
+Same host and release configuration (`--features cranelift`), same checked
+`sum(100) = 4950` workload and harness; whole-call-closure program profile
+added to the same [harness](../../../crates/tinylang_core/examples/engine_bench.rs).
+Program preparation covers whole-closure lowering and, for ASM, image
+emission and cross-call patching; for Cranelift, per-function IR lowering and
+module finalization. Warm invocation includes the frame bank and depth
+machinery.
+
+| Metric | Median | P95 | P99 | Batch |
+| --- | ---: | ---: | ---: | ---: |
+| Program scalar lowering | 6,248 | 8,855 | 10,642 | 256 |
+| Program interpreter preparation | 300 | 400 | 400 | 1 |
+| Program interpreter warm invocation | 3,224 | 3,987 | 16,358 | 256 |
+| Program ASM preparation | 9,500 | 10,000 | 15,400 | 1 |
+| Program ASM warm invocation | 878 | 1,215 | 1,461 | 256 |
+| Program Cranelift preparation | 742,400 | 999,000 | 1,268,400 | 1 |
+| Program Cranelift warm invocation | 1,620 | 2,170 | 2,410 | 256 |
+
+The program ASM image adds about 0.02 µs median over the single-function ASM
+row in the same run (878 vs 857) for bank indexing and depth bookkeeping; the
+original baseline comparison read 1,096 vs 893. Program preparation is
+costlier than leaf preparation because the whole closure is emitted and
+patched. Program Cranelift warm invocation lands between the program ASM and
+interpreter rows (1,620 vs 878 and 3,224 median in the same run), consistent
+with its per-instruction context pc store and fuel check; its preparation
+dominates at 742,400 ns because every closure member is compiled through
+Cranelift. The earlier same-session default (non-Cranelift) release run
+reproduced the ASM ordering with more scheduler noise: single-function ASM
+warm 1,645 vs program ASM warm 1,088 median. LLVM has no program backend and
+is not benchmarked; its absence is asserted by the CLI test's explicit
+`BackendUnavailable` check.
+
 This is equivalent checked scalar work, not equivalent full-language
 capability. The VM retains its general runtime/value/allocator machinery.
 No native backend existed for a before/after optimization comparison, and no

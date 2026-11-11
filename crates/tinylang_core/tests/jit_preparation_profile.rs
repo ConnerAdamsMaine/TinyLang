@@ -33,7 +33,7 @@ impl Fixture {
 }
 
 struct PreparedStorage {
-    stats:          JitStats,
+    stats: JitStats,
     retained_bytes: usize,
 }
 
@@ -41,7 +41,7 @@ fn standalone(verified: &VerifiedProgram) -> PreparedStorage {
     let compiled = JitProgram::compile_verified(verified).expect("standalone lowering");
     black_box(&compiled);
     PreparedStorage {
-        stats:          compiled.stats(),
+        stats: compiled.stats(),
         retained_bytes: compiled.retained_bytes(),
     }
 }

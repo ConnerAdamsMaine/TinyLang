@@ -71,6 +71,18 @@ Thumbs.db
 *.tmp
 *~
 
+# Scratch/one-off debug artifacts from source-editing sessions
+*.orig
+*.old
+*.fixed
+*.new
+*.patch
+*.tmp[0-9]
+fix_log.txt
+hex.txt
+prompt.md
+.codex/
+
 # Local-only docs
 docs/superpowers/*
 .superpowers/

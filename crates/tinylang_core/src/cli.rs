@@ -2,52 +2,44 @@ use std::env;
 use std::io::{self, Read};
 
 use tinylang::{
-    CompileCacheStatus,
-    JitOptions,
-    TinyLangError,
-    compile_file_cached_verified_with_options,
-    compile_file_unoptimized_verified,
-    compile_file_verified,
-    load_verified_artifact,
-    run_verified_program_with_jit_options,
-    write_artifact,
-    write_binary_artifact,
-    write_verified_jit_listing,
+    CompileCacheStatus, JitOptions, TinyLangError, compile_file_cached_verified_with_options,
+    compile_file_unoptimized_verified, compile_file_verified, load_verified_artifact,
+    run_verified_program_with_jit_options, write_artifact, write_binary_artifact, write_verified_jit_listing,
 };
 
 #[derive(Debug)]
 struct Args {
-    path:          Option<String>,
-    mode:          String,
-    check:         bool,
+    path: Option<String>,
+    mode: String,
+    check: bool,
     emit_bytecode: Option<String>,
-    emit_jit:      Option<String>,
-    run_bytecode:  Option<String>,
-    inputs:        Vec<String>,
-    stdin:         bool,
-    verbose:       bool,
-    optimize:      bool,
-    cache:         bool,
+    emit_jit: Option<String>,
+    run_bytecode: Option<String>,
+    inputs: Vec<String>,
+    stdin: bool,
+    verbose: bool,
+    optimize: bool,
+    cache: bool,
     jit_threshold: u16,
-    help:          bool,
+    help: bool,
 }
 
 impl Default for Args {
     fn default() -> Self {
         Self {
-            path:          None,
-            mode:          "jit".to_string(),
-            check:         false,
+            path: None,
+            mode: "jit".to_string(),
+            check: false,
             emit_bytecode: None,
-            emit_jit:      None,
-            run_bytecode:  None,
-            inputs:        Vec::new(),
-            stdin:         false,
-            verbose:       false,
-            optimize:      true,
-            cache:         true,
+            emit_jit: None,
+            run_bytecode: None,
+            inputs: Vec::new(),
+            stdin: false,
+            verbose: false,
+            optimize: true,
+            cache: true,
             jit_threshold: tinylang::DEFAULT_HOT_BACK_EDGE_THRESHOLD,
-            help:          false,
+            help: false,
         }
     }
 }

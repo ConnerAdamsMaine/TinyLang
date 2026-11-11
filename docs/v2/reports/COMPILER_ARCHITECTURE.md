@@ -79,10 +79,10 @@ integration, and measured cold/warm costs without unsupported speedup claims.
 | Backend | Execution | Validated target | Boundary |
 | --- | --- | --- | --- |
 | Core VM and decoded-opcode executor | Existing full language | Existing core test host | Existing semantic reference; not new machine-code emission |
-| Scalar interpreter | Shared checked IR | Windows x86-64 | I64 arguments/results and Bool control flow |
-| ASM | Real emitted machine code | Windows x86-64 | Other targets explicitly unavailable |
-| Cranelift | Real emitted machine code, optional feature | Windows x86-64 | Unix mapping code untested; other ISAs unavailable |
-| LLVM | CLI IR emission; generated objects executed in optional validation | Windows x86-64, LLVM 20.1.8 | No linked Rust LLVM executor or native COFF/executable pipeline |
+| Scalar interpreter | Shared checked IR | Windows x86-64 | I64 arguments/results and Bool control flow; function and whole-call-closure program profiles |
+| ASM | Real emitted machine code | Windows x86-64 | Function and program profiles; other targets explicitly unavailable |
+| Cranelift | Real emitted machine code, optional feature | Windows x86-64 | Function and program profiles (program profile executed 2026-11-10); Unix mapping code untested; other ISAs unavailable |
+| LLVM | CLI IR emission; generated objects executed in optional validation | Windows x86-64, LLVM 20.1.8 | Function profile only; no linked Rust LLVM executor or native COFF/executable pipeline |
 
 `ExecutionBackend::capabilities` exposes each executable backend's target
 requirement, machine-code behavior and required Cargo feature. These static
@@ -92,6 +92,21 @@ runtime availability.
 `ExecutionBackend::prepare` retains a `PreparedFunction`; invocations share
 compiled code but allocate independent bounded frames. This is explicit
 prepared-function reuse, not an automatic program-wide code cache.
+`ExecutionBackend::prepare_program` applies the same contract at program
+level: `ScalarProgram::lower(&VerifiedProgram, entry)` lowers the entry
+function with its entire call closure into one immutable checked program, and
+the interpreter, ASM and Cranelift backends execute it while LLVM reports
+`BackendUnavailable` explicitly. The program profile extends the function IR
+with checked `Call` targets inside one closed closure; the frontend rejects
+forward and mutual function references in source, so mutual recursion is
+expressible only in raw bytecode. The ASM program image keeps per-invocation
+state in volatile registers (context R10, slots R8, stack R9, fuel R11) with a
+host-owned frame bank indexed by call depth; the Cranelift program image
+passes one shared invocation context (depth, trap tag, fuel, bank, failing
+instruction) to every emitted closure member and derives each frame from a
+bank segment addressed by call depth, sharing the checked binary/floor-division
+lowering with the single-function profile through a trap-sink trait; see
+[JIT backend status](JIT_BACKEND_STATUS.md).
 `tinylang-v2` selects interpreter, ASM, Cranelift or LLVM emission without
 changing the existing CLI or C ABI. LLVM's generated scalar frame interface
 is `i32 tinylang_scalar(slots, stack, output, fuel, error_instruction)`, with

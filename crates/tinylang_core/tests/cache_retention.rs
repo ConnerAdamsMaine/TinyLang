@@ -1,16 +1,8 @@
 use std::collections::HashMap;
 
 use tinylang::{
-    DEFAULT_COMPILED_CACHE_MAX_BYTES,
-    DEFAULT_COMPILED_CACHE_MAX_ENTRIES,
-    Instr,
-    JitCache,
-    JitOptions,
-    JitProgram,
-    Op,
-    Program,
-    VerifiedProgram,
-    compile_source_verified,
+    DEFAULT_COMPILED_CACHE_MAX_BYTES, DEFAULT_COMPILED_CACHE_MAX_ENTRIES, Instr, JitCache, JitOptions, JitProgram, Op,
+    Program, VerifiedProgram, compile_source_verified,
 };
 
 fn constant_program(value: i64, capacity: usize) -> VerifiedProgram {

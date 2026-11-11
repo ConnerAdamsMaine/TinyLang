@@ -52,7 +52,7 @@ fn zero_stack_loop_remains_bounded_by_fuel() {
     assert!(matches!(
         function.interpret(&[], 100),
         Err(EngineError::Trap {
-            kind:        TrapKind::FuelExhausted,
+            kind: TrapKind::FuelExhausted,
             instruction: 0,
         })
     ));
