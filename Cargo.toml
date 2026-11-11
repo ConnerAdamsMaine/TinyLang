@@ -11,6 +11,7 @@ edition      = "2024"
 license-file = "LICENSE"
 repository   = "https://github.com/ConnerAdamsMaine/TinyOne"
 
+# Development build
 [profile.dev]
 opt-level     = 1
 codegen-units = 256
@@ -24,42 +25,41 @@ panic            = "unwind"
 lto              = "off"
 # trim-paths = "none" # requires cargo-features = ["trim-paths"] + nightly
 
-[profile.fast]
-inherits     = "dev"
-opt-level     = 0
-debug         = 0
-debug-assertions = false
-overflow-checks = false
-codegen-units = 256
-incremental   = false
-strip         = "none"
-panic         = "unwind"
-lto           = "off"
-
-[profile.fast.package."*"]
-inherits = "fast"
-
-
+# Standard release (original no-LTO baseline)
 [profile.release]
-opt-level     = 3
-codegen-units = 1
-incremental   = false
-# codegen-backend = "cranelift" # May break deps. Requires nightly + cargo-features = ["codegen-backend"]
-debug            = "none"
-debug-assertions = false
-overflow-checks  = false
-strip            = "symbols"
-panic            = "unwind"
-lto              = "off"
-# trim-paths = ["diagnostics", "object"] # requires cargo-features = ["trim-paths"] + nightly
+opt-level         = 3
+codegen-units     = 1
+incremental       = false
+debug             = 0
+debug-assertions  = false
+overflow-checks   = false
+strip             = "symbols"
+panic             = "unwind"
+lto               = "off"
 
-[profile.dev.package."*"]
-inherits = "release"
-# codegen-backend = "cranelift"
+# Fast compilation
+[profile.fast]
+inherits       = "release"
+opt-level      = 2
+codegen-units  = 64
+incremental    = true
+lto            = "off"
 
-[profile.release.package."*"]
-inherits = "release"
-# codegen-backend = "cranelift"
+# Thin link-time optimization
+[profile.thin]
+inherts        = "release"
+opt-level      = 3
+codegen-units  = 4
+incremental    = false
+lto            = "thin"
+
+# Fat link-time optimization
+[profile.fat]
+inherts        = "release"
+opt-level      = 3
+codegen-units  = 4
+incremental    = false
+lto            = "fat"
 
 [workspace.lints.rust]
 unsafe_code = { level = "forbid", priority = 0 }
