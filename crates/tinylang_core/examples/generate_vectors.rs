@@ -57,6 +57,29 @@ fn main() -> std::io::Result<()> {
     impossible_length[20..24].copy_from_slice(&u32::MAX.to_le_bytes());
     write(&output, "invalid_impossible_payload_length.bin", &impossible_length)?;
 
+    let mut header_length_not_32 = request(0x0000, 0x6162_6364_6566_6768, &[]);
+    header_length_not_32[8..10].copy_from_slice(&64u16.to_le_bytes());
+    write(&output, "invalid_header_length_not_32.bin", &header_length_not_32)?;
+
+    let mut request_flag_response = request(0x0000, 0x7172_7374_7576_7778, &[]);
+    request_flag_response[12..16].copy_from_slice(&1u32.to_le_bytes());
+    write(&output, "invalid_request_flag_response.bin", &request_flag_response)?;
+
+    let mut request_status_nonzero = request(0x0000, 0x8182_8384_8586_8788, &[]);
+    request_status_nonzero[16..20].copy_from_slice(&1u32.to_le_bytes());
+    write(&output, "invalid_request_status_nonzero.bin", &request_status_nonzero)?;
+
+    let mut schema_minor_1 = request(0x0000, 0x9192_9394_9596_9798, &[]);
+    schema_minor_1[6..8].copy_from_slice(&1u16.to_le_bytes());
+    write(&output, "invalid_schema_minor_1.bin", &schema_minor_1)?;
+
+    let mut payload_length_off_by_one = request(0x0000, 0xa1a2_a3a4_a5a6_a7a8, &[0u8; 8]);
+    payload_length_off_by_one[20..24].copy_from_slice(&9u32.to_le_bytes());
+    write(&output, "invalid_payload_length_off_by_one.bin", &payload_length_off_by_one)?;
+
+    let nop_with_payload = request(0x0000, 0xb1b2_b3b4_b5b6_b7b8, &[0u8; 8]);
+    write(&output, "invalid_nop_with_payload.bin", &nop_with_payload)?;
+
     write(&artifact_output, "minimal_halt.tlbc", &binary_artifact(0, &[(20, 0, 0)]))?;
     write(&artifact_output, "push_print_halt.tlbc", &binary_artifact(0, &[(1, 42, 0), (9, 0, 0), (20, 0, 0)]))?;
     write(

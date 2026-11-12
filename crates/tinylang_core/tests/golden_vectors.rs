@@ -74,6 +74,42 @@ const CASES: &[Case] = &[
         call_status: TINY_STATUS_INVALID_FRAME,
         response_status: None,
     },
+    Case {
+        name: "invalid_header_length_not_32",
+        bytes: include_bytes!("vectors/invalid_header_length_not_32.bin"),
+        call_status: TINY_STATUS_INVALID_FRAME,
+        response_status: None,
+    },
+    Case {
+        name: "invalid_request_flag_response",
+        bytes: include_bytes!("vectors/invalid_request_flag_response.bin"),
+        call_status: TINY_STATUS_INVALID_FRAME,
+        response_status: None,
+    },
+    Case {
+        name: "invalid_request_status_nonzero",
+        bytes: include_bytes!("vectors/invalid_request_status_nonzero.bin"),
+        call_status: TINY_STATUS_INVALID_FRAME,
+        response_status: None,
+    },
+    Case {
+        name: "invalid_schema_minor_1",
+        bytes: include_bytes!("vectors/invalid_schema_minor_1.bin"),
+        call_status: TINY_STATUS_UNSUPPORTED_VERSION,
+        response_status: None,
+    },
+    Case {
+        name: "invalid_payload_length_off_by_one",
+        bytes: include_bytes!("vectors/invalid_payload_length_off_by_one.bin"),
+        call_status: TINY_STATUS_INVALID_FRAME,
+        response_status: None,
+    },
+    Case {
+        name: "invalid_nop_with_payload",
+        bytes: include_bytes!("vectors/invalid_nop_with_payload.bin"),
+        call_status: TINY_STATUS_INVALID_FRAME,
+        response_status: None,
+    },
 ];
 
 #[test]

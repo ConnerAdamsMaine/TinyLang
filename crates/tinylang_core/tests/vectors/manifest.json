@@ -80,6 +80,48 @@
       "sha256": "ef2193e6954cad82de2b29903aa94c95e7cfc5c72c587e1ab7ab70e83309ab37",
       "call_status": "INVALID_FRAME",
       "response_status": null
+    },
+    {
+      "file": "invalid_header_length_not_32.bin",
+      "bytes": 32,
+      "sha256": "3f6b28ee3b32af31592b4a054f317647a82d7b7c9dd6db22aa7d6bafaf9834cb",
+      "call_status": "INVALID_FRAME",
+      "response_status": null
+    },
+    {
+      "file": "invalid_request_flag_response.bin",
+      "bytes": 32,
+      "sha256": "3b93e3968e45e8cc137689d3befb8a21dd3e5f81542c35bc68643fb17caeac11",
+      "call_status": "INVALID_FRAME",
+      "response_status": null
+    },
+    {
+      "file": "invalid_request_status_nonzero.bin",
+      "bytes": 32,
+      "sha256": "c21e4e375aa0221ed05fde0d0dd6c955b98e7f0fcc802bfc715520a929f61107",
+      "call_status": "INVALID_FRAME",
+      "response_status": null
+    },
+    {
+      "file": "invalid_schema_minor_1.bin",
+      "bytes": 32,
+      "sha256": "a780f6be81f794f1fd84cb309ef442d755b1bb4c60ee97af360e98e0793ecf61",
+      "call_status": "UNSUPPORTED_VERSION",
+      "response_status": null
+    },
+    {
+      "file": "invalid_payload_length_off_by_one.bin",
+      "bytes": 40,
+      "sha256": "4c56fa027c0cacbbbf272bc284c2773ab00c7e4b7290acb35ecb46f56ad89df8",
+      "call_status": "INVALID_FRAME",
+      "response_status": null
+    },
+    {
+      "file": "invalid_nop_with_payload.bin",
+      "bytes": 40,
+      "sha256": "c4322adfb2d26c39f5598bcbd22d9ac1bc3be1f7f0ef2039e798ccde784f01ff",
+      "call_status": "INVALID_FRAME",
+      "response_status": null
     }
   ]
 }

@@ -200,3 +200,51 @@ fn zero_length_buffers_may_be_null() {
     assert_eq!(written, 0);
     assert_eq!(tinylang_v2_runtime_destroy(runtime), TINY_STATUS_OK);
 }
+
+#[test]
+fn request_longer_than_the_frame_cap_is_rejected_before_parsing() {
+    let runtime = create_runtime();
+    let over_cap = MAX_FRAME_BYTES as u64 + 1;
+    let mut oversized = vec![0u8; over_cap as usize];
+    oversized[0..4].copy_from_slice(&MAGIC);
+    let mut written = 0;
+    // SAFETY: `oversized` is live for the duration of the call and disjoint
+    // from the null response descriptor.
+    let status = unsafe {
+        tinylang_v2_call(
+            runtime,
+            TinyBuffer {
+                data: oversized.as_ptr(),
+                length: over_cap,
+            },
+            TinyMutableBuffer {
+                data: ptr::null_mut(),
+                capacity: 0,
+            },
+            &mut written,
+        )
+    };
+    assert_eq!(status, TINY_STATUS_INVALID_ARGUMENT);
+    assert_eq!(written, 0);
+    assert_eq!(tinylang_v2_runtime_destroy(runtime), TINY_STATUS_OK);
+}
+
+#[test]
+fn owned_buffer_acquire_rejects_zero_and_over_cap_capacities() {
+    let runtime = create_runtime();
+    let mut buffer = TinyOwnedBuffer::default();
+    // SAFETY: `buffer` is valid output storage.
+    assert_eq!(unsafe { tinylang_v2_buffer_acquire(runtime, 0, &mut buffer) }, TINY_STATUS_INVALID_ARGUMENT);
+    assert_eq!(
+        unsafe { tinylang_v2_buffer_acquire(runtime, MAX_FRAME_BYTES as u64 + 1, &mut buffer) },
+        TINY_STATUS_INVALID_ARGUMENT
+    );
+    assert!(buffer.data.is_null());
+    // Exactly at the cap succeeds and must still be released.
+    // SAFETY: `buffer` is valid output storage.
+    assert_eq!(unsafe { tinylang_v2_buffer_acquire(runtime, MAX_FRAME_BYTES as u64, &mut buffer) }, TINY_STATUS_OK);
+    assert_eq!(buffer.capacity, MAX_FRAME_BYTES as u64);
+    // SAFETY: this is the live descriptor returned above.
+    assert_eq!(unsafe { tinylang_v2_buffer_release(runtime, &mut buffer) }, TINY_STATUS_OK);
+    assert_eq!(tinylang_v2_runtime_destroy(runtime), TINY_STATUS_OK);
+}
