@@ -119,8 +119,8 @@ async function runCase(bridge, path, correlation) {
 }
 
 const here = dirname(fileURLToPath(import.meta.url));
-const crate = resolve(here, "..", "..");
-const workspace = resolve(crate, "..", "..");
+const crate = resolve(here, "..", "..", ".."); // the tinylang_core crate's repository root
+const workspace = crate;
 const suffix = process.platform === "win32" ? ".exe" : "";
 const bridgePath = process.argv[2] ?? join(workspace, "target", "debug", "examples", `abi_stdio_bridge${suffix}`);
 const suppliedArtifacts = process.argv.slice(3);
@@ -128,9 +128,9 @@ const artifacts =
   suppliedArtifacts.length > 0
     ? suppliedArtifacts
     : [
-        join(crate, "tests", "artifacts", "minimal_halt.tlbc"),
-        join(crate, "tests", "artifacts", "push_print_halt.tlbc"),
-        join(crate, "tests", "artifacts", "arithmetic_print.tlbc"),
+        join(crate, "crates", "tinylang_core", "tests", "artifacts", "minimal_halt.tlbc"),
+        join(crate, "crates", "tinylang_core", "tests", "artifacts", "push_print_halt.tlbc"),
+        join(crate, "crates", "tinylang_core", "tests", "artifacts", "arithmetic_print.tlbc"),
       ];
 
 const bridge = new AbiBridge(bridgePath);

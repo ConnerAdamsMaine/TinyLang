@@ -25,7 +25,7 @@ import {
 } from "./tinylang_v2_wire.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const vectors = join(here, "..", "..", "tests", "vectors");
+const vectors = join(here, "..", "..", "..", "crates", "tinylang_core", "tests", "vectors");
 
 test("NOP ArrayBuffer exactly matches the committed Rust vector", () => {
   const encoded = makeRequest(OPCODE_NOP, new Uint8Array(), 0x0102_0304_0506_0708n);

@@ -98,7 +98,7 @@ class CompilerArtifactIntegrationTests(unittest.TestCase):
             self.assertEqual(struct.unpack_from("<H", response, 32)[0], 2)  # VM error detail
 
     def test_format2_rejects_tlbc_and_corrupt_compiler_artifacts(self) -> None:
-        tlbc = Path(__file__).resolve().parents[2] / "tests" / "artifacts" / "minimal_halt.tlbc"
+        tlbc = Path(__file__).resolve().parents[3] / "crates" / "tinylang_core" / "tests" / "artifacts" / "minimal_halt.tlbc"
         invalid_artifacts = (
             tlbc.read_bytes(),
             self.artifact + b"\x00",
@@ -115,7 +115,7 @@ class CompilerArtifactIntegrationTests(unittest.TestCase):
                     )
 
     def test_default_format1_still_loads_real_tlbc(self) -> None:
-        path = Path(__file__).resolve().parents[2] / "tests" / "artifacts" / "minimal_halt.tlbc"
+        path = Path(__file__).resolve().parents[3] / "crates" / "tinylang_core" / "tests" / "artifacts" / "minimal_halt.tlbc"
         with sdk.Runtime(self.library_path) as runtime:
             with self.owned_handle(runtime, sdk.make_program_load_request(path.read_bytes())):
                 pass

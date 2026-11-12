@@ -54,7 +54,7 @@ def main() -> int:
         return 2
     artifacts = [Path(value) for value in sys.argv[2:]]
     if not artifacts:
-        base = Path(__file__).resolve().parents[2] / "tests" / "artifacts"
+        base = Path(__file__).resolve().parents[3] / "crates" / "tinylang_core" / "tests" / "artifacts"
         artifacts = [
             base / "minimal_halt.tlbc",
             base / "push_print_halt.tlbc",
