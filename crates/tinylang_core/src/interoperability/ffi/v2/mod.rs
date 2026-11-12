@@ -71,6 +71,9 @@ pub extern "C" fn tinylang_v2_runtime_destroy(runtime: TinyRuntimeHandle) -> Tin
 
 /// Acquires an optional runtime-owned transfer buffer.
 ///
+/// EXPERIMENTAL: excluded from the stable-client surface in 2.x pending wider
+/// review; raw call buffers remain host-owned.
+///
 /// The allocation is zero-initialized and must be returned using
 /// `tinylang_v2_buffer_release` before destroying its runtime.
 ///

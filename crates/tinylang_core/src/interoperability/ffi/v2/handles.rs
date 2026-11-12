@@ -1,5 +1,6 @@
 use std::alloc::{Layout, alloc_zeroed, dealloc};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 mod execution;
 mod lifetime;
@@ -21,6 +22,17 @@ const MAX_OBJECTS: usize = 256;
 const BUFFER_ALIGNMENT: usize = 8;
 // Both tables fit below this slot-word bit, preserving all 32 generation bits.
 const OBJECT_HANDLE_TAG: u32 = 1 << 31;
+
+// Transfer tokens are unique across every allocation this process ever makes
+// (zero is reserved as "invalid"), which makes the release lookup an exact
+// identity match instead of a per-slot generation guess. Exhausting the u64
+// counter requires 2^64 - 1 acquisitions (fail-closed: a zero token is rejected
+// by `release_buffer`), which no feasible workload reaches.
+static NEXT_BUFFER_TOKEN: AtomicU64 = AtomicU64::new(0);
+
+fn next_buffer_token() -> u64 {
+    NEXT_BUFFER_TOKEN.fetch_add(1, Ordering::Relaxed).wrapping_add(1)
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
@@ -333,7 +345,7 @@ pub fn acquire_buffer(runtime: TinyRuntimeHandle, minimum_capacity: u64) -> Resu
     if data.is_null() {
         return Err(TINY_STATUS_OUT_OF_MEMORY);
     }
-    slot.token = slot.token.wrapping_add(1).max(1);
+    slot.token = next_buffer_token();
     slot.address = data as usize;
     slot.capacity = capacity;
     slot.runtime = runtime;

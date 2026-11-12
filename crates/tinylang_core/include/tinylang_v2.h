@@ -104,13 +104,17 @@ tinylang_v2_runtime_create(TinyRuntimeHandle *out_runtime);
 TINYLANG_V2_API TinyStatus
 tinylang_v2_runtime_destroy(TinyRuntimeHandle runtime);
 
-/* Optional runtime-owned transfer storage; raw call buffers remain host-owned. */
+/* EXPERIMENTAL (not part of any stable-client surface in 2.x): optional
+ * runtime-owned transfer storage; raw call buffers remain host-owned.
+ * The ABA/lifetime argument for the owner token is documented in
+ * docs/abi/v2-binary-spec.md. Stable clients must not rely on these calls. */
 TINYLANG_V2_API TinyStatus tinylang_v2_buffer_acquire(
     TinyRuntimeHandle runtime,
     uint64_t minimum_capacity,
     TinyOwnedBuffer *out_buffer);
 
-/* Clears *buffer on success. Every copied old descriptor is then invalid. */
+/* EXPERIMENTAL (not part of any stable-client surface in 2.x).
+ * Clears *buffer on success. Every copied old descriptor is then invalid. */
 TINYLANG_V2_API TinyStatus tinylang_v2_buffer_release(
     TinyRuntimeHandle runtime,
     TinyOwnedBuffer *buffer);

@@ -213,6 +213,60 @@ runtime and owner token, and must be returned exactly once using
 buffers remains outstanding. A copied or already released descriptor is stale
 and must not be dereferenced or released again.
 
+### 6.1 Transfer buffers are experimental (V2-TOKEN-WRAP resolution)
+
+The transfer-buffer pair is **experimental** in 2.x: stable clients and stable
+bindings must not call `tinylang_v2_buffer_acquire` or
+`tinylang_v2_buffer_release`. The following ABA/lifetime argument is the
+documented resolution of the audited `V2-TOKEN-WRAP` concern.
+
+**Token scheme.** Each successful `buffer_acquire` draws a transfer token from
+a process-wide monotonic counter; zero is reserved and never issued. The
+release lookup matches exactly one registry slot on the five-way identity
+`active && runtime && token && address && capacity`, then deallocates that
+exact allocation and deactivates the slot (its token is retained and never
+reused, because every subsequent acquire draws the next counter value).
+
+**ABA/lifetime argument.** A release can deallocate memory only when all five
+identity fields match a live slot.
+
+1. *Released-then-recycled slot (classic ABA).* A stale descriptor from a
+   released buffer can only match a later allocation in the same slot if the
+   new allocation carries the **same token**. Tokens are globally unique per
+   allocation until the u64 counter wraps after `2^64 - 1` acquisitions
+   (~584 years at 10^9 acquisitions/second), at which point acquisition
+   fails closed (the returned zero token is rejected by `release_buffer`
+   with `INVALID_ARGUMENT`). Within any feasible workload the stale release
+   is therefore rejected with `INVALID_HANDLE` even when the allocator reuses
+   the address and capacity.
+2. *Forged descriptor against a different live slot.* A fabricated descriptor
+   cannot match a live slot it never acquired: the token of one allocation
+   never equals the token of another, so a forged mix (foreign token, or a
+   guessed address under another slot's token) fails the identity match.
+   A forged descriptor that does match is byte-identical to the genuine
+   descriptor and therefore grants exactly the one legitimate release the
+   owner already had — it cannot free a *second* allocation.
+3. *Copies and double release.* Release clears the slot immediately; any
+   second release (original or copy) finds no matching live slot and returns
+   `INVALID_HANDLE` without deallocating.
+4. *Runtime scoping.* The runtime handle participates in the identity match;
+   a genuine descriptor released under a different runtime is rejected.
+5. *Concurrency.* Registry state (slots, tokens, table) is guarded by one
+   process-wide mutex; concurrent acquire/release on one runtime serialize
+   their table transitions and draw distinct tokens from the atomic counter.
+
+**Caller obligations (unchanged, documented, not memory-safety bugs in the
+implementation).** Mutating the data of a live buffer concurrently with its
+release, or dereferencing after release, is host misuse; the implementation
+never dereferences caller descriptors beyond the identity match and never
+deallocates anything but the allocation recorded in the matched slot.
+
+Boundary and concurrency behavior is pinned by
+`crates/tinylang_core/tests/buffer_transfer.rs` (released copies, double
+release, address/capacity reuse with a stale token, forged-token mix,
+cross-runtime release, concurrent acquire/release, null and length-mismatched
+descriptors).
+
 VM heap objects remain VM-owned. They cross the boundary only as generation-
 checked handles and are released through opcode-defined handle operations, not
 through a host allocator or C `free`.
