@@ -50,6 +50,13 @@ jobs:
         shell: "bash"
         run: cargo test --workspace
 
+      # The Cranelift engine tests (and the scalar program parity suites) only
+      # execute when the feature is enabled; the default workspace run leaves
+      # them filtered out.
+      - name: "Test tinylang core with cranelift feature enabled"
+        shell: "bash"
+        run: cargo test -p tinylang-v2 --features cranelift
+
       - name: "Rust codegen cranelift available"
         shell: "bash"
         run: rustc --print codegen-backends | grep -i cranelift || (echo "cranelift backend not available" && exit 1)

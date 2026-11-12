@@ -347,6 +347,42 @@ fn native_program_rejects_arity_mismatch_before_execution() {
     ));
 }
 
+/// A `while` loop with mutated locals (the `engine_contract.rs` fixture at
+/// program level): both machine engines must reproduce the interpreter's
+/// results and its exact shared minimum fuel.
+#[test]
+fn native_loop_with_mutated_locals_matches_interpreter_and_shared_fuel() {
+    let verified = compile_source_unoptimized_verified(
+        "fn sum(n) { let total = 0 let i = 0 while i < n { total = total + i i = i + 1 } return total }",
+    )
+    .expect("compiles");
+    let scalar = ScalarProgram::lower(&verified, 0).expect("sum lowers");
+    let machine = native(&scalar);
+    for (argument, expected) in [(0i64, 0i64), (1, 0), (10, 45), (100, 4_950)] {
+        let exact = interpreter_min_fuel(&scalar, &[argument]);
+        assert_eq!(native_min_fuel(&machine, &[argument]), exact, "one shared budget, one exact minimum");
+        assert_eq!(machine.invoke(&[argument], u64::MAX).expect("native sum"), expected);
+        assert_eq!(interpreter_trace(&scalar, &[argument], u64::MAX).expect("interpreted sum"), expected);
+    }
+}
+
+/// The machine image is stateless between invocations: running the same
+/// program repeatedly must reproduce identical results and budgets.
+#[test]
+fn native_repeated_invocations_are_deterministic() {
+    let verified = compile_source_unoptimized_verified("fn pack(a, b, c) { return (a - b) * c }").expect("compiles");
+    let scalar = ScalarProgram::lower(&verified, 0).expect("pack lowers");
+    let machine = native(&scalar);
+    let arguments = [19i64, 7, 3];
+    let expected = (arguments[0] - arguments[1]) * arguments[2];
+    let exact = interpreter_min_fuel(&scalar, &arguments);
+    for _ in 0..3 {
+        assert_eq!(native_min_fuel(&machine, &arguments), exact, "the shared budget must not drift");
+        assert_eq!(machine.invoke(&arguments, u64::MAX).expect("native pack"), expected);
+        assert_eq!(interpreter_trace(&scalar, &arguments, u64::MAX).expect("interpreted pack"), expected);
+    }
+}
+
 #[test]
 fn cranelift_program_backend_is_feature_or_platform_gated_explicitly() {
     let (verified, index) = fact();

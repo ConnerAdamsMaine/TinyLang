@@ -133,7 +133,7 @@ pub(super) fn module_error(error: ModuleError) -> EngineError {
 }
 
 #[cfg(all(test, windows, target_arch = "x86_64"))]
-mod tests {
+mod windows_page_protection_tests {
     use std::ffi::c_void;
 
     use super::CraneliftFunction;
@@ -179,5 +179,42 @@ mod tests {
         assert_eq!(function.invoke(&[], 100).unwrap(), 42);
         drop(function);
         assert_eq!(query(address).state, 0x10000); // MEM_FREE, not leaked or reserved
+    }
+}
+
+#[cfg(all(test, target_os = "linux", target_arch = "x86_64"))]
+mod linux_page_protection_tests {
+    use super::CraneliftFunction;
+
+    /// Whether a `/proc/self/maps` line covers `address`.
+    fn covers(line: &str, address: usize) -> bool {
+        let mut fields = line.split_whitespace();
+        let Some(range) = fields.next() else { return false };
+        let Some((start, end)) = range.split_once('-') else { return false };
+        let (Ok(start), Ok(end)) = (usize::from_str_radix(start, 16), usize::from_str_radix(end, 16)) else {
+            return false;
+        };
+        (start..end).contains(&address)
+    }
+
+    #[test]
+    fn actual_cranelift_code_is_read_execute_and_is_unmapped_on_drop() {
+        let scalar = crate::execution::engine::compile_scalar_source("fn test() { return 42 }", "test").unwrap();
+        let function = CraneliftFunction::compile(&scalar).unwrap();
+        let address = function.entry as usize;
+        let maps = std::fs::read_to_string("/proc/self/maps").unwrap();
+        let entry = maps
+            .lines()
+            .find(|line| covers(line, address))
+            .expect("emitted code must appear in /proc/self/maps");
+        let permissions = entry.split_whitespace().nth(1).expect("maps lines record permissions");
+        assert_eq!(permissions, "r-xp", "code mapping must be read-execute, never writable: {entry}");
+        assert_eq!(function.invoke(&[], 100).unwrap(), 42);
+        drop(function);
+        let maps = std::fs::read_to_string("/proc/self/maps").unwrap();
+        assert!(
+            !maps.lines().any(|line| covers(line, address)),
+            "dropped code mapping must not linger in /proc/self/maps"
+        );
     }
 }

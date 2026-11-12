@@ -1,7 +1,7 @@
 # Native ASM backend
 
-Status: **real Windows x86-64 scalar JIT implemented and tested; full-language
-backend remains partial**.
+Status: **real Windows and Linux x86-64 scalar JIT implemented and tested;
+full-language backend remains partial**.
 
 The existing [decoded-opcode JIT](../../architecture.md) is retained. The new
 experimental ASM backend consumes [ScalarFunction](../../../crates/tinylang_core/src/execution/engine/ir.rs)
@@ -25,8 +25,11 @@ or arithmetic callback is substituted.
 
 Windows executable storage uses VirtualAlloc RW, VirtualProtect RX and an
 instruction-cache flush. VirtualQuery tests observed RW `0x04` and RX `0x20`;
-no temporary or persistent WX is used. Prepared functions own mappings and
-release them on drop. Other targets report unavailable rather than fallback.
+no temporary or persistent WX is used. Linux executable storage uses anonymous
+`mmap(PROT_READ | PROT_WRITE)` followed by `mprotect` to RX, verified through
+`/proc/self/maps` (`r-xp`, never writable) including release-on-drop. Prepared
+functions own mappings and release them on drop. Other targets report
+unavailable rather than fallback.
 
 No support is claimed yet for globals, heap values, foreign calls, calls
 outside one lowered program closure, SIMD, general register allocation, AOT
@@ -34,8 +37,10 @@ linking, debug/unwind metadata, or a shared native code cache.
 
 ## Program profile: whole-call-chain images (executed 2026-11-10)
 
-`ExecutionBackend::NativeAsm::prepare_program` emits one Windows x86-64 image
-for a lowered whole call closure (`ScalarProgram::lower`). The image carries a
+`ExecutionBackend::NativeAsm::prepare_program` emits one x86-64 image
+(Windows and Linux, sharing the emitter; the sole ABI divergence is the
+argument register, RCX vs RDI) for a lowered whole call closure
+(`ScalarProgram::lower`). The image carries a
 host-owned frame bank of `(depth_limit + 1)` segments indexed by call depth;
 one instruction-fuel register is threaded through every call; call-depth
 budget, trap categories and failing instruction indexes match the reference
@@ -64,11 +69,14 @@ byte-by-byte: the recursive call's rel32 resolves to the body offset (cue
 skipped), every trap edge resolves to its stub, and stubs order
 overflow=1, division-zero=2, fuel=3, depth=4, propagate.
 
-Evidence: `engine_program_native_parity.rs`: 12/12 differential tests against
+Evidence: `engine_program_native_parity.rs`: 14/14 differential tests against
 the scalar interpreter and the authoritative VM (argument order, depth
 boundary 16/17, mutual recursion via raw bytecode, zero-argument wrapper
 cost, trap categories, identical trap traces at every fuel level including a
-1..=67 sweep of the non-terminating fixture).
+1..=67 sweep of the non-terminating fixture, mutated-locals loops, repeated
+invocations). Executed 2026-11-11 on Windows x86_64 and Ubuntu-24.04 x86_64;
+`native_backend.rs` runs 8/8 on both OSes, including the Linux
+`/proc/self/maps` RX check.
 
 The optional Cranelift backend executes the same program profile
 (`cranelift/program.rs`, under `--features cranelift`). It mirrors the ASM
@@ -90,8 +98,10 @@ cannot drift between profiles. Unlike the ASM image this backend is not
 Windows-bound: its gating is `target_arch = "x86_64"`, checked at runtime
 like the single-function profile.
 
-Evidence: `engine_program_cranelift_parity.rs`: 11/11 differential tests
-with the same fixtures as the native suite. Full regression executed
+Evidence: `engine_program_cranelift_parity.rs`: 13/13 differential tests
+with the same fixtures as the native suite, executed 2026-11-11 on both
+Windows x86_64 and Ubuntu-24.04 x86_64 (Cranelift program execution and the
+RW->RX `/proc/self/maps` check both run on Linux). Full regression executed
 2026-11-10: default 671 passed / 0 failed / 15 ignored; `--features
 cranelift` 686 passed / 0 failed / 15 ignored; 50 suites each. LLVM's
 program profile is now implemented as emission (`llvm/program.rs`) and is
