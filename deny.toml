@@ -1,0 +1,45 @@
+# cargo-deny configuration (minimal, sensible defaults).
+# Checked by .github/workflows/supply-chain.yml. Add entries deliberately:
+# fix the dependency instead of ignoring, and never blanket-ignore a lint.
+
+[licenses]
+version = 2
+allow = [
+  "MIT",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "ISC",
+  "Unicode-3.0",
+  "MPL-2.0",
+  "Zlib",
+  "CC0-1.0",
+]
+# Confidence threshold for license detection (default 0.8 is fine; documented here)
+confidence-threshold = 0.8
+
+[bans]
+# Surface duplicate dependency versions as warnings rather than hard failures,
+# so legitimate version skew does not stall CI while still being visible.
+multiple-versions = "warn"
+# Forbid wildcard (`*`) version requirements anywhere in the dependency graph.
+wildcards = "deny"
+# Highlight (but do not yet deny) crates with known-noise duplicate trees.
+skip-tree = []
+
+[advisories]
+version = 2
+# Fail the check on any RustSec advisory affecting the dependency graph.
+vulnerability = "deny"
+unmaintained = "warn"
+unsound = "warn"
+# Yanked releases must not enter the graph.
+yanked = "deny"
+ignore = []
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

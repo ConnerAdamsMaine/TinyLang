@@ -1,14 +1,14 @@
-# TinyLang v2 test report
+# Tynra v2 test report
 
 Mission 2, 2026-11-01, x86_64 Windows MSVC.
 
 ## Executed baseline and preserved behavior
 
 ```powershell
-cargo test -p tinylang-v2 --locked
-cargo test -p tinylang --lib --locked
-cargo test -p tinylang --test runtime_parity --test instruction_fuel --test persistent_vm --test abi_api_soundness --test cache_retention --test stdlib_parity --locked
-cargo test -p tinylang_ralloc --test native_box --test initialization --test fragmentation --locked
+cargo test -p tynra-v2 --locked
+cargo test -p tynra --lib --locked
+cargo test -p tynra --test runtime_parity --test instruction_fuel --test persistent_vm --test abi_api_soundness --test cache_retention --test stdlib_parity --locked
+cargo test -p tynra_ralloc --test native_box --test initialization --test fragmentation --locked
 ```
 
 Initial standalone ABI baseline: 42 passed, 1 manual benchmark ignored.
@@ -21,7 +21,7 @@ milestone does not modify those unrelated manifests.
 
 ## New acceptance
 
-Initial [engine contract](../../../crates/tinylang_core/tests/engine_contract.rs): missing engine
+Initial [engine contract](../../../crates/tynra_core/tests/engine_contract.rs): missing engine
 API failed before implementation; first four tests passed after implementation.
 The tests directly cover compiled source, typed eligibility, errors and CFG
 validation. VM differential loops and exact fuel are included afterward.
@@ -52,9 +52,9 @@ subsequently installed locally and passed; see below. The 73/77 suites
 overlap and must not be added together.
 
 ```powershell
-cargo test -p tinylang-v2 --all-features --locked
-cargo clippy -p tinylang-v2 --all-targets --all-features --locked -- -D warnings
-rustup run stable cargo fmt -p tinylang-v2 -- --check
+cargo test -p tynra-v2 --all-features --locked
+cargo clippy -p tynra-v2 --all-targets --all-features --locked -- -D warnings
+rustup run stable cargo fmt -p tynra-v2 -- --check
 ```
 
 Native tests run in bounded integration executables, not production-sensitive

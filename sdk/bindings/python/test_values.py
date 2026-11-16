@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import unittest
 
-import tinylang_v2 as sdk
+import tynra_v2 as sdk
 
 
 class ValueEncodingTests(unittest.TestCase):
     def test_utf8_value_encodes_canonical_utf8_and_zero_padding(self) -> None:
-        text = "TinyLang λ 🦀"
+        text = "Tynra λ 🦀"
         encoded = sdk.utf8_value(text)
         payload = text.encode("utf-8")
         self.assertEqual(int.from_bytes(encoded[0:2], "little"), sdk.VALUE_UTF8)
@@ -24,8 +24,8 @@ class ValueEncodingTests(unittest.TestCase):
             sdk.utf8_value("\ud800")
 
     def test_utf8_value_parser_decodes_text_and_rejects_noncanonical_records(self) -> None:
-        encoded = sdk.utf8_value("TinyLang λ 🦀")
-        self.assertEqual(sdk.parse_utf8_value(encoded), "TinyLang λ 🦀")
+        encoded = sdk.utf8_value("Tynra λ 🦀")
+        self.assertEqual(sdk.parse_utf8_value(encoded), "Tynra λ 🦀")
 
         wrong_tag = bytearray(sdk.utf8_value("a"))
         wrong_tag[0:2] = sdk.VALUE_BYTES.to_bytes(2, "little")

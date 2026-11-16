@@ -25,8 +25,8 @@ EXIT_ERROR = 2
 TREE_FORMAT_VERSION = b"hash-tool-tree-v1\0"
 DEFAULT_EXCLUDE_PATTERNS = (
     ".git",
-    "crates/tinylang_core/target",
-    "crates/tinylang_ralloc/target",
+    "crates/tynra_core/target",
+    "crates/tynra_ralloc/target",
     "target",
     "__pycache__",
     ".pytest_cache",
@@ -42,7 +42,7 @@ DEFAULT_EXCLUDE_PATTERNS = (
 HELP_EPILOG = """
 Examples:
   python3 tools/hash.py README.md
-  python3 tools/hash.py -a sha256 --format release --name TinyLang crates/tinylang_core/Cargo.toml
+  python3 tools/hash.py -a sha256 --format release --name Tynra crates/tynra_core/Cargo.toml
   ./hash.py --tree . --exclude manifest.json --symlinks skip --format json > manifest.json
   ./hash.py --tree . --format json --list-files > manifest.json
   ./hash.py --expected <digest> README.md

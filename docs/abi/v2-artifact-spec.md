@@ -1,10 +1,10 @@
-# TinyLang v2 binary artifact format
+# Tynra v2 binary artifact format
 
 Status: experimental v2.0 profile 0  
 Transport opcode: [`PROGRAM_LOAD`](v2-opcodes.md#0x1000--program_load)
 
 This document specifies `artifact_format = 1` only. Format 2 separately adapts
-the current compiler's `TINYLANG` version-5 artifact through its existing
+the current compiler's `TYNRA\0\0\0` version-5 artifact through its existing
 untrusted verifier (8 MiB maximum). Format 2 is experimental compiler
 interoperability, not a new TLBC profile or a promise of cross-version compiler
 artifact compatibility. The decoder is selected explicitly by the opcode
@@ -18,7 +18,7 @@ Every multibyte field is little-endian. Parsers use byte offsets and checked
 arithmetic; native structs are not mapped onto input bytes.
 
 Profile 0 deliberately supports an executable main chunk only. It is a real
-TinyLang `Program` verified by `BytecodeVerifier`, but has no strings,
+Tynra `Program` verified by `BytecodeVerifier`, but has no strings,
 functions, structs, modules, fields, or enum metadata. Later profiles may add
 those pools as new canonical sections without changing profile 0.
 
@@ -83,7 +83,7 @@ Each instruction is exactly 24 bytes:
 | `0x10` | 8 | i64 | argument 2 |
 
 The main section contains 1–262,144 instructions and must pass the normal
-TinyLang bytecode verifier. In particular, it must end in `HALT`; jumps, stack
+Tynra bytecode verifier. In particular, it must end in `HALT`; jumps, stack
 depths, indices, arities, and operands must be valid.
 
 Stable opcode ordinals are:
@@ -113,6 +113,6 @@ container, constructs `Program::new(main_code, slot_count)`, and calls
 inserted into the runtime's Program-handle table.
 
 Container, opcode, or verifier failure produces a response with
-`TINY_STATUS_INVALID_ARTIFACT`; no handle is inserted. Registry exhaustion
-produces `TINY_STATUS_OUT_OF_MEMORY`. Success returns one 16-byte Handle record
+`TYNRA_STATUS_INVALID_ARTIFACT`; no handle is inserted. Registry exhaustion
+produces `TYNRA_STATUS_OUT_OF_MEMORY`. Success returns one 16-byte Handle record
 and transfers one host-owned reference, releasable through `HANDLE_RELEASE`.

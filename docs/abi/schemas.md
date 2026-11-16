@@ -9,7 +9,7 @@ returned on success by each entry point. Error response shapes are
 documented in [`contract.md`](contract.md).
 
 The machine-readable contract is committed at
-[`tinylang-response-schema.json`](../../crates/tinylang_core/tinylang-response-schema.json). Consumers
+[`tynra-response-schema.json`](../../crates/tynra_core/tynra-response-schema.json). Consumers
 may validate complete responses against that schema; the Rust ABI tests also
 assert the exact response keys emitted by every current JSON entry point.
 
@@ -18,7 +18,7 @@ are not part of this contract; validate them against the committed schema.
 
 ---
 
-## `tinylang_lex_source_json`
+## `tynra_lex_source_json`
 
 ```json
 {
@@ -32,12 +32,12 @@ are not part of this contract; validate them against the committed schema.
 
 ---
 
-## `tinylang_compile_source_json` / `tinylang_compile_file_json`
+## `tynra_compile_source_json` / `tynra_compile_file_json`
 
 ```json
 {
   "artifact": {
-    "format":     "tinylang-bytecode",
+    "format":     "tynra-bytecode",
     "version":    1,
     "code":       [ {"op": "PUSH_INT", "arg": 42, "arg2": 0} ],
     "slot_count": 0,
@@ -55,13 +55,13 @@ are not part of this contract; validate them against the committed schema.
 | Field | Type | Status | Notes |
 | --- | --- | --- | --- |
 | `artifact` | object | STABLE (structure) | Full bytecode artifact; see [bytecode.md](../bytecode.md) for field semantics |
-| `artifact.format` | string | STABLE | Always `"tinylang-bytecode"` |
+| `artifact.format` | string | STABLE | Always `"tynra-bytecode"` |
 | `artifact.version` | integer | STABLE | Always `1` until a format break |
 | `fingerprint` | string | STABLE | Blake2b512 truncated to 16 hex bytes; matches `Program::fingerprint()` |
 
 ---
 
-## `tinylang_run_source_json` / `tinylang_run_file_json` / `tinylang_run_artifact_json`
+## `tynra_run_source_json` / `tynra_run_file_json` / `tynra_run_artifact_json`
 
 ```json
 {
@@ -117,11 +117,11 @@ are not part of this contract; validate them against the committed schema.
 
 ---
 
-## `tinylang_jit_listing_json`
+## `tynra_jit_listing_json`
 
 ```json
 {
-  "listing": "; tinylang adaptive-jit a1b2c3d4e5f60718\n; chunks=1 ops=3\n.chunk 0 main slots=0\n  0000 push.i 42\n  0001 print\n  0002 halt\n"
+  "listing": "; tynra adaptive-jit a1b2c3d4e5f60718\n; chunks=1 ops=3\n.chunk 0 main slots=0\n  0000 push.i 42\n  0001 print\n  0002 halt\n"
 }
 ```
 

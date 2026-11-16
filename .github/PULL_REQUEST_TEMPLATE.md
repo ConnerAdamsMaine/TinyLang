@@ -61,7 +61,7 @@
 - [ ] - I have added tests that prove my fix is effective or that my feature works
 - [ ] - New and existing unit tests pass locally (`cargo make ci-test` / `cargo test --workspace`)
 - [ ] - Language suite passes (`cargo test --features testing-hooks --test language_suite`)
-- [ ] - `tinylang.h` / `cbindgen` output updated if FFI changed (`cargo make ffi-consumer-compile` / `uv run python tools/abi_manifest.py check`)
+- [ ] - `tynra.h` / `cbindgen` output updated if FFI changed (`cargo make ffi-consumer-compile` / `uv run python tools/abi_manifest.py check`)
 - [ ] - ABI drift check passes (`uv run --no-project --python 3.12 python tools/abi_manifest.py check`)
 
 5. Dependencies

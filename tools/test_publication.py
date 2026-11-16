@@ -30,15 +30,15 @@ class PublicationTests(unittest.TestCase):
             if package["publish"] != []
         }
         self.assertEqual(
-            set(packages), {"tinylang-v2", "tinylang_ralloc", "tinylang_test_support"}
+            set(packages), {"tynra-v2", "tynra_ralloc", "tynra_test_support"}
         )
-        core = packages["tinylang-v2"]
+        core = packages["tynra-v2"]
         libraries = [
             target["name"] for target in core["targets"] if "rlib" in target["kind"]
         ]
-        self.assertEqual(libraries, ["tinylang"])
+        self.assertEqual(libraries, ["tynra"])
         self.assertIn(
-            "tinylang-sandbox-worker",
+            "tynra-sandbox-worker",
             [target["name"] for target in core["targets"] if "bin" in target["kind"]],
         )
         for package in packages.values():
@@ -57,14 +57,14 @@ class PublicationTests(unittest.TestCase):
         files = {
             Path(line).as_posix()
             for line in self.cargo(
-                "package", "--package", "tinylang-v2", "--list", "--allow-dirty", "--offline"
+                "package", "--package", "tynra-v2", "--list", "--allow-dirty", "--offline"
             ).splitlines()
         }
         required = {
-            "include/tinylang.h",
-            "tinylang-response-schema.json",
+            "include/tynra.h",
+            "tynra-response-schema.json",
             "src/main.rs",
-            "src/bin/tinylang-sandbox-worker.rs",
+            "src/bin/tynra-sandbox-worker.rs",
             "tests/abi_api_soundness.rs",
             "README.md",
             "LICENSE",

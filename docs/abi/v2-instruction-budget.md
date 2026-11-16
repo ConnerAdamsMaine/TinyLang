@@ -11,17 +11,17 @@ and [store fuel](https://docs.wasmtime.dev/api/wasmtime/struct.Store.html#method
 provide an authoritative example of opt-in deterministic execution accounting.
 This supports separating an embedding execution policy from default execution.
 The advantage is a predictable guest-work limit; the cost is instrumentation.
-Its exact instruction costs and implementation are not imported into TinyLang.
+Its exact instruction costs and implementation are not imported into Tynra.
 No Wasmtime timing or binary-size measurement was made here.
 
-TinyLang's selected policy charges one unit before each interpreter bytecode,
+Tynra's selected policy charges one unit before each interpreter bytecode,
 including call, return, jump and halt. Native builtin work, separately spawned
 VMs, JIT execution and wall time are outside this policy. Foreign invocation
 must constrain those facilities before it can claim bounded execution.
 
 ## Three working accounting candidates
 
-The independent `crates/tinylang_core/experiments/instruction-budget` crate implements:
+The independent `crates/tynra_core/experiments/instruction-budget` crate implements:
 
 - Baseline: unbounded trace execution; deliberately fails the budget contract.
 - A: a local countdown checked before each instruction. Hypothesis: minimal
@@ -47,8 +47,8 @@ opt-level 3, codegen-units 1, LTO off; no dependencies. For each feature
 `baseline`, `a`, `b`, `c` (replace both `a` occurrences):
 
 ```powershell
-cargo test --manifest-path crates/tinylang_core/experiments/instruction-budget/Cargo.toml --no-default-features --features a --target-dir target/instruction-budget/a
-cargo build --release --manifest-path crates/tinylang_core/experiments/instruction-budget/Cargo.toml --no-default-features --features a --target-dir target/instruction-budget/a
+cargo test --manifest-path crates/tynra_core/experiments/instruction-budget/Cargo.toml --no-default-features --features a --target-dir target/instruction-budget/a
+cargo build --release --manifest-path crates/tynra_core/experiments/instruction-budget/Cargo.toml --no-default-features --features a --target-dir target/instruction-budget/a
 ./target/instruction-budget/a/release/instruction-budget.exe
 ```
 
@@ -113,7 +113,7 @@ instructions with identical output/memory assertions, once warm then seven
 times per mode:
 
 ```powershell
-cargo build --release --locked -p tinylang-v2 --target-dir target/abi-v2 --example fuel_benchmark
+cargo build --release --locked -p tynra-v2 --target-dir target/abi-v2 --example fuel_benchmark
 ./target/abi-v2/release/examples/fuel_benchmark.exe
 ```
 
@@ -130,5 +130,5 @@ The public method remains a consuming, one-shot Rust API. Persistent sessions,
 typed foreign arguments/results, artifact exports, per-session heap limits,
 host capability restrictions and actual `VM_INVOKE` dispatch remain to be
 implemented and tested. Fuel exhaustion currently maps to the existing typed
-`TinyLangError::Runtime` category and annotated message; a future dispatcher
+`TynraError::Runtime` category and annotated message; a future dispatcher
 must map runtime failures to its documented trap status without parsing text.

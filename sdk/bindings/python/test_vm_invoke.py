@@ -5,7 +5,7 @@ from __future__ import annotations
 import struct
 import unittest
 
-import tinylang_v2 as sdk
+import tynra_v2 as sdk
 
 
 class VmInvokeRequestTests(unittest.TestCase):

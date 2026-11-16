@@ -2,73 +2,73 @@
 title: C Integration (New)
 ---
 
-# TinyLang C FFI Integration Guide
+# Tynra C FFI Integration Guide
 
-TinyLang builds as a `cdylib` alongside the CLI binary. All public entry points
-are declared in `crates/tinylang_core/include/tinylang.h`, which is included
-in the crate archive. The root `tinylang.h` forwards to it for source-checkout
-consumers. This document covers embedding TinyLang in C or C++.
+Tynra builds as a `cdylib` alongside the CLI binary. All public entry points
+are declared in `crates/tynra_core/include/tynra.h`, which is included
+in the crate archive. The root `tynra.h` forwards to it for source-checkout
+consumers. This document covers embedding Tynra in C or C++.
 
-**ABI VERSION 2.** Check `tinylang_abi_version()` against
-`TINYLANG_ABI_VERSION` before use. Rebuild v1 consumers against the renamed
+**ABI VERSION 2.** Check `tynra_abi_version()` against
+`TYNRA_ABI_VERSION` before use. Rebuild v1 consumers against the renamed
 library and header. The experimental binary ABI is separate.
 
 This guide describes the current JSON C integration surface, not a promise that
 old FFI designs or implementations will remain available forever. Send
-comments, concerns, and questions to the [TinyLang community
+comments, concerns, and questions to the [Tynra community
 forum](https://tl.404connernotfound.dev).
 
 ## Building the Library
 
 ```sh
 # Debug (for development and testing)
-cargo build --manifest-path crates/tinylang_core/Cargo.toml
+cargo build --manifest-path crates/tynra_core/Cargo.toml
 
 # Release (for embedding; includes the sandbox worker)
-cargo build --release --manifest-path crates/tinylang_core/Cargo.toml
+cargo build --release --manifest-path crates/tynra_core/Cargo.toml
 ```
 
 Output locations:
 
 | Platform | Debug                                   | Release                                   |
 | -------- | --------------------------------------- | ----------------------------------------- |
-| Linux    | `target/debug/libtinylang.so`    | `target/release/libtinylang.so`    |
-| macOS    | `target/debug/libtinylang.dylib` | `target/release/libtinylang.dylib` |
-| Windows  | `target/debug/tinylang.dll`      | `target/release/tinylang.dll`      |
+| Linux    | `target/debug/libtynra.so`    | `target/release/libtynra.so`    |
+| macOS    | `target/debug/libtynra.dylib` | `target/release/libtynra.dylib` |
+| Windows  | `target/debug/tynra.dll`      | `target/release/tynra.dll`      |
 
-The `tinylang-sandbox-worker` executable produced in the same target directory
+The `tynra-sandbox-worker` executable produced in the same target directory
 must be shipped beside the host executable (or configured with
-`TINYLANG_SANDBOX_WORKER`) for the execution entry points.
+`TYNRA_SANDBOX_WORKER`) for the execution entry points.
 
 ## Linking
 
 ```sh
 # Linux
 cc -std=c11 your_app.c -I/path/to/repo -L/path/to/target/release \
-   -Wl,-rpath,/path/to/target/release -ltinylang -o your_app
+   -Wl,-rpath,/path/to/target/release -ltynra -o your_app
 
 # macOS
 cc -std=c11 your_app.c -I/path/to/repo -L/path/to/target/release \
-   -rpath @loader_path -ltinylang -o your_app
+   -rpath @loader_path -ltynra -o your_app
 ```
 
 Include the header:
 
 ```c
-#include "tinylang.h"
+#include "tynra.h"
 ```
 
 ## Header Drift Checks
 
-The generated C header is `crates/tinylang_core/include/tinylang.h`. It keeps
-exported symbols named `tinylang_*`; do not rename the C symbols as part of
+The generated C header is `crates/tynra_core/include/tynra.h`. It keeps
+exported symbols named `tynra_*`; do not rename the C symbols as part of
 ordinary header work.
 
-`tinylang_abi_version()` returns the ABI version reported by the library, and
-`TINYLANG_ABI_VERSION` is the matching header constant. Both are `2` for the
+`tynra_abi_version()` returns the ABI version reported by the library, and
+`TYNRA_ABI_VERSION` is the matching header constant. Both are `2` for the
 declared ABI.
 
-Before changing `crates/tinylang_core/src/ffi.rs` or its generated header, run:
+Before changing `crates/tynra_core/src/ffi.rs` or its generated header, run:
 
 ```sh
 ./scripts/check_abi_drift.sh
@@ -94,16 +94,16 @@ the no-dependency drift check.
 ## Ownership Contract
 
 Every function that returns `char *` returns a **heap-allocated, NUL-terminated
-UTF-8 string**. The caller must free it with `tinylang_free_string`. Do not call
+UTF-8 string**. The caller must free it with `tynra_free_string`. Do not call
 the C standard library `free()` — the allocator may differ.
 
 ```c
-char *result = tinylang_run_source_json("print 42", "jit", NULL);
+char *result = tynra_run_source_json("print 42", "jit", NULL);
 // ... use result ...
-tinylang_free_string(result);  // required
+tynra_free_string(result);  // required
 ```
 
-`tinylang_free_string(NULL)` is always safe and is a no-op.
+`tynra_free_string(NULL)` is always safe and is a no-op.
 
 ## JSON Response Format
 
@@ -113,7 +113,7 @@ All functions return a JSON string. There are four response shapes:
 {"ok": true,  "value": { ... }}
 {"ok": false, "kind": "compile",  "error": "message"}
 {"ok": false, "kind": "runtime",  "error": "message"}
-{"ok": false, "kind": "panic",    "error": "TinyLang panicked across the FFI boundary"}
+{"ok": false, "kind": "panic",    "error": "Tynra panicked across the FFI boundary"}
 ```
 
 The `"panic"` shape should never occur in normal use — it indicates a library
@@ -122,7 +122,7 @@ rather than unwinding into the caller.
 
 ## Parameter Nullability
 
-Unless a parameter is documented as nullable in `tinylang.h`, it must be a
+Unless a parameter is documented as nullable in `tynra.h`, it must be a
 valid NUL-terminated UTF-8 C string. Passing `NULL` for a non-nullable parameter
 does **not** crash — it returns a structured `{"ok":false,"kind":"compile","error":"… pointer was null"}` response.
 
@@ -134,30 +134,30 @@ limited to 1 MiB, paths to 32 KiB, execution modes to 16 bytes, and
 `inputs_json` to 8 MiB (limits exclude the trailing NUL). File and imported
 source files are subject to the same 1 MiB source limit.
 
-Execution entry points run in the `tinylang-sandbox-worker` child process. The
+Execution entry points run in the `tynra-sandbox-worker` child process. The
 parent enforces a five-second wall-clock deadline and terminates the worker if
 it is exceeded. Install the worker beside the host executable, or set
-`TINYLANG_SANDBOX_WORKER` to its path. The worker inherits the host process's OS
+`TYNRA_SANDBOX_WORKER` to its path. The worker inherits the host process's OS
 permissions; use a restricted account, container, or Windows job object for
 untrusted principals requiring stronger isolation.
 
 ## Entry Points
 
-### `tinylang_free_string`
+### `tynra_free_string`
 
 ```c
-void tinylang_free_string(char *value);
+void tynra_free_string(char *value);
 ```
 
-Free a string returned by any `tinylang_*_json` function. Calling with `NULL` is
+Free a string returned by any `tynra_*_json` function. Calling with `NULL` is
 safe. Do not call on any pointer not returned by this library.
 
 ---
 
-### `tinylang_lex_source_json`
+### `tynra_lex_source_json`
 
 ```c
-char *tinylang_lex_source_json(const char *source);
+char *tynra_lex_source_json(const char *source);
 ```
 
 Lex `source` and return the number of tokens.
@@ -172,10 +172,10 @@ Lex `source` and return the number of tokens.
 
 ---
 
-### `tinylang_compile_source_json`
+### `tynra_compile_source_json`
 
 ```c
-char *tinylang_compile_source_json(const char *source);
+char *tynra_compile_source_json(const char *source);
 ```
 
 Compile `source` through the full pipeline (lex → compile → optimize → verify).
@@ -187,7 +187,7 @@ Returns a bytecode artifact and its fingerprint.
 {
   "ok": true,
   "value": {
-    "artifact":    { "format": "tinylang-bytecode", "version": 1, … },
+    "artifact":    { "format": "tynra-bytecode", "version": 1, … },
     "fingerprint": "a1b2c3d4e5f60718"
   }
 }
@@ -197,22 +197,22 @@ Returns a bytecode artifact and its fingerprint.
 
 ---
 
-### `tinylang_compile_file_json`
+### `tynra_compile_file_json`
 
 ```c
-char *tinylang_compile_file_json(const char *path);
+char *tynra_compile_file_json(const char *path);
 ```
 
-Same as `tinylang_compile_source_json` but reads source from `path` on disk.
+Same as `tynra_compile_source_json` but reads source from `path` on disk.
 The path is canonicalized before reading; relative paths are resolved from the
 process working directory.
 
 ---
 
-### `tinylang_run_source_json`
+### `tynra_run_source_json`
 
 ```c
-char *tinylang_run_source_json(
+char *tynra_run_source_json(
     const char *source,
     const char *mode,
     const char *inputs_json  /* nullable */
@@ -256,10 +256,10 @@ immediately before and after runtime cleanup.
 
 ---
 
-### `tinylang_run_file_json`
+### `tynra_run_file_json`
 
 ```c
-char *tinylang_run_file_json(
+char *tynra_run_file_json(
     const char *path,
     const char *mode,
     const char *inputs_json  /* nullable */
@@ -267,14 +267,14 @@ char *tinylang_run_file_json(
 ```
 
 Compile the file at `path` and run it. Same response shape as
-`tinylang_run_source_json`.
+`tynra_run_source_json`.
 
 ---
 
-### `tinylang_run_artifact_json`
+### `tynra_run_artifact_json`
 
 ```c
-char *tinylang_run_artifact_json(
+char *tynra_run_artifact_json(
     const char *artifact_json,
     const char *mode,
     const char *inputs_json  /* nullable */
@@ -294,10 +294,10 @@ artifact returns a verification error.
 
 ---
 
-### `tinylang_jit_listing_json`
+### `tynra_jit_listing_json`
 
 ```c
-char *tinylang_jit_listing_json(const char *artifact_json);
+char *tynra_jit_listing_json(const char *artifact_json);
 ```
 
 Compile the artifact through the JIT tier and return its assembly listing as
@@ -309,7 +309,7 @@ a text string. The same 8 MiB byte limit applies.
 {
   "ok": true,
   "value": {
-    "listing": "; tinylang adaptive-jit a1b2c3d4e5f60718\n; chunks=1 ops=3 …\n.chunk 0 main …\n  0000 push.i 42\n  0001 print\n  0002 halt\n"
+    "listing": "; tynra adaptive-jit a1b2c3d4e5f60718\n; chunks=1 ops=3 …\n.chunk 0 main …\n  0000 push.i 42\n  0001 print\n  0002 halt\n"
   }
 }
 ```
@@ -317,28 +317,28 @@ a text string. The same 8 MiB byte limit applies.
 ## Example: Running a Program from C
 
 ```c
-#include "tinylang.h"
+#include "tynra.h"
 #include <stdio.h>
 #include <string.h>
 
 int main(void) {
     /* Compile and run inline source */
-    char *result = tinylang_run_source_json(
+    char *result = tynra_run_source_json(
         "let x = 6 * 7\nprint x",
         "jit",
         NULL
     );
     if (result == NULL) {
-        fprintf(stderr, "tinylang returned NULL\n");
+        fprintf(stderr, "tynra returned NULL\n");
         return 1;
     }
     if (strstr(result, "\"ok\":true") == NULL) {
         fprintf(stderr, "error: %s\n", result);
-        tinylang_free_string(result);
+        tynra_free_string(result);
         return 1;
     }
     printf("%s\n", result);
-    tinylang_free_string(result);
+    tynra_free_string(result);
     return 0;
 }
 ```
@@ -347,19 +347,19 @@ int main(void) {
 
 ```c
 /* Compile to artifact */
-char *compiled = tinylang_compile_source_json(
+char *compiled = tynra_compile_source_json(
     "let n = read_int()\nprint n * n"
 );
 /* Extract artifact field from the JSON response (use a JSON library) */
 /* ... extract artifact_json string ... */
 
 /* Run with a pre-supplied input */
-char *run1 = tinylang_run_artifact_json(artifact_json, "jit", "[\"7\"]");
-char *run2 = tinylang_run_artifact_json(artifact_json, "jit", "[\"12\"]");
+char *run1 = tynra_run_artifact_json(artifact_json, "jit", "[\"7\"]");
+char *run2 = tynra_run_artifact_json(artifact_json, "jit", "[\"12\"]");
 
-tinylang_free_string(run1);
-tinylang_free_string(run2);
-tinylang_free_string(compiled);
+tynra_free_string(run1);
+tynra_free_string(run2);
+tynra_free_string(compiled);
 ```
 
 ## Error Handling Pattern
@@ -375,14 +375,14 @@ static int check_ok(const char *label, char *response) {
     return 0;
 }
 
-char *r = tinylang_run_source_json("print 1", "vm", NULL);
-if (!check_ok("run", r)) { tinylang_free_string(r); return 1; }
-tinylang_free_string(r);
+char *r = tynra_run_source_json("print 1", "vm", NULL);
+if (!check_ok("run", r)) { tynra_free_string(r); return 1; }
+tynra_free_string(r);
 ```
 
 ## Threading
 
-TinyLang has no global mutable state in its public API. Each call is fully
+Tynra has no global mutable state in its public API. Each call is fully
 self-contained. You may call FFI functions from multiple threads simultaneously
 **if each call uses a distinct set of arguments** — there is no shared mutable
 state between calls. Do not share a `char *` response pointer across threads
@@ -396,7 +396,7 @@ independently safe.
 
 ## Known Limitations
 
-- `tinylang_free_string` is panic-contained, but passing a double-freed pointer
+- `tynra_free_string` is panic-contained, but passing a double-freed pointer
   or a non-NUL-terminated pointer remains undefined behavior. Obey the
   ownership contract.
 - All future `extern "C"` entry points must be panic-contained. Functions that

@@ -2,16 +2,16 @@
 title: ABI Reference
 ---
 
-TinyLang's C ABI is the interface between the compiled `libtinylang`
+Tynra's C ABI is the interface between the compiled `libtynra`
 shared library and any host application. It covers the JSON response
 contract, the panic boundary, ownership rules, and the versioning
 policy.
 
-**The JSON C API declares ABI version 2 with `tinylang_*` exports.** The v1
+**The JSON C API declares ABI version 2 with `tynra_*` exports.** The v1
 ABI is maintained on `release/v1`; the experimental binary ABI remains
 separate. See [versioning.md](versioning.md) for the compatibility policy.
 
-Send ABI comments, concerns, and questions to the [TinyLang community
+Send ABI comments, concerns, and questions to the [Tynra community
 forum](https://tl.404connernotfound.dev).
 
 For how to link and call the library from C, see

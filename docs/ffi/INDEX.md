@@ -4,8 +4,8 @@ title: FFI Reference
 
 # FFI Integration
 
-TinyLang compiles to a shared library (`libtinylang.so` / `.dylib` / `.dll`)
-and a Rust crate. This section covers how to integrate TinyLang into a host
+Tynra compiles to a shared library (`libtynra.so` / `.dylib` / `.dll`)
+and a Rust crate. This section covers how to integrate Tynra into a host
 application from both C and Rust.
 
 For the ABI contract and JSON schema reference, see [`abi/`](../abi/INDEX.md).
@@ -14,16 +14,16 @@ For the ABI contract and JSON schema reference, see [`abi/`](../abi/INDEX.md).
 
 | File                                   | Description                                                                                                                        |
 | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| [`c-integration.md`](c-integration.md) | Building, linking, and calling TinyLang from C or C++; entry-point reference; ownership and threading rules; complete code examples |
+| [`c-integration.md`](c-integration.md) | Building, linking, and calling Tynra from C or C++; entry-point reference; ownership and threading rules; complete code examples |
 | [`rust-api.md`](rust-api.md)           | Rust crate public API: compilation, execution, JIT, artifact I/O, and verification functions                                       |
 
 ## ABI Drift Tooling
 
-The generated C header is `crates/tinylang_core/include/tinylang.h`. It is generated from the
+The generated C header is `crates/tynra_core/include/tynra.h`. It is generated from the
 Rust FFI source when `cbindgen` is available, while exported C symbols keep the
-existing `tinylang_*` names.
+existing `tynra_*` names.
 
-Use the no-dependency drift check before changing `crates/tinylang_core/src/ffi.rs`
+Use the no-dependency drift check before changing `crates/tynra_core/src/ffi.rs`
 or its generated header:
 
 ```sh

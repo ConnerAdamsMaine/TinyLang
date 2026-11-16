@@ -184,22 +184,22 @@ pub fn plan_for(task: Task) -> Plan {
     Plan { task, steps }
 }
 
-/// Locate the root of the `TinyLang` repo from the current working directory.
+/// Locate the root of the `Tynra` repo from the current working directory.
 ///
 /// # Errors
-/// Returns an error if the current working directory is not the root of the `TinyLang` repo,
+/// Returns an error if the current working directory is not the root of the `Tynra` repo,
 /// or if it cannot read the current working directory.
 pub fn repo_root_from_cwd() -> Result<PathBuf, String> {
     let cwd = std::env::current_dir().map_err(|err| format!("cannot read cwd: {err}"))?;
-    if cwd.join("crates/tinylang_core/Cargo.toml").is_file()
-        && cwd.join("crates/tinylang_ralloc/Cargo.toml").is_file()
+    if cwd.join("crates/tynra_core/Cargo.toml").is_file()
+        && cwd.join("crates/tynra_ralloc/Cargo.toml").is_file()
         && cwd.join("tools/test_zip.py").is_file()
     {
         return Ok(cwd);
     }
 
     Err(format!(
-        "run xtask from the TinyLang repo root; missing crates/tinylang_core/Cargo.toml, crates/tinylang_ralloc/Cargo.toml, or tools/test_zip.py under {}",
+        "run xtask from the Tynra repo root; missing crates/tynra_core/Cargo.toml, crates/tynra_ralloc/Cargo.toml, or tools/test_zip.py under {}",
         cwd.display()
     ))
 }
@@ -226,13 +226,13 @@ fn check_step() -> Step {
             cargo(&[
                 "check",
                 "--manifest-path",
-                "crates/tinylang_core/Cargo.toml",
+                "crates/tynra_core/Cargo.toml",
                 "--all-targets",
             ]),
             cargo(&[
                 "check",
                 "--manifest-path",
-                "crates/tinylang_ralloc/Cargo.toml",
+                "crates/tynra_ralloc/Cargo.toml",
                 "--all-targets",
             ]),
         ],
@@ -244,8 +244,8 @@ fn test_step() -> Step {
         "test",
         [
             cargo(&["test", "--manifest-path", "crates/xtask/Cargo.toml"]),
-            cargo(&["test", "--manifest-path", "crates/tinylang_core/Cargo.toml"]),
-            cargo(&["test", "--manifest-path", "crates/tinylang_ralloc/Cargo.toml"]),
+            cargo(&["test", "--manifest-path", "crates/tynra_core/Cargo.toml"]),
+            cargo(&["test", "--manifest-path", "crates/tynra_ralloc/Cargo.toml"]),
         ],
     )
 }
@@ -256,7 +256,7 @@ fn test_hooks_step() -> Step {
         [cargo(&[
             "test",
             "--manifest-path",
-            "crates/tinylang_core/Cargo.toml",
+            "crates/tynra_core/Cargo.toml",
             "--features",
             "testing-hooks",
         ])],
@@ -271,14 +271,14 @@ fn fmt_check_step() -> Step {
             cargo(&[
                 "fmt",
                 "--manifest-path",
-                "crates/tinylang_core/Cargo.toml",
+                "crates/tynra_core/Cargo.toml",
                 "--all",
                 "--check",
             ]),
             cargo(&[
                 "fmt",
                 "--manifest-path",
-                "crates/tinylang_ralloc/Cargo.toml",
+                "crates/tynra_ralloc/Cargo.toml",
                 "--all",
                 "--check",
             ]),
@@ -302,7 +302,7 @@ fn clippy_step() -> Step {
             cargo(&[
                 "clippy",
                 "--manifest-path",
-                "crates/tinylang_core/Cargo.toml",
+                "crates/tynra_core/Cargo.toml",
                 "--all-targets",
                 "--",
                 "-D",
@@ -311,7 +311,7 @@ fn clippy_step() -> Step {
             cargo(&[
                 "clippy",
                 "--manifest-path",
-                "crates/tinylang_ralloc/Cargo.toml",
+                "crates/tynra_ralloc/Cargo.toml",
                 "--all-targets",
                 "--",
                 "-D",
@@ -328,9 +328,9 @@ fn bench_smoke_step() -> Step {
             "run",
             "--release",
             "--manifest-path",
-            "crates/tinylang_core/Cargo.toml",
+            "crates/tynra_core/Cargo.toml",
             "--bin",
-            "tinylang_bench",
+            "tynra_bench",
             "--",
             "--quick",
             "--repeats",
@@ -360,7 +360,7 @@ fn package_check_step() -> Step {
             "package",
             "--workspace",
             "--exclude",
-            "tinylang-xtask",
+            "tynra-xtask",
             "--locked",
         ])],
     )

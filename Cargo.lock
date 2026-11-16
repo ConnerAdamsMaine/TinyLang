@@ -760,50 +760,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tinylang-v2"
-version = "2.1.0"
-dependencies = [
- "blake2",
- "cranelift-codegen",
- "cranelift-frontend",
- "cranelift-jit",
- "cranelift-module",
- "cranelift-native",
- "ed25519-dalek",
- "hex",
- "libc",
- "memmap2",
- "serde",
- "serde_json",
- "sha2",
- "tempfile",
- "thiserror",
- "tinylang_ralloc",
- "tinylang_test_support",
- "toml",
-]
-
-[[package]]
-name = "tinylang-xtask"
-version = "0.1.0"
-
-[[package]]
-name = "tinylang_ralloc"
-version = "0.2.0"
-dependencies = [
- "static_assertions",
- "tempfile",
- "tinylang_test_support",
-]
-
-[[package]]
-name = "tinylang_test_support"
-version = "0.1.0"
-dependencies = [
- "tempfile",
-]
-
-[[package]]
 name = "toml"
 version = "0.8.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -843,6 +799,51 @@ name = "toml_write"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5d99f8c9a7727884afe522e9bd5edbfc91a3312b36a77b5fb8926e4c31a41801"
+
+[[package]]
+name = "tynra-v2"
+version = "2.2.0"
+dependencies = [
+ "blake2",
+ "cranelift-codegen",
+ "cranelift-frontend",
+ "cranelift-jit",
+ "cranelift-module",
+ "cranelift-native",
+ "ed25519-dalek",
+ "hex",
+ "libc",
+ "memmap2",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "thiserror",
+ "toml",
+ "tynra_ralloc",
+ "tynra_test_support",
+ "windows-sys 0.60.2",
+]
+
+[[package]]
+name = "tynra-xtask"
+version = "0.1.0"
+
+[[package]]
+name = "tynra_ralloc"
+version = "0.2.0"
+dependencies = [
+ "static_assertions",
+ "tempfile",
+ "tynra_test_support",
+]
+
+[[package]]
+name = "tynra_test_support"
+version = "0.1.0"
+dependencies = [
+ "tempfile",
+]
 
 [[package]]
 name = "typenum"

@@ -1,9 +1,9 @@
 # cargo-features = ["codegen-backend", "trim-paths"]
 # Requires nightly for codegen-backend / trim-paths; see docs/CI_CD.md and [profile.*] comments
 [workspace]
-members         = [ "crates/tinylang_*", "crates/xtask" ]
+members         = [ "crates/tynra_*", "crates/xtask" ]
 exclude         = [ ".archive" ]
-default-members = [ "crates/tinylang_core" ]
+default-members = [ "crates/tynra_core" ]
 resolver        = "3"
 
 [workspace.package]

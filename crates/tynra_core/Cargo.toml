@@ -1,0 +1,87 @@
+﻿[package]
+name                   = "tynra-v2"
+version                = "2.2.0"
+edition.workspace      = true
+description            = "Tynra compiler, verified bytecode runtime, adaptive JIT, and C ABI"
+license-file.workspace = true
+repository.workspace   = true
+readme                 = "README.md"
+keywords               = [ "language", "compiler", "bytecode", "vm", "jit" ]
+categories             = [ "compilers" ]
+exclude                = [ "/main.rs", "/bindings", "/experiments", "/fuzz", "/requirements-llvm.txt" ]
+
+[features]
+default       = [  ]
+testing-hooks = [ "ralloc/testing-hooks" ]
+cranelift = [
+  "dep:memmap2",
+  "dep:cranelift-codegen",
+  "dep:cranelift-frontend",
+  "dep:cranelift-jit",
+  "dep:cranelift-module",
+  "dep:cranelift-native",
+]
+
+[lib]
+name       = "tynra"
+crate-type = [ "rlib", "cdylib" ]
+
+[[bin]]
+name = "tynra"
+path = "src/main.rs"
+
+[[bin]]
+name = "tynra-v2"
+path = "src/bin/tynra-v2.rs"
+
+## TODO(@mrdwarf7): [refactor] Move this to a separate crate for benchmarking and testing.
+[[bin]]
+name = "tynra_bench"
+path = "src/bin/tynra_bench.rs"
+
+## TODO(@mrdwarf7): [refactor] Move this to a separate crate for benchmarking and testing.
+[[bin]]
+name = "tynra-sandbox-worker"
+path = "src/bin/tynra-sandbox-worker.rs"
+
+## TODO(@mrdwarf7): [refactor] Move this to a separate crate for benchmarking and testing.
+[[test]]
+name              = "language_suite"
+path              = "tests/language_suite.rs"
+harness           = false
+required-features = [ "testing-hooks" ]
+
+[dependencies]
+thiserror     = "2"
+blake2        = "0.10"
+hex           = "0.4"
+serde         = { version = "1", features = [ "derive" ] }
+serde_json    = "1"
+toml          = "0.8"
+ed25519-dalek = { version = "2", default-features = false, features = [ "std" ] }
+sha2          = "0.10"
+ralloc        = { version = "0.2.0", package = "tynra_ralloc", path = "../tynra_ralloc" }
+cranelift-codegen  = { version = "0.125", optional = true }
+cranelift-frontend = { version = "0.125", optional = true }
+cranelift-jit      = { version = "0.125", optional = true }
+cranelift-module   = { version = "0.125", optional = true }
+cranelift-native   = { version = "0.125", optional = true }
+
+[target.'cfg(not(windows))'.dependencies]
+memmap2 = { version = "0.9", optional = true }
+
+# Unix libc usage: the sandbox worker's self-applied rlimits (RLIMIT_AS,
+# RLIMIT_CPU, RLIMIT_FSIZE, RLIMIT_NOFILE, PR_SET_NO_NEW_PRIVS) mirroring the
+# playground contract.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+# Sandbox worker self-hardening: Job Object memory/process caps.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.60", features = [ "Win32_Foundation", "Win32_Security", "Win32_System_JobObjects", "Win32_System_Threading" ] }
+# Win32_Security looks unused but is required: CreateJobObjectW is feature-gated
+# on it because its SECURITY_ATTRIBUTES parameter type lives in Win32::Security.
+
+[dev-dependencies]
+tempfile              = "3"
+tynra_test_support = { version = "0.1.0", path = "../tynra_test_support" }

@@ -20,7 +20,7 @@ TIDE separates the affected-area category from the purpose of a record. All cate
 | TIDE Documentation | `documentation` | Tutorials, developer guides, API and language references, examples, and corrections. Example: a request to clarify a language-reference section. | Members |
 | TIDE Bugs & Regressions | `bugs-regressions` | Unclassified bugs, cross-system regressions, crashes, reproduction cases, and unexpected compatibility problems. Example: a crash report spanning compiler and runtime. | Members |
 | TIDE Governance | `governance` | TIDE governance, moderation policy, contributor attribution, development procedures, and decision standards. Example: a proposed governance-policy amendment. | Members |
-| TIDE General Discussion | `general-discussion` | General TinyLang conversation, introductions, project showcases, feedback, and topics without a better subsystem fit. Example: a community project showcase. | Members |
+| TIDE General Discussion | `general-discussion` | General Tynra conversation, introductions, project showcases, feedback, and topics without a better subsystem fit. Example: a community project showcase. | Members |
 | TIDE General Support | `general-support` | Public installation, configuration, build, usage, and troubleshooting assistance. Example: a build-configuration question. This is not private support. | Members |
 | TIDE Security | `security` | Public defensive security engineering, hardening, and coordinated published advisories. Example: discussion of a published advisory. Never post an unpatched vulnerability or private evidence here. | Members |
 

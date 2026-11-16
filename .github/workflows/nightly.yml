@@ -64,4 +64,5 @@ jobs:
 
       - name: "cargo test (nightly)"
         shell: "bash"
-        run: cargo test --workspace
+        # --locked: supply-chain gate (TM-16) — fail loudly if Cargo.lock is stale
+        run: cargo test --workspace --locked

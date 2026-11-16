@@ -4,17 +4,17 @@ title: Rust API
 
 # Rust Crate API Reference
 
-Add `tinylang` to your `Cargo.toml` dependencies (path or crate source),
+Add `tynra` to your `Cargo.toml` dependencies (path or crate source),
 then import the public API:
 
 ```rust
-use tinylang::{compile_source, run_source, JitCache, TinyLangError};
+use tynra::{compile_source, run_source, JitCache, TynraError};
 ```
 
-All fallible functions return `tinylang::Result<T>`, an alias for
-`Result<T, TinyLangError>`. `TinyLangError` has two variants:
-- `TinyLangError::Compile(msg)` — failure during lexing, parsing, or verification
-- `TinyLangError::Runtime(msg)` — failure during execution
+All fallible functions return `tynra::Result<T>`, an alias for
+`Result<T, TynraError>`. `TynraError` has two variants:
+- `TynraError::Compile(msg)` — failure during lexing, parsing, or verification
+- `TynraError::Runtime(msg)` — failure during execution
 
 ---
 
@@ -22,10 +22,10 @@ All fallible functions return `tinylang::Result<T>`, an alias for
 
 ### `compile_source(source: &str) -> Result<Arc<Program>>`
 
-Compile a TinyLang source string through lex → compile → optimize → verify. Returns a reference-counted, verified `Program` ready for execution.
+Compile a Tynra source string through lex → compile → optimize → verify. Returns a reference-counted, verified `Program` ready for execution.
 
 ```rust
-let program = tinylang::compile_source("let x = 6 * 7\nprint x")?;
+let program = tynra::compile_source("let x = 6 * 7\nprint x")?;
 ```
 
 ### `compile_source_with_filename(source: &str, filename: &str) -> Result<Arc<Program>>`
@@ -55,7 +55,7 @@ status where appropriate.
 Read the file at `path` and compile it. Resolves imports relative to the file's directory.
 
 ```rust
-let program = tinylang::compile_file(std::path::Path::new("example.to"))?;
+let program = tynra::compile_file(std::path::Path::new("example.to"))?;
 ```
 
 ### `compile_source_unoptimized(source: &str) -> Result<Arc<Program>>`
@@ -76,7 +76,7 @@ Same as `compile_source_unoptimized` but attaches `filename` to diagnostic messa
 Lex `source` and return the token count. Does not compile.
 
 ```rust
-let count = tinylang::lex_source("let x = 42")?;
+let count = tynra::lex_source("let x = 42")?;
 ```
 
 ### `optimize_program(program: Arc<Program>) -> Arc<Program>`
@@ -90,46 +90,46 @@ Run the peephole optimizer over an already-compiled program. This function is in
 All execution functions take a `mode: &str` that must be `"vm"` or `"jit"`.
 `stdout` is any `&mut dyn Write`.
 
-### `run_source(source: &str, mode: &str, stdout: &mut dyn Write, inputs: Vec<String>) -> Result<TinyMemory>`
+### `run_source(source: &str, mode: &str, stdout: &mut dyn Write, inputs: Vec<String>) -> Result<TynraMemory>`
 
-Compile and run a source string. Writes program output to `stdout`. `inputs` pre-populates the deterministic input queue consumed by `read()`, `read_int()`, and `read_str()`. Returns the final heap state as `TinyMemory`.
+Compile and run a source string. Writes program output to `stdout`. `inputs` pre-populates the deterministic input queue consumed by `read()`, `read_int()`, and `read_str()`. Returns the final heap state as `TynraMemory`.
 
 ```rust
 let mut out = Vec::new();
-tinylang::run_source("print 6 * 7", "jit", &mut out, vec![])?;
+tynra::run_source("print 6 * 7", "jit", &mut out, vec![])?;
 assert_eq!(String::from_utf8(out).unwrap(), "42\n");
 ```
 
-### `run_source_report(source: &str, mode: &str, stdout: &mut dyn Write, inputs: Vec<String>) -> Result<TinyRunReport>`
+### `run_source_report(source: &str, mode: &str, stdout: &mut dyn Write, inputs: Vec<String>) -> Result<TynraRunReport>`
 
-Same as `run_source` but returns a `TinyRunReport` containing the final `TinyMemory` plus heap statistics (live objects/bytes, peak, total allocations/frees, shutdown frees).
+Same as `run_source` but returns a `TynraRunReport` containing the final `TynraMemory` plus heap statistics (live objects/bytes, peak, total allocations/frees, shutdown frees).
 
-### `run_program(program: Arc<Program>, mode: &str, stdout: &mut dyn Write, inputs: Vec<String>) -> Result<TinyMemory>`
+### `run_program(program: Arc<Program>, mode: &str, stdout: &mut dyn Write, inputs: Vec<String>) -> Result<TynraMemory>`
 
 Run a pre-compiled program. Runs `BytecodeVerifier::verify` internally before execution.
 Consumes the `Arc<Program>`; clone it first if you need to keep a reference.
 
 ```rust
-let program = tinylang::compile_source("print 42")?;
+let program = tynra::compile_source("print 42")?;
 let mut out = Vec::new();
-tinylang::run_program(program, "vm", &mut out, vec![])?;
+tynra::run_program(program, "vm", &mut out, vec![])?;
 ```
 
-### `run_program_report(program: Arc<Program>, mode: &str, stdout: &mut dyn Write, inputs: Vec<String>) -> Result<TinyRunReport>`
+### `run_program_report(program: Arc<Program>, mode: &str, stdout: &mut dyn Write, inputs: Vec<String>) -> Result<TynraRunReport>`
 
 Same as `run_program` but returns heap statistics.
 
-### `run_program_with_env(program: Arc<Program>, mode: &str, stdout: &mut dyn Write, inputs: Vec<String>, sys_args: Vec<String>, sys_env: HashMap<String, String>) -> Result<TinyMemory>`
+### `run_program_with_env(program: Arc<Program>, mode: &str, stdout: &mut dyn Write, inputs: Vec<String>, sys_args: Vec<String>, sys_env: HashMap<String, String>) -> Result<TynraMemory>`
 
 Run with explicit program arguments and environment variables (consumed by `sys_argc()`, `sys_argv()`, `sys_env_has()`, `sys_env_get()`).
 
 ```rust
 use std::collections::HashMap;
 
-let program = tinylang::compile_source("print sys_argc()")?;
+let program = tynra::compile_source("print sys_argc()")?;
 let mut out = Vec::new();
 let env = HashMap::new();
-tinylang::run_program_with_env(
+tynra::run_program_with_env(
     program,
     "vm",
     &mut out,
@@ -151,8 +151,8 @@ runners and accept a final `JitOptions` value. Existing runner functions use
 `JitOptions::default()`.
 
 ```rust
-let options = tinylang::JitOptions::new().with_hot_back_edge_threshold(2);
-tinylang::run_program_with_jit_options(
+let options = tynra::JitOptions::new().with_hot_back_edge_threshold(2);
+tynra::run_program_with_jit_options(
     program,
     "jit",
     &mut out,
@@ -189,7 +189,7 @@ on request and its header is included in `JitProgram::retained_bytes()`.
 Serialize `program` to a JSON artifact file at `path`.
 
 ```rust
-tinylang::write_artifact(&program, std::path::Path::new("out.tobc.json"))?;
+tynra::write_artifact(&program, std::path::Path::new("out.tobc.json"))?;
 ```
 
 ### `load_artifact(path: impl AsRef<Path>) -> Result<Program>`
@@ -198,7 +198,7 @@ Deserialize and verify a JSON or compact binary artifact file. Enforces
 resource limits before constructing program tables.
 
 ```rust
-let program = tinylang::load_artifact(std::path::Path::new("out.tobc.json"))?;
+let program = tynra::load_artifact(std::path::Path::new("out.tobc.json"))?;
 ```
 
 `write_binary_artifact(program, path)` writes the compact versioned `.tob`
@@ -216,8 +216,8 @@ policy trust. An untrusted artifact and a trusted source program with identical
 content occupy distinct entries. Cache hits reuse quickened programs across calls.
 
 ```rust
-let program = tinylang::compile_source("let i = 0\nwhile i < 1000 { i = i + 1 }\nprint i")?;
-let mut cache = tinylang::JitCache::new();
+let program = tynra::compile_source("let i = 0\nwhile i < 1000 { i = i + 1 }\nprint i")?;
+let mut cache = tynra::JitCache::new();
 let mut out = Vec::new();
 cache.run_program(&program, &mut out, vec![])?;
 // Second call reuses the compiled and potentially quickened JitProgram:
@@ -233,7 +233,7 @@ defaults to 128 entries and 8 MiB of retained source text. Configure it while
 constructing the cache:
 
 ```rust
-let cache = tinylang::JitCache::with_options(options)
+let cache = tynra::JitCache::with_options(options)
     .with_source_cache_limits(64, 4 * 1024 * 1024);
 ```
 
@@ -291,12 +291,12 @@ Key methods on `JitCache`:
 - `cache.is_empty() -> bool` — true when the cache holds no programs
 - `cache.compile(program: &Program) -> Result<&JitProgram>` — compile and cache without running; verifies the program first
 - `cache.compile_verified(program: &VerifiedProgram) -> Result<&JitProgram>` — compile without duplicate verification or hashing
-- `cache.run_program(program, stdout, inputs) -> Result<TinyMemory>` — compile (if not cached) and run
-- `cache.run_verified_program(program, stdout, inputs) -> Result<TinyMemory>` — verified-token run path
-- `cache.run_program_report(program, stdout, inputs) -> Result<TinyRunReport>` — same, but includes heap statistics
-- `cache.run_program_with_env(program, stdout, inputs, sys_args, sys_env) -> Result<TinyMemory>` — run with explicit args and environment
-- `cache.run_source(source, stdout, inputs) -> Result<TinyMemory>` — compile and verify new source, then reuse its verified compilation and JIT state on exact-source hits
-- `cache.run_source_report(source, stdout, inputs) -> Result<TinyRunReport>` — same, with heap statistics
+- `cache.run_program(program, stdout, inputs) -> Result<TynraMemory>` — compile (if not cached) and run
+- `cache.run_verified_program(program, stdout, inputs) -> Result<TynraMemory>` — verified-token run path
+- `cache.run_program_report(program, stdout, inputs) -> Result<TynraRunReport>` — same, but includes heap statistics
+- `cache.run_program_with_env(program, stdout, inputs, sys_args, sys_env) -> Result<TynraMemory>` — run with explicit args and environment
+- `cache.run_source(source, stdout, inputs) -> Result<TynraMemory>` — compile and verify new source, then reuse its verified compilation and JIT state on exact-source hits
+- `cache.run_source_report(source, stdout, inputs) -> Result<TynraRunReport>` — same, with heap statistics
 - `cache.stats() -> JitCacheStats` — aggregate stats across all cached programs
 
 The compiled-program fields in `stats()` aggregate **currently resident**
@@ -312,7 +312,7 @@ Source-cache statistics include `source_bytes`, `source_hits`,
 Compile `program` through the JIT and write the human-readable assembly listing to `path`.
 
 ```rust
-tinylang::write_jit_listing(&program, std::path::Path::new("listing.txt"))?;
+tynra::write_jit_listing(&program, std::path::Path::new("listing.txt"))?;
 ```
 
 Use `write_verified_jit_listing(&verified, path)` when a trusted compiler or
@@ -336,7 +336,7 @@ certificate. Use `VerifiedProgram` when the caller needs to retain that proof
 and its metadata for subsequent execution or lowering.
 
 ```rust
-tinylang::BytecodeVerifier::verify(&program)?;
+tynra::BytecodeVerifier::verify(&program)?;
 ```
 
 ### `VerifiedProgram`
@@ -349,9 +349,9 @@ with one reference-count increment. Construct it via
 artifact-loader API.
 
 ```rust
-let verified = tinylang::compile_source_verified("print 1")?;
+let verified = tynra::compile_source_verified("print 1")?;
 // Borrow the inner Program without consuming:
-let _inner: &tinylang::Program = verified.program();
+let _inner: &tynra::Program = verified.program();
 let fingerprint: &str = verified.fingerprint(); // memoized and clone-shared
 // Consume and recover an owned Program (the type-system guarantee is lost):
 let program = verified.into_program();
@@ -370,7 +370,7 @@ measure heap-lock acquisitions, value encodes/decodes, Ralloc growth events,
 and allocator bytes copied:
 
 ```rust
-use tinylang::testing::{reset_runtime_cost_counters, runtime_cost_counters};
+use tynra::testing::{reset_runtime_cost_counters, runtime_cost_counters};
 
 reset_runtime_cost_counters();
 // Run one isolated workload here.

@@ -1,10 +1,10 @@
-"""Run a linked ctypes smoke check against a built TinyLang v2 library."""
+"""Run a linked ctypes smoke check against a built Tynra v2 library."""
 
 from __future__ import annotations
 
 import sys
 
-from tinylang_v2 import (
+from tynra_v2 import (
     HEADER_BYTES,
     OPCODE_NOP,
     OPCODE_VM_CREATE,
@@ -20,7 +20,7 @@ from tinylang_v2 import (
 
 def main() -> int:
     if len(sys.argv) != 2:
-        print("usage: smoke.py PATH_TO_TINYLANG_V2_LIBRARY", file=sys.stderr)
+        print("usage: smoke.py PATH_TO_TYNRA_V2_LIBRARY", file=sys.stderr)
         return 2
     correlation_id = 0x0102_0304_0506_0708
     request = make_request(OPCODE_NOP, correlation_id=correlation_id)

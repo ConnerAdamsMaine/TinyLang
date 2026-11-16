@@ -1,48 +1,48 @@
 [![CI](https://github.com/ConnerAdamsMaine/TinyOne/actions/workflows/test.yml/badge.svg)](https://github.com/ConnerAdamsMaine/TinyOne/actions/workflows/test.yml)
-[![License](https://img.shields.io/badge/license-custom-blue.svg)](#license)
-[![TinyLang](https://img.shields.io/crates/v/tinylang-v2)](https://crates.io/crates/tinylang-v2)
-[![TinyLang Ralloc](https://img.shields.io/crates/v/tinylang_ralloc)](https://crates.io/crates/tinylang_ralloc)
-[![TinyLang Test Support](https://img.shields.io/crates/v/tinylang_test_support)](https://crates.io/crates/tinylang_test_support)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](#license)
 
-TinyLang is a portable systems programming language designed around a
+Tynra is a portable systems programming language designed around a
 compact VM, bounded runtime
 assumptions, a small reasoning surface, and the freedom to discover its
 own best design.
 
-TinyLang is not tiny because its syntax is minimal. It is tiny where
-systems usually become expensive: runtime footprint, allocator design,
-host assumptions, VM behavior, platform dependencies, and implementation
-burden.
+Tynra aims to keep its runtime footprint, allocator design, host assumptions,
+VM behavior, platform dependencies, and implementation burden compact.
 
 The current Rust implementation includes a lexer, compiler, bytecode
 optimizer, verifier, portable VM, heap/runtime model, bytecode artifact
 support, adaptive execution support, host integration surfaces, CLI
 tooling, and early allocator-integration scaffolding.
 
-Current crate version: `2.1.0` (publication preparation). This `main` branch
-carries TinyLang v2; the v1 release line is maintained on `release/v1`.
+Current `main` crate version: `2.2.0`. Earlier workspace crates were published
+under the previous project name. This `main` branch carries Tynra v2; the v1
+release line is maintained on `release/v1`.
 See [Release Lines](#release-lines).
 
-The current Rust crate lives in `crates/tinylang_core/` (Cargo package
-`tinylang-v2`, Rust library `tinylang`) in this checkout. The allocator package is
-`tinylang_ralloc`, and shared test helpers are `tinylang_test_support`.
-The v2 binary ABI (`tinylang::v2`) and scalar engine (`tinylang::engine`) are
+The rename changes crate and executable names, Rust and C identifiers,
+environment variables, module configuration names, and compiler artifact
+identifiers. Existing integrations must be updated and rebuilt; recompile
+stored compiler artifacts and re-sign module metadata for this release.
+
+The current Rust crate lives in `crates/tynra_core/` (Cargo package
+`tynra-v2`, Rust library `tynra`) in this checkout. The allocator package is
+`tynra_ralloc`, and shared test helpers are `tynra_test_support`.
+The v2 binary ABI (`tynra::v2`) and scalar engine (`tynra::engine`) are
 part of this crate. Its language bindings, fuzz targets, and experiments are
 excluded from the published package.
 
-**Registry naming:** use the Cargo package `tinylang-v2` for this project;
-Rust imports remain `tinylang`. The unrelated crates.io package `tinylang`
-is not this release. A successful local package or dry run does not grant
+**Registry naming:** use the Cargo package `tynra-v2` for this project;
+Rust imports use `tynra`. A successful local package or dry run does not grant
 permission to upload, and preparing a GitHub release does not publish crates.
 See the [publication checklist](docs/CI_CD.md#cratesio-publication).
 
 > **Repository history note:** Multiple recent failed rebases, and
 > subsequent rebase fixes, ruined the commit history. This repository has
 > nevertheless been in active development for almost eight months.
-> **TinyLang v2 Development Update**
+> **Tynra v2 Development Update**
 >
 > With the successful v1 release line locked in, active development has
-> shifted to **TinyLang v2**. Key architectural upgrades currently
+> shifted to **Tynra v2**. Key architectural upgrades currently
 > underway include:
 >
 > - **Deterministic Binary FFI:** Replacing JSON-over-C with a zero-copy,
@@ -53,13 +53,13 @@ See the [publication checklist](docs/CI_CD.md#cratesio-publication).
 >   all VM and runtime primitives.
 >
 > _The frozen v1 ABI remains on `release/v1`. On `main`, the JSON C API uses
-> `tinylang_*` exports and ABI version 2; the experimental binary ABI keeps
-> its separate `tinylang_v2_*` exports._
+> `tynra_*` exports and ABI version 2; the experimental binary ABI keeps
+> its separate `tynra_v2_*` exports._
 
 ---
 
 - [General Information](#general-information)
-- [What Tiny Means](#what-tiny-means)
+- [A Compact Core](#a-compact-core)
 - [Project Goals](#project-goals)
 - [Build Instructions](#build-instructions)
 - [Command Line](#command-line)
@@ -91,15 +91,15 @@ See the [publication checklist](docs/CI_CD.md#cratesio-publication).
 
 # General Information
 
-- Source crate: `crates/tinylang_core/` (package: `tinylang-v2`, library: `tinylang`)
-- C FFI header: `crates/tinylang_core/include/tinylang.h`
-  (`tinylang.h` at the root forwards to it for source-checkout consumers)
+- Source crate: `crates/tynra_core/` (package: `tynra-v2`, library: `tynra`)
+- C FFI header: `crates/tynra_core/include/tynra.h`
+  (`tynra.h` at the root forwards to it for source-checkout consumers)
 - Public documentation: `docs/`
-- Allocator crate: `crates/tinylang_ralloc/` (crate: `tinylang_ralloc`)
+- Allocator crate: `crates/tynra_ralloc/` (crate: `tynra_ralloc`)
 - Developer tools: `tools/`
 - Build/orchestration: `crates/xtask/`, `Makefile.toml`, `build/`
 
-TinyLang is now in its v2 release generation. The syntax, bytecode format, builtin
+Tynra is now in its v2 release generation. The syntax, bytecode format, builtin
 set, JSON artifacts, FFI details, allocator, VM, JIT, memory design, and
 semantics are subject to change. The v1 ABI remains frozen on `release/v1`,
 not on this branch. Nothing in the syntax, FFI, or allocator
@@ -107,23 +107,23 @@ documentation is a promise of permanence or perfection. These versions
 exist to test theories, kill stereotypes, and proactively develop the
 model we are working toward.
 
-TinyLang v2 is a major version jump, including a renamed public API and
+Tynra v2 is a major version jump, including a renamed public API and
 an experimental new language-boundary design. Documentation
 describes current behavior and design direction, not an unchangeable
 promise across v2.
 
-TinyLang is working toward a language that leaves no excess overhead,
+Tynra is working toward a language that leaves no excess overhead,
 uses the smallest footprint it can without giving up reliability, and
 proactively pushes the idea of necessary performance loss out the
 window. Reaching that goal means changing the v2 ABI, FFI, allocator,
 VM, JIT, and surrounding implementation model when the evidence says we
 should.
 
-<a id="what-tiny-means"></a>
+<a id="a-compact-core"></a>
 
-# What Tiny Means
+# A Compact Core
 
-TinyLang is designed to stay small at the architectural level, not
+Tynra is designed to stay small at the architectural level, not
 necessarily at the syntax level.
 
 The language may expose a broad syntax, many types, builtins, default
@@ -142,7 +142,7 @@ remains portable across systems.
 
 # Project Goals
 
-TinyLang is intended to be a capable all-in-one language/runtime
+Tynra is intended to be a capable all-in-one language/runtime
 implementation with a compact operational core for:
 
 - low-level programming
@@ -153,7 +153,7 @@ implementation with a compact operational core for:
 - practical multithreaded workloads
 - compiler, bytecode, verifier, VM, JIT, FFI, and allocator education
 
-TinyLang does not aim to hide unsafe operations. Operations that can
+Tynra does not aim to hide unsafe operations. Operations that can
 affect memory, runtime state, pointer provenance, or host resources
 should be explicit and checked by the runtime wherever possible.
 
@@ -163,13 +163,13 @@ should be explicit and checked by the runtime wherever possible.
 
 Build the Rust crate and CLI executable:
 
-    cargo build --manifest-path crates/tinylang_core/Cargo.toml
+    cargo build --manifest-path crates/tynra_core/Cargo.toml
 
 Run the repo-local CI/release gate from the repository root:
 
     cargo run --manifest-path crates/xtask/Cargo.toml -- release-gate
 
-The gate checks tinylang_core, tinylang_ralloc, the xtask harness, language
+The gate checks tynra_core, tynra_ralloc, the xtask harness, language
 fixtures, formatting, Clippy, benchmark smoke coverage, ABI drift, and
 publishable crate archives. Packaging requires a clean working tree. It
 requires `uv` for the Python tooling steps and an installed nightly Rust
@@ -179,37 +179,37 @@ the repository's stable toolchain selection. For a manual formatting check,
 use `rustup run nightly cargo fmt --all --check`: `.rustfmt.toml` contains
 nightly-only options that stable rustfmt ignores.
 
-This creates the debug executable at `target/debug/tinylang`.
+This creates the debug executable at `target/debug/tynra`.
 Build with `--release` when you want the optimized executable at
-`target/release/tinylang`. The Windows executable name
-is `tinylang.exe`. The examples below assume the executable is available on
-`PATH` as `tinylang`.
+`target/release/tynra`. The Windows executable name
+is `tynra.exe`. The examples below assume the executable is available on
+`PATH` as `tynra`.
 
 Run the command-line tool directly:
 
-    tinylang --help
+    tynra --help
 
 Run a source file with the default adaptive JIT mode:
 
-    tinylang program.to
+    tynra program.to
 
 Run the same source through the portable VM:
 
-    tinylang --mode vm program.to
+    tynra --mode vm program.to
 
 Compile and verify without running:
 
-    tinylang --check program.to
+    tynra --check program.to
 
 Emit bytecode and JIT listings:
 
-    tinylang --emit-bytecode program.tobc.json program.to
-    tinylang --emit-bytecode program.tob program.to
-    tinylang --emit-jit program.jit.txt program.to
+    tynra --emit-bytecode program.tobc.json program.to
+    tynra --emit-bytecode program.tob program.to
+    tynra --emit-jit program.jit.txt program.to
 
 Run a bytecode artifact:
 
-    tinylang --run-bytecode program.tobc.json
+    tynra --run-bytecode program.tobc.json
 
 <a id="command-line"></a>
 
@@ -217,7 +217,7 @@ Run a bytecode artifact:
 
 The CLI supports:
 
-    usage: tinylang [OPTIONS] [path]
+    usage: tynra [OPTIONS] [path]
 
     Options:
       --mode {jit,vm}       Execution mode (default: jit)
@@ -261,7 +261,7 @@ The implemented language currently includes:
 - raw pointers for objects, arrays, struct fields, buffers, and cells
 - unsafe-gated pointer arithmetic, raw loads/stores, and buffer
   reads/writes
-- imports with namespaces and `tinylang.json` manifest resolution
+- imports with namespaces and `tynra.json` manifest resolution
 - exported module declarations
 - deterministic input through `--input` and `--stdin`
 - fixed-width runtime integer values for low-level memory work
@@ -294,7 +294,7 @@ Current compiler constraints:
 
 # Runtime and Memory Model
 
-TinyLang runs through this pipeline:
+Tynra runs through this pipeline:
 
     source -> lexer -> compiler -> bytecode -> peephole optimizer -> verifier -> VM/JIT
 
@@ -308,7 +308,7 @@ The runtime includes:
 - checked arithmetic and checked division
 - shutdown heap draining through report APIs
 
-TinyLang does not use a tracing garbage collector. The current runtime
+Tynra does not use a tracing garbage collector. The current runtime
 uses a VM-owned heap with generation validation and explicit unsafe
 deallocation. Heap payloads, VM locals/globals, and allocator-side
 backing are Ralloc-owned; allocation-table bookkeeping and shutdown
@@ -318,7 +318,7 @@ remain deterministic.
 
 # Hard Resource Limits
 
-TinyLang rejects inputs that exceed the following enforced v1 caps. These
+Tynra rejects inputs that exceed the following enforced v1 caps. These
 are current implementation limits, not sizing recommendations; users who
 generate source or bytecode should stay within them. Every loaded
 artifact is verified before VM execution or JIT lowering.
@@ -374,10 +374,10 @@ on its own.
 - dynamic arrays contain at most 65,536 elements; a single buffer
   allocation is at most 1 MiB
 - total live heap payload is at most 4 MiB, with at most 1,000,000 live
-  heap object slots; TinyLang call nesting is limited to 16 calls
+  heap object slots; Tynra call nesting is limited to 16 calls
 - `fs_read` reads at most 1 MiB; `fs_list_dir` returns at most 65,536
   entries and at most 1 MiB of entry-name text
-- each source file, imported source file, and `tinylang.json` manifest
+- each source file, imported source file, and `tynra.json` manifest
   read from disk is at most 1 MiB
 - C-FFI source text is at most 1 MiB, file paths 32 KiB, execution modes
   16 bytes, and `inputs_json` 8 MiB (each excludes its trailing NUL).
@@ -392,7 +392,7 @@ on its own.
 
 # VM and JIT
 
-TinyLang has two execution backends:
+Tynra has two execution backends:
 
 `vm`
 
@@ -413,22 +413,22 @@ Both public run paths verify bytecode before execution.
 # C FFI
 
 The crate builds as an `rlib` and `cdylib`. The packaged C header is
-`crates/tinylang_core/include/tinylang.h`; the root `tinylang.h` forwards to it.
-The response schema ships at `crates/tinylang_core/tinylang-response-schema.json`.
+`crates/tynra_core/include/tynra.h`; the root `tynra.h` forwards to it.
+The response schema ships at `crates/tynra_core/tynra-response-schema.json`.
 
 The FFI surface uses JSON-over-C-string entry points:
 
-- `tinylang_lex_source_json`
-- `tinylang_compile_source_json`
-- `tinylang_compile_file_json`
-- `tinylang_run_source_json`
-- `tinylang_run_file_json`
-- `tinylang_run_artifact_json`
-- `tinylang_jit_listing_json`
-- `tinylang_free_string`
+- `tynra_lex_source_json`
+- `tynra_compile_source_json`
+- `tynra_compile_file_json`
+- `tynra_run_source_json`
+- `tynra_run_file_json`
+- `tynra_run_artifact_json`
+- `tynra_jit_listing_json`
+- `tynra_free_string`
 
-Returned strings must be released with `tinylang_free_string`. Check
-`tinylang_abi_version()` against `TINYLANG_ABI_VERSION` (2) before using
+Returned strings must be released with `tynra_free_string`. Check
+`tynra_abi_version()` against `TYNRA_ABI_VERSION` (2) before using
 the API. Rebuild v1 consumers against the renamed library and header.
 The JSON response shapes are retained; the experimental binary ABI is
 a separate integration surface, not a drop-in replacement.
@@ -453,15 +453,15 @@ The main documentation tree is `docs/`:
 - `docs/TIDE_OVERVIEW.md` describes the new development governance system
 
 New development requests and engineering records are handled through TIDE,
-the TinyLang Intent & Decision Engine. TIDE preserves original submissions
+the Tynra Intent & Decision Engine. TIDE preserves original submissions
 and authorship while recording later decisions separately. It replaces the
 previously planned TLR/TLP/TLIN proposal workflow; those abbreviations remain
-valid only where they have an unrelated established meaning, such as TinyLang
+valid only where they have an unrelated established meaning, such as Tynra
 Runtime (TLR).
 
 See the [TIDE community and governance guide](docs/Community_Forum.md) and the
 [TIDE implementation overview](docs/TIDE_OVERVIEW.md). Previously discussed
-TinyLang v2 proposal ideas remain unpublished and do not have TIDE identifiers.
+Tynra v2 proposal ideas remain unpublished and do not have TIDE identifiers.
 TIDE writes require an active session established through the same linked
 GitHub, Discord, or X account; linking a provider to a local-password session
 alone is not sufficient.
@@ -495,7 +495,7 @@ manifests, audit checkpoints, and source-tree integrity checks.
 : ABI drift-check and symbol-manifest tool. Run
 `python3 tools/abi_manifest.py check` before changing FFI entry points;
 use `manifest` for a deterministic review artifact and `generate-header`
-(requires `cbindgen`) to regenerate `tinylang.h`.
+(requires `cbindgen`) to regenerate `tynra.h`.
 
 `tools/zip.py`
 
@@ -527,8 +527,8 @@ the described design, spelling, layout, ownership rules, or behavior
 will remain unchanged. The frozen v1 ABI is maintained on `release/v1`;
 the renamed JSON C API on this branch declares ABI version 2.
 
-TinyLang will not store every old version of the code, keep all
-historical TinyLang versions available forever, or promise backward
+Tynra will not store every old version of the code, keep all
+historical Tynra versions available forever, or promise backward
 compatibility any time soon. Users should pin the specific source
 revision or release they need.
 
@@ -537,14 +537,14 @@ revision or release they need.
 ## Repository and documentation drift
 
 - The old README referred to `Rust/` and root `stdlib/` paths. The live
-  Rust crate is currently `crates/tinylang_core/` (crate name `tinylang`).
+  Rust crate is currently `crates/tynra_core/` (crate name `tynra`).
 - Some historical planning documents still use `Rust/Cargo.toml` command
   examples; active user-facing docs use
-  `crates/tinylang_core/Cargo.toml`.
+  `crates/tynra_core/Cargo.toml`.
 - Historical release-helper examples may still assume `Rust/target` or
-  `Rust/Cargo.toml`. Active tooling should use `crates/tinylang_core/`
-  and excludes current `crates/tinylang_core/target` and
-  `crates/tinylang_ralloc/target` build outputs by default.
+  `Rust/Cargo.toml`. Active tooling should use `crates/tynra_core/`
+  and excludes current `crates/tynra_core/target` and
+  `crates/tynra_ralloc/target` build outputs by default.
 
 <a id="test-and-verification-gaps"></a>
 
@@ -582,8 +582,8 @@ revision or release they need.
 Invoke one isolated checked-i64 function without executing top-level code:
 
 ```powershell
-cargo run -p tinylang-v2 --bin tinylang-v2 -- --backend asm .\crates\tinylang_core\examples\scalar.tinylang add 19 23
-cargo run -p tinylang-v2 --features cranelift --bin tinylang-v2 -- --backend cranelift .\crates\tinylang_core\examples\scalar.tinylang add 19 23
+cargo run -p tynra-v2 --bin tynra-v2 -- --backend asm .\crates\tynra_core\examples\scalar.tynra add 19 23
+cargo run -p tynra-v2 --features cranelift --bin tynra-v2 -- --backend cranelift .\crates\tynra_core\examples\scalar.tynra add 19 23
 ```
 
 `--backend interpreter` selects the checked scalar reference path.
@@ -597,16 +597,16 @@ or JSON C API.
 
 ## Allocator boundary
 
-- `crates/tinylang_ralloc/` (crate: `tinylang_ralloc`) is a path dependency
-  of `tinylang_core` and is the backend for heap payloads, VM
+- `crates/tynra_ralloc/` (crate: `tynra_ralloc`) is a path dependency
+  of `tynra_core` and is the backend for heap payloads, VM
   locals/globals, and native allocator sidecar entries.
 - Transient VM/JIT operand stacks and compiler/JIT metadata still use
-  Rust collections. They are control-plane data, not addressable TinyLang
+  Rust collections. They are control-plane data, not addressable Tynra
   memory; moving them to Ralloc requires a separate variable-width value
   representation.
 - The Ralloc arena remains capacity-bounded. VM, JIT, and spawned-thread
-  frame allocation use the fallible `TinyMemory::try_new` path so
-  exhaustion is a runtime error. `TinyMemory::new` and the standard
+  frame allocation use the fallible `TynraMemory::try_new` path so
+  exhaustion is a runtime error. `TynraMemory::new` and the standard
   `Clone` implementation retain conventional infallible APIs that
   document their panic behavior; embedders can use `try_new` and
   `try_clone` instead.
@@ -617,16 +617,16 @@ or JSON C API.
 
 Useful commands:
 
-    cargo check --manifest-path crates/tinylang_core/Cargo.toml
-    cargo test --manifest-path crates/tinylang_core/Cargo.toml
-    cargo test --manifest-path crates/tinylang_core/Cargo.toml --features testing-hooks
-    cargo build --release --manifest-path crates/tinylang_core/Cargo.toml --bin tinylang_bench
-    ./target/release/tinylang_bench
-    ./target/release/tinylang_bench --quick --repeats 1
-    ./target/release/tinylang_bench --filter runtime.jit
-    ./target/release/tinylang_bench --save-baseline tinylang-baseline.json
-    ./target/release/tinylang_bench --save-baseline-auto
-    ./target/release/tinylang_bench --baseline tinylang-baseline.json
+    cargo check --manifest-path crates/tynra_core/Cargo.toml
+    cargo test --manifest-path crates/tynra_core/Cargo.toml
+    cargo test --manifest-path crates/tynra_core/Cargo.toml --features testing-hooks
+    cargo build --release --manifest-path crates/tynra_core/Cargo.toml --bin tynra_bench
+    ./target/release/tynra_bench
+    ./target/release/tynra_bench --quick --repeats 1
+    ./target/release/tynra_bench --filter runtime.jit
+    ./target/release/tynra_bench --save-baseline tynra-baseline.json
+    ./target/release/tynra_bench --save-baseline-auto
+    ./target/release/tynra_bench --baseline tynra-baseline.json
 
 The benchmark runner checks VM/JIT output parity before measuring and
 reports best time, mean time, coefficient of variation, and per-thread
@@ -648,7 +648,7 @@ Run the suite from an optimized build; debug-profile timing is not
 representative.
 
 File-backed benchmark fixtures default to the operating-system temporary
-directory. Set `TINYLANG_BENCH_FIXTURE_ROOT` to compare a particular
+directory. Set `TYNRA_BENCH_FIXTURE_ROOT` to compare a particular
 filesystem, such as WSL `/mnt/c` versus native `/tmp`.
 
 When Windows and WSL share this checkout through `/mnt/c`, give Linux
@@ -657,7 +657,7 @@ its own Cargo artifact directory before building or testing:
     export CARGO_TARGET_DIR="$PWD/target/linux"
 
 The Linux benchmark binary is then
-`$CARGO_TARGET_DIR/release/tinylang_bench`. This keeps Linux and Windows
+`$CARGO_TARGET_DIR/release/tynra_bench`. This keeps Linux and Windows
 binaries and Cargo fingerprints from overwriting each other while
 preserving the shared source worktree.
 
@@ -667,7 +667,7 @@ hardware counters around a filtered row when instruction counts or
 branch behavior matter:
 
     perf stat -e cycles,instructions,branches,branch-misses -- \
-      ./target/release/tinylang_bench \
+      ./target/release/tynra_bench \
       --filter runtime.jit_hot_loop_4096 --skip-correctness
 
 See `docs/performance.md` for the workload map, measurement rules, and
@@ -675,7 +675,7 @@ the current optimization priority order.
 
 Current state:
 
-- `cargo check --manifest-path crates/tinylang_core/Cargo.toml` passes without
+- `cargo check --manifest-path crates/tynra_core/Cargo.toml` passes without
   warnings.
 - The default test suite and feature-gated language fixture suite are
   release gates and are expected to pass before changes are pushed.
@@ -688,11 +688,11 @@ Current state:
     |-- build/                        cargo-make task files (ci, ffi, dist, docker, etc.)
     |-- Cargo.toml                    workspace root
     |-- crates/
-    |   |-- tinylang_core/              compiler, VM, JIT, FFI, CLI (crate: tinylang)
-    |   |   |-- include/tinylang.h     canonical generated C header
-    |   |   |-- tinylang-response-schema.json  JSON C ABI response schema
+    |   |-- tynra_core/              compiler, VM, JIT, FFI, CLI (crate: tynra)
+    |   |   |-- include/tynra.h     canonical generated C header
+    |   |   |-- tynra-response-schema.json  JSON C ABI response schema
     |   |   |-- src/
-    |   |   |   |-- bin/              tinylang_bench.rs, tinylang-sandbox-worker.rs
+    |   |   |   |-- bin/              tynra_bench.rs, tynra-sandbox-worker.rs
     |   |   |   |-- bytecode/         opcode, instr, program, artifact, peephole, verifier
     |   |   |   |-- compiler/         parser, state, symbols, modules, incremental
     |   |   |   |-- jit/              op, chunk, program, cache, vm
@@ -701,30 +701,30 @@ Current state:
     |   |   |   |-- api.rs, cli.rs, ffi.rs, runner.rs, builtins.rs, ...
     |   |   |   `-- tests/            abi_api_soundness, runtime_parity, stdlib_parity,
     |   |   |                         language_suite, language/, programs/, threading, ...
-    |   |-- tinylang_ralloc/           Ralloc allocator crate (crate: tinylang_ralloc)
+    |   |-- tynra_ralloc/           Ralloc allocator crate (crate: tynra_ralloc)
     |   |   |-- src/ + include/ralloc.h + tests/
-    |   |-- tinylang_test_support/     shared test-support crate
+    |   |-- tynra_test_support/     shared test-support crate
     |   `-- xtask/                    release-gate / CI orchestrator
     |-- docs/                         abi/, ffi/, syntax/, architecture, bytecode, ...
     |-- scripts/                      check_abi_drift, consumer_compile/smoke
     |-- tests/consumers/              C / C++ / Rust FFI consumer fixtures
     |-- tools/                        hash.py, loc.py, abi_manifest.py, zip.py
-    |-- tinylang.h                    source-checkout forwarding header
+    |-- tynra.h                    source-checkout forwarding header
     |-- Makefile.toml, build/         cargo-make task definitions
     |-- cbindgen.toml, cliff.toml     tool config
     |-- rust-toolchain.toml           toolchain pin
-    `-- Config.toml                   TinyLang project policy (compile-cache deps)
+    `-- Config.toml                   Tynra project policy (compile-cache deps)
 
 <a id="release-lines"></a>
 
 # Release Lines
 
-TinyLang has two active lines in this repository:
+Tynra has two active lines in this repository:
 
 | Line | Branch | Status | Accepts |
 | --- | --- | --- | --- |
-| TinyLang v2 | `main` | Active development | New language, runtime, JIT, ABI, and SDK work, including `crates/tinylang_core/` |
-| TinyLang v1 | `release/v1` | Maintenance through 2027-01-31 | Bug fixes, security fixes, v1 ABI-conformance fixes, and documentation corrections |
+| Tynra v2 | `main` | Active development | New language, runtime, JIT, ABI, and SDK work, including `crates/tynra_core/` |
+| Tynra v1 | `release/v1` | Maintenance through 2027-01-31 | Bug fixes, security fixes, v1 ABI-conformance fixes, and documentation corrections |
 
 v1 releases are tagged `v1.x.y` from `release/v1`. The C ABI, header, and
 response schema on that branch stay frozen for the whole maintenance window.
@@ -741,7 +741,7 @@ Active v2 language development is documented in `docs/v2-roadmap.md`.
 
 ## v2 Release Schedule and Stability
 
-Further TinyLang v2.x feature releases will follow a monthly schedule.
+Further Tynra v2.x feature releases will follow a monthly schedule.
 Interim patch-level releases (`v2.x.n`) will be published as needed, based on
 verification results, reported defects, or the need to consolidate and preserve
 ongoing development work. These releases do not follow a fixed schedule.
@@ -752,7 +752,7 @@ testing. APIs, behavior, and compatibility may change between releases.
 
 The v2 release themes include:
 
-- consistent TinyLang package, Rust API, and C export names
+- consistent Tynra package, Rust API, and C export names
 - self-contained, verified crate packages and an explicit v1 migration boundary
 - safer verified-program execution typing
 - clearer public/private bytecode program ownership
@@ -766,7 +766,7 @@ The v2 release themes include:
 
 # License
 
-See `LICENSE`.
+See `LICENSE` and `NOTICE`.
 
 <a id="feedback-and-community"></a>
 
@@ -777,7 +777,7 @@ for new development requests and discussion. The [legacy
 forum](https://tl.404connernotfound.dev/forum.html) retains existing records
 under its previous behavior.
 
-Comments, concerns, and questions should be sent to the TinyLang
+Comments, concerns, and questions should be sent to the Tynra
 community forum at <https://tl.404connernotfound.dev>. This is the
 project channel for discussing the evolving design and reporting issues
 with the current documentation or implementation.

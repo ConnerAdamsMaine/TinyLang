@@ -2,19 +2,19 @@
 title: Examples
 ---
 
-# TinyLang Examples
+# Tynra Examples
 
 Runnable examples organized by feature. Each example shows the `.to` source and the expected stdout output. Run any example with:
 
 ```sh
-tinylang example.to
+tynra example.to
 ```
 
 ---
 
 ## Hello World and Arithmetic
 
-```tinylang
+```tynra
 print "hello, world"
 print 6 * 7
 print (10 + 5) / 3
@@ -30,7 +30,7 @@ hello, world
 
 ## Variables, Scoping, and Block Locals
 
-```tinylang
+```tynra
 let x = 10
 if x > 5 {
   let y = x * 2
@@ -56,7 +56,7 @@ while i < 3 {
 
 ## Functions and Recursion
 
-```tinylang
+```tynra
 fn fact(n) {
   let acc = 1
   while n > 1 {
@@ -86,7 +86,7 @@ print fib(10)
 
 ## Structs and Fields
 
-```tinylang
+```tynra
 struct Point { x, y }
 
 fn distance_sq(p) {
@@ -110,7 +110,7 @@ print distance_sq(p)
 
 ## Arrays and Dynamic Storage
 
-```tinylang
+```tynra
 let nums = [10, 20, 30, 40, 50]
 print len(nums)
 print nums[2]
@@ -149,9 +149,9 @@ print squares[4]
 
 Note: each `let` binding must use a unique name within the same scope — `_a`, `_b`, etc. are conventional discard names.
 
-```tinylang
+```tynra
 let m = map_new()
-let _a = map_set(m, "name", "tinylang")
+let _a = map_set(m, "name", "tynra")
 let _b = map_set(m, "version", "0.5.0")
 
 print map_get(m, "name")
@@ -168,7 +168,7 @@ print str_concat("foo", "bar")
 ```
 
 ```
-tinylang
+tynra
 1
 2
 2
@@ -181,7 +181,7 @@ foobar
 
 ## Raw Pointers and Buffers
 
-```tinylang
+```tynra
 let arr = [10, 20, 30]
 let p = ptr(arr, 1)
 print unsafe ptr_load(p)
@@ -216,7 +216,7 @@ print unsafe read8(unsafe ptr_add(bp, 1))
 
 A simple RPN (reverse-Polish notation) calculator using a manual stack array.
 
-```tinylang
+```tynra
 fn calc(ops, inputs) {
   let stack = []
   let i = 0
@@ -264,7 +264,7 @@ Run each example and confirm the output matches. Create temp files:
 ```bash
 # Hello world
 printf 'print "hello, world"\nprint 6 * 7\nprint (10 + 5) / 3\n' > /tmp/ex1.to
-tinylang /tmp/ex1.to 2>/dev/null
+tynra /tmp/ex1.to 2>/dev/null
 # Expected: hello, world / 42 / 5
 
 # Functions
@@ -282,7 +282,7 @@ print fact(5)
 print fact(10)
 print fib(10)
 EOF
-tinylang /tmp/ex3.to 2>/dev/null
+tynra /tmp/ex3.to 2>/dev/null
 # Expected: 120 / 3628800 / 55
 
 # Structs
@@ -295,7 +295,7 @@ print p.y
 set p.x = 0
 print distance_sq(p)
 EOF
-tinylang /tmp/ex4.to 2>/dev/null
+tynra /tmp/ex4.to 2>/dev/null
 # Expected: 3 / 4 / 16
 
 # Arrays
@@ -317,13 +317,13 @@ while i <= 5 {
 print squares[0]
 print squares[4]
 EOF
-tinylang /tmp/ex5.to 2>/dev/null
+tynra /tmp/ex5.to 2>/dev/null
 # Expected: 5/30/99/6/60/5/1/25
 
 # Maps and strings
 cat > /tmp/ex6.to << 'EOF'
 let m = map_new()
-let _a = map_set(m, "name", "tinylang")
+let _a = map_set(m, "name", "tynra")
 let _b = map_set(m, "version", "0.5.0")
 print map_get(m, "name")
 print map_has(m, "version")
@@ -335,8 +335,8 @@ print str_char_len(s)
 print str_slice(s, 0, 5)
 print str_concat("foo", "bar")
 EOF
-tinylang /tmp/ex6.to 2>/dev/null
-# Expected: tinylang/1/2/2/12/hello/foobar
+tynra /tmp/ex6.to 2>/dev/null
+# Expected: tynra/1/2/2/12/hello/foobar
 
 # Raw pointers
 cat > /tmp/ex7.to << 'EOF'
@@ -357,7 +357,7 @@ let _d = unsafe write8(unsafe ptr_add(bp, 1), 255)
 print unsafe read8(bp)
 print unsafe read8(unsafe ptr_add(bp, 1))
 EOF
-tinylang /tmp/ex7.to 2>/dev/null
+tynra /tmp/ex7.to 2>/dev/null
 # Expected: 20/99/77/42/255
 
 # Calculator
@@ -381,6 +381,6 @@ let ops2    = [0, 0, 2, 0, 0, 2, 1]
 let inputs2 = [2, 3, 0, 4, 5, 0, 0]
 print calc(ops2, inputs2)
 EOF
-tinylang /tmp/ex8.to 2>/dev/null
+tynra /tmp/ex8.to 2>/dev/null
 # Expected: 35 / 26
 ```

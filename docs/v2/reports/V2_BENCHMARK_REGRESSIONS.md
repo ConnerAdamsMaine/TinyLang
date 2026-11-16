@@ -1,4 +1,4 @@
-﻿# TinyLang v2 benchmark regressions
+﻿# Tynra v2 benchmark regressions
 
 Status: **baseline recorded, no regressions investigated**, 2026-11-08.
 

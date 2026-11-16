@@ -1,4 +1,4 @@
-﻿# TinyLang v2 profiling report
+﻿# Tynra v2 profiling report
 
 Status: **executed local profiling**, 2026-11-08.
 
@@ -70,7 +70,7 @@ Checked arithmetic adds ~30% overhead over unchecked for the same instruction co
 - Platform: Windows 10 x86_64, MSVC linker
 - Rust: 1.100.0-nightly (f7575a9da, 2026-09-24)
 - Evaluated profilers: wpr.exe (ETW, blocked), xperf.exe (ETW analysis, blocked), perfmon.exe (requires elevation), perf (not available on Windows), cargo flamegraph (not installed), valgrind (not available)
-- Active method: instrumented std::time::Instant benchmarks in crates/tinylang_core/examples/
+- Active method: instrumented std::time::Instant benchmarks in crates/tynra_core/examples/
 
 ## Related
 

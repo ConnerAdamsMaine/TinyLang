@@ -48,14 +48,15 @@ jobs:
 
       - name: "Test with cranelift backend"
         shell: "bash"
-        run: cargo test --workspace
+        # --locked: supply-chain gate (TM-16) — fail loudly if Cargo.lock is stale
+        run: cargo test --workspace --locked
 
       # The Cranelift engine tests (and the scalar program parity suites) only
       # execute when the feature is enabled; the default workspace run leaves
       # them filtered out.
-      - name: "Test tinylang core with cranelift feature enabled"
+      - name: "Test tynra core with cranelift feature enabled"
         shell: "bash"
-        run: cargo test -p tinylang-v2 --features cranelift
+        run: cargo test -p tynra-v2 --features cranelift
 
       - name: "Rust codegen cranelift available"
         shell: "bash"

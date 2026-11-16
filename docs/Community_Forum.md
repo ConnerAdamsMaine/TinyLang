@@ -2,9 +2,9 @@
 title: TIDE Community and Governance
 ---
 
-# TIDE: TinyLang Intent & Decision Engine
+# TIDE: Tynra Intent & Decision Engine
 
-TIDE is the official destination for new TinyLang development requests and
+TIDE is the official destination for new Tynra development requests and
 engineering records. It replaces the previously planned TLR/TLP/TLIN proposal
 workflow. Categories identify the affected area; record types identify the
 purpose of a contribution.
@@ -17,7 +17,7 @@ not covered by TIDE's append-only guarantees.
 
 ## Current participation
 
-Open [TIDE on the TinyLang website](https://tl.404connernotfound.dev/tide.html).
+Open [TIDE on the Tynra website](https://tl.404connernotfound.dev/tide.html).
 Reading categories and records is public. To submit or participate, establish
 your current session by signing in with a GitHub, Discord, or X identity already
 linked to your TIDE account. Linking a provider while signed in with a local
@@ -41,13 +41,13 @@ database rejects updates and deletions to TIDE original records and events.
 | TIDE Runtime | `runtime` | Runtime execution infrastructure. |
 | TIDE Standard Library | `standard-library` | Standard and extended library development. |
 | TIDE ABI & FFI | `abi-ffi` | Binary interfaces and foreign-language interoperability. |
-| TIDE Tooling | `tooling` | Tools used to build, debug, and develop TinyLang programs. |
+| TIDE Tooling | `tooling` | Tools used to build, debug, and develop Tynra programs. |
 | TIDE Platforms & Compatibility | `platforms-compatibility` | Operating systems, architectures, and compatibility. |
 | TIDE Performance | `performance` | Cross-subsystem performance analysis. |
 | TIDE Documentation | `documentation` | Documentation improvements. |
 | TIDE Bugs & Regressions | `bugs-regressions` | General bug triage and cross-component failures. |
 | TIDE Governance | `governance` | Governance and community policy. |
-| TIDE General Discussion | `general-discussion` | General TinyLang community discussions. |
+| TIDE General Discussion | `general-discussion` | General Tynra community discussions. |
 | TIDE General Support | `general-support` | Public technical assistance; not private tickets. |
 | TIDE Security | `security` | Public defensive security discussion and published advisories. |
 
@@ -106,7 +106,7 @@ authenticated channels for ordinary conversation. Chat messages expire after
 
 ## Unpublished proposals
 
-TLP-0001, TLP-0002, and TLP-0003 refer to previously discussed TinyLang v2
+TLP-0001, TLP-0002, and TLP-0003 refer to previously discussed Tynra v2
 proposal ideas that remain unpublished working drafts. They have not been
 migrated, posted, assigned TIDE identifiers, or recorded as accepted or
 implemented contributions. Their authors should submit them through TIDE when

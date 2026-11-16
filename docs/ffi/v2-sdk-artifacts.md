@@ -1,4 +1,4 @@
-# TinyLang v2 SDK compiler artifacts
+# Tynra v2 SDK compiler artifacts
 
 Python and Node support explicit `PROGRAM_LOAD` format selection. Existing
 calls keep format1, including their positional correlation ID. There is no
@@ -9,17 +9,17 @@ magic-based format detection or decoder fallback.
 | 1, TLBC v2 profile 0 | `ArtifactFormat.TLBC` | `ARTIFACT_FORMAT_TLBC` | 1 to 16 MiB |
 | 2, compiler binary | `ArtifactFormat.COMPILER_BINARY` | `ARTIFACT_FORMAT_COMPILER_BINARY` | 1 to 8 MiB |
 
-Format2 currently accepts the compiler's `TINYLANG` version-5 binary. This
+Format2 currently accepts the compiler's `TYNRA\0\0\0` version-5 binary. This
 compiler version is independent of the TLV2 wire version. It is experimental
 interoperability, not a portable or frozen compiler-artifact schema.
 
 ## SDK APIs
 
-Python, with `crates/tinylang_core/bindings/python` on the module search path:
+Python, with `sdk/bindings/python` on the module search path:
 
 ```python
 from pathlib import Path
-from tinylang_v2 import ArtifactFormat, make_program_load_request, program_load_payload
+from tynra_v2 import ArtifactFormat, make_program_load_request, program_load_payload
 
 tlbc_request = make_program_load_request(Path("program.tlbc").read_bytes(), 7)
 compiler_request = make_program_load_request(
@@ -36,7 +36,7 @@ compiler_payload = program_load_payload(
 enum members are accepted. Booleans, floats, strings, `None`, and unknown
 integers raise `ValueError`.
 
-Node ESM, relative to `crates/tinylang_core/bindings/node`:
+Node ESM, relative to `sdk/bindings/node`:
 
 ```javascript
 import { readFileSync } from "node:fs";
@@ -44,7 +44,7 @@ import {
   ARTIFACT_FORMAT_COMPILER_BINARY,
   makeProgramLoadRequest,
   programLoadPayload,
-} from "./tinylang_v2_wire.mjs";
+} from "./tynra_v2_wire.mjs";
 
 const tlbcRequest = makeProgramLoadRequest(readFileSync("program.tlbc"), 7n);
 const artifact = readFileSync("add.compiler.bin");
@@ -75,20 +75,20 @@ dedicated target directory. No sibling checkout or virtual environment is
 required.
 
 ```powershell
-cargo build --locked -p tinylang-v2 --target-dir target\sdk-artifacts --lib --example sdk_artifact
+cargo build --locked -p tynra-v2 --target-dir target\sdk-artifacts --lib --example sdk_artifact
 if ($LASTEXITCODE -ne 0) { throw 'v2 DLL/example build failed' }
 & '.\target\sdk-artifacts\debug\examples\sdk_artifact.exe' '.\target\sdk-artifacts\add.compiler.bin'
 if ($LASTEXITCODE -ne 0) { throw 'compiler artifact generation failed' }
 
-$env:TINYLANG_V2_LIBRARY = (Resolve-Path '.\target\sdk-artifacts\debug\tinylang.dll').Path
-$env:TINYLANG_V2_COMPILER_ARTIFACT = (Resolve-Path '.\target\sdk-artifacts\add.compiler.bin').Path
-uv run --no-project python -m unittest discover -s crates\tinylang_core\bindings\python -p 'test_*.py' -v
-node --test crates\tinylang_core\bindings\node\artifact.test.mjs crates\tinylang_core\bindings\node\wire.test.mjs
+$env:TYNRA_V2_LIBRARY = (Resolve-Path '.\target\sdk-artifacts\debug\tynra.dll').Path
+$env:TYNRA_V2_COMPILER_ARTIFACT = (Resolve-Path '.\target\sdk-artifacts\add.compiler.bin').Path
+uv run --no-project python -m unittest discover -s sdk\bindings\python -p 'test_*.py' -v
+node --test sdk\bindings\node\artifact.test.mjs sdk\bindings\node\wire.test.mjs
 
-cargo test --locked -p tinylang-v2 --target-dir target\sdk-artifacts --no-fail-fast
-cargo clippy --locked -p tinylang-v2 --target-dir target\sdk-artifacts --example sdk_artifact -- -D warnings
+cargo test --locked -p tynra-v2 --target-dir target\sdk-artifacts --no-fail-fast
+cargo clippy --locked -p tynra-v2 --target-dir target\sdk-artifacts --example sdk_artifact -- -D warnings
 rustup run nightly cargo fmt --all --check
-node --check crates\tinylang_core\bindings\node\tinylang_v2_wire.mjs
+node --check sdk\bindings\node\tynra_v2_wire.mjs
 ```
 
 The dedicated Rust example calls `compile_source_unoptimized_verified` on

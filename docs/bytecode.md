@@ -2,9 +2,9 @@
 title: Bytecode Reference
 ---
 
-# TinyLang Bytecode Reference
+# Tynra Bytecode Reference
 
-This document covers the TinyLang bytecode instruction set, the JSON artifact
+This document covers the Tynra bytecode instruction set, the JSON artifact
 format, the verifier's acceptance rules, and the JIT adaptive tier.
 
 ## Instruction Format
@@ -178,7 +178,7 @@ exports, imports, and dependency cycles before either backend can execute.
 
 ```json
 {
-  "format":     "tinylang-bytecode",
+  "format":     "tynra-bytecode",
   "version":    1,
   "code":       [ {"op": "PUSH_INT", "arg": 42, "arg2": 0}, … ],
   "slot_count": 0,
@@ -228,12 +228,12 @@ These are checked by `Program::from_artifact` before any `Vec::collect`:
 | `names` count | 65,536 |
 | Total string/name/field text bytes | 1 MiB |
 
-A hostile artifact that exceeds any limit receives a structured `TinyLangError`
+A hostile artifact that exceeds any limit receives a structured `TynraError`
 before any allocation for the program body.
 
 ## Compact Binary Artifact Format
 
-`.tob` files use the eight-byte magic `TINYLANG`, a little-endian version field, bounded
+`.tob` files use the eight-byte magic `TYNRA\0\0\0`, a little-endian version field, bounded
 length-prefixed tables, numeric opcode ordinals, and fixed-width instruction
 operands. The current binary revision is **5**; it includes the complete
 program metadata, including enum variants, execution permissions, and ordered
@@ -319,7 +319,7 @@ clones share these facts rather than rebuilding them during JIT lowering.
 
 ### Compilation
 
-`JitProgram::compile` translates verified TinyLang bytecode into `JitOp` — a
+`JitProgram::compile` translates verified Tynra bytecode into `JitOp` — a
 Rust enum with all operands decoded to native types. Main is lowered eagerly;
 function chunks are lowered into reserved slots on their first call:
 

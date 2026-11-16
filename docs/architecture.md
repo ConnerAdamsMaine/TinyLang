@@ -2,17 +2,17 @@
 title: Architecture
 ---
 
-# TinyLang Implementation Architecture
+# Tynra Implementation Architecture
 
 This document describes the current implementation, not a permanent
-architecture promise. TinyLang v1 keeps its ABI frozen, but the allocator, VM,
-JIT, memory design, syntax, and semantics may evolve. TinyLang v2 is expected
+architecture promise. Tynra v1 keeps its ABI frozen, but the allocator, VM,
+JIT, memory design, syntax, and semantics may evolve. Tynra v2 is expected
 to make major changes as the language boundary and implementation model are
-redesigned. Send comments, concerns, and questions to the [TinyLang community
+redesigned. Send comments, concerns, and questions to the [Tynra community
 forum](https://tl.404connernotfound.dev).
 
-This document describes how the TinyLang implementation is structured
-internally: the pipeline each TinyLang program travels through, the major
+This document describes how the Tynra implementation is structured
+internally: the pipeline each Tynra program travels through, the major
 modules, and the invariants each stage owns.
 
 ## Pipeline Overview
@@ -64,13 +64,13 @@ cost more than rebuilding them.
 ## Module Map
 
 ```
-TinyLang/src/
+Tynra/src/
 ├── lib.rs              Public re-exports; feature gates for testing
 ├── api.rs              compile_source, compile_file, lex_source, optimize_program
 ├── cli.rs              CLI argument parsing and dispatch
 ├── runner.rs           run_program, run_program_report, run_program_with_env,
 │                       run_source, run_source_report
-├── error.rs            TinyLangError (Compile | Runtime), Result<T>
+├── error.rs            TynraError (Compile | Runtime), Result<T>
 ├── source.rs           SourceMap — source ownership and error-only line lookup
 ├── source/bytecode.rs  Shared file owners, fixed bytecode origins, error sites
 ├── builtins.rs         BUILTINS table, builtin_index lookup
@@ -102,10 +102,10 @@ TinyLang/src/
 │
 ├── runtime/
 │   ├── mod.rs          Public runtime re-exports
-│   ├── vm.rs           VM interpreter, TinyRunReport
-│   ├── heap.rs         TinyHeap, HeapObject, HeapData, TinyHeapStats
-│   ├── memory.rs       TinyMemory — stack-frame slot vector
-│   ├── context.rs      TinyRuntimeContext — heap + I/O + sys args/env
+│   ├── vm.rs           VM interpreter, TynraRunReport
+│   ├── heap.rs         TynraHeap, HeapObject, HeapData, TynraHeapStats
+│   ├── memory.rs       TynraMemory — stack-frame slot vector
+│   ├── context.rs      TynraRuntimeContext — heap + I/O + sys args/env
 │   ├── value.rs        Value (Int | Heap | Pointer), RuntimeValue
 │   ├── aggregate.rs    Array/struct/buffer/cell runtime operations
 │   ├── arithmetic.rs   runtime_add, runtime_sub, runtime_mul, runtime_div
@@ -192,7 +192,7 @@ JSON/binary artifacts; decoding an artifact does not invent source information.
 
 The portable VM records the first failing bytecode site while unwinding and
 formats it once at its execution boundary, preserving
-`TinyLangError::Runtime(String)`. The JIT retains original bytecode indexes in
+`TynraError::Runtime(String)`. The JIT retains original bytecode indexes in
 immutable cold tables, with separate constituent sites for fused operations.
 Quickening changes executable elements without changing their origins; source
 lookup and formatting happen only after failure. Compiled-cache hits rebind
@@ -215,7 +215,7 @@ Key compiler subsystems:
 
 ### Compile Cache
 
-The CLI enables a sibling `.tinylang-cache/` by default. Its metadata records
+The CLI enables a sibling `.tynra-cache/` by default. Its metadata records
 the compiler/cache format version, optimization mode, root path, content
 digests for every source and manifest probe, canonical path resolutions, and
 logical module names. A hit loads the compact `.tob` artifact and verifies its
@@ -249,7 +249,7 @@ slower than recompilation at every measured graph size. A bounded 64-entry
 process-local LRU remembers only size-based policy decisions. Bypassed entries
 always compile current source and never reuse a program based on metadata.
 
-When exactly one existing module source changed, TinyLang attempts a bounded
+When exactly one existing module source changed, Tynra attempts a bounded
 incremental rebuild. It recompiles that module and its imports, relocates table
 indexes by semantic name/content, replaces only declarations owned by that
 module, and verifies the combined program. The source bytes and digest already
@@ -503,7 +503,7 @@ at zero on the clone and track checkout as well as recycling.
 
 JIT calls suspend explicit cursors in a vector, without recursing through the
 host interpreter. Active calls own distinct Ralloc frame memory and preserve
-the configured TinyLang depth limit. A separate execution-local pool retains
+the configured Tynra depth limit. A separate execution-local pool retains
 only fully cleared exact-size frames, bounded by eight frames and 64 KiB.
 Idle memory is released before heap allocation/growth, on a failed fresh frame
 allocation before retry, and on both successful and failed execution exit.
@@ -537,14 +537,14 @@ requested value slot because canonical index equality already covers the key.
 
 ### Heap
 
-`TinyHeap` is a generational slab. Slots hold `Option<HeapObject>` and a
+`TynraHeap` is a generational slab. Slots hold `Option<HeapObject>` and a
 parallel `generations: Vec<u64>` counter. When an object is allocated, it
 claims the next free slot (or appends), and the generation is incremented.
 When freed, the slot is set to `None` and added to `free`.
 
 Every `HeapRef { address, generation }` carries the generation at allocation
 time. Before any access, the runtime checks `stored_generation == current` and
-returns `TinyLangError::runtime("Stale heap reference …")` if they differ. This
+returns `TynraError::runtime("Stale heap reference …")` if they differ. This
 catches use-after-free and prevents a new allocation at the same address from
 being confused with the old object.
 
@@ -563,9 +563,9 @@ drop to zero on free. The cache is released at shutdown.
 
 Builtin arguments are borrowed directly from the VM/JIT operand stack and the
 stack is truncated after the call, so ordinary builtins do not allocate a host
-argument vector. The runtime-owned `TinyAllocator` keeps exact allocation-table
+argument vector. The runtime-owned `TynraAllocator` keeps exact allocation-table
 and heap totals but disables its unreachable diagnostic ring; standalone
-`TinyAllocator::with_defaults()` logging behavior is unchanged. An empty memory
+`TynraAllocator::with_defaults()` logging behavior is unchanged. An empty memory
 hook registry also bypasses its read lock, while registered hooks retain the
 same synchronized dispatch behavior.
 

@@ -14,7 +14,7 @@ heap references are not stable foreign identifiers.
 
 ## Candidates and evidence
 
-`crates/tinylang_core/experiments/session-execution` implements four configurations:
+`crates/tynra_core/experiments/session-execution` implements four configurations:
 
 - Baseline reconstructs and verifies a VM on every invocation, matching the
   limitation of a consuming execution interface. It is a synthetic Rust
@@ -98,10 +98,10 @@ one feature at a time. Time the `cargo rustc` process externally; the unused
 cfg distinguishes that final-crate invocation from the warm-up build.
 
 ```text
-cargo test --locked --manifest-path crates/tinylang_core/experiments/session-execution/Cargo.toml --target-dir target/session-execution --no-default-features --features FEATURE
-cargo rustc --release --locked --manifest-path crates/tinylang_core/experiments/session-execution/Cargo.toml --target-dir target/session-execution --no-default-features --features FEATURE -- --cfg session_measurement
+cargo test --locked --manifest-path crates/tynra_core/experiments/session-execution/Cargo.toml --target-dir target/session-execution --no-default-features --features FEATURE
+cargo rustc --release --locked --manifest-path crates/tynra_core/experiments/session-execution/Cargo.toml --target-dir target/session-execution --no-default-features --features FEATURE -- --cfg session_measurement
 target/session-execution/release/session-execution.exe
-cargo test -p tinylang --release --test persistent_vm
+cargo test -p tynra --release --test persistent_vm
 ```
 
 Release configuration is opt-level 3, one codegen unit, LTO disabled. Builds
@@ -140,5 +140,5 @@ increment fixture; do not subtract these timings to estimate lock overhead
 or compare them as a speedup. No serialization or C ABI entry is measured.
 
 ```text
-cargo test --release --locked -p tinylang-v2 --target-dir target/abi-v2 --lib measure_checked_execution -- --ignored --nocapture --test-threads=1
+cargo test --release --locked -p tynra-v2 --target-dir target/abi-v2 --lib measure_checked_execution -- --ignored --nocapture --test-threads=1
 ```

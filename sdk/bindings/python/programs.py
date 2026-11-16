@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from tinylang_v2 import (
+from tynra_v2 import (
     STATUS_OK,
     Runtime,
     make_handle_release_request,
@@ -43,7 +43,7 @@ def run_case(runtime: Runtime, path: Path, correlation: int) -> None:
     checked_call(runtime, make_handle_release_request(program, correlation + 2), 32)
     checked_call(runtime, make_handle_release_request(vm, correlation + 3), 32)
     print(
-        f"PY-TL {path.name}: load=OK vm_create=OK lifecycle=OK "
+        f"PY-TYNRA {path.name}: load=OK vm_create=OK lifecycle=OK "
         "execute=UNAVAILABLE(no exported function)"
     )
 
@@ -54,7 +54,7 @@ def main() -> int:
         return 2
     artifacts = [Path(value) for value in sys.argv[2:]]
     if not artifacts:
-        base = Path(__file__).resolve().parents[3] / "crates" / "tinylang_core" / "tests" / "artifacts"
+        base = Path(__file__).resolve().parents[3] / "crates" / "tynra_core" / "tests" / "artifacts"
         artifacts = [
             base / "minimal_halt.tlbc",
             base / "push_print_halt.tlbc",

@@ -1,4 +1,4 @@
-﻿# TinyLang v2 implementation status
+﻿# Tynra v2 implementation status
 
 Mission 2, 2026-11-01. This is an incremental implementation, not certification
 of the entire language roadmap.

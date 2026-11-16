@@ -2,25 +2,25 @@
 title: V1 Audit Findings
 ---
 
-This audit covers the TinyLang v1 implementation under `TinyLang/`.
+This audit covers the Tynra v1 implementation under `Tynra/`.
 References use repository-relative paths so they remain valid as line
 numbers change.
 
 # Confirmed boundaries
 
 - **FFI panic containment:** All exported JSON entry points in
-  `TinyLang/src/ffi.rs` funnel through the guarded response path. The
+  `Tynra/src/ffi.rs` funnel through the guarded response path. The
   committed C header defines string ownership, nullability, input
   limits, and the ABI version check.
 - **Verified execution:** Public VM/JIT dispatch verifies bytecode
   before using unchecked internal constructors. Artifact parsing applies
   collection and verifier budgets before execution.
 - **Recoverable frame allocation:** VM, JIT, recursive-function, and
-  spawned-thread frames use `TinyMemory::try_new`, preserving Ralloc
-  exhaustion and size overflow as `TinyLangError` values. The explicitly
-  infallible `TinyMemory::new` and `Clone` APIs document their panic
+  spawned-thread frames use `TynraMemory::try_new`, preserving Ralloc
+  exhaustion and size overflow as `TynraError` values. The explicitly
+  infallible `TynraMemory::new` and `Clone` APIs document their panic
   behavior; embedders can use `try_new` and `try_clone`.
-- **Mutex ownership:** `TinyMutex::unlock` rejects unlocked mutexes and
+- **Mutex ownership:** `TynraMutex::unlock` rejects unlocked mutexes and
   calls from threads other than the recorded owner.
 - **Heap generations:** Freeing makes a slot vacant; its generation
   increments immediately before the slot is reused. Heap references and

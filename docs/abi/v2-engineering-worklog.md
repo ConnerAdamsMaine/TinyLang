@@ -25,7 +25,7 @@ git log -5 --oneline
 ```
 
 No worktree metadata was repaired. The v2 worktree has no tracked changes;
-its additions are `tinylang_v2/`, four v2 ABI specifications, and a CI workflow.
+its additions are `tynra_v2/`, four v2 ABI specifications, and a CI workflow.
 The main tree has extensive uncommitted compiler, runtime, allocator, source
 location, decorator, profiling, and testing changes. They are preserved.
 In particular its modified `ffi.rs` and ABI soundness tests were not replaced.
@@ -40,7 +40,7 @@ and node_modules; generated/ignored files are not source inventory claims.
 
 Mechanical build repairs, exempt from three-way architectural prototyping:
 
-1. Change the stale dependency `../TinyLang` to `../crates/tinylang_core`.
+1. Change the stale dependency `../Tynra` to `../crates/tynra_core`.
 2. Add `[workspace]` to preserve the crate's intended independent workspace.
 3. Cargo refreshes its old dependency lockfile against the actual runtime.
 4. Add a crate-local stable `rustfmt.toml` matching imported formatting rather
@@ -70,28 +70,28 @@ MSVC 14.44.35207, Node 26.8.2, Python 3.13.15 (uv-managed).
 The original v2 command failed before compilation:
 
 ```text
-cargo test --manifest-path <v2-worktree>/tinylang_v2/Cargo.toml --target-dir target/abi-v2-original
+cargo test --manifest-path <v2-worktree>/tynra_v2/Cargo.toml --target-dir target/abi-v2-original
 error: current package believes it's in a workspace when it's not
 ```
 
-The old `../TinyLang` directory contains only target artifacts and no manifest.
+The old `../Tynra` directory contains only target artifacts and no manifest.
 Thus there is no runnable original baseline at that path. Measurements below
 refer to the minimally repaired import against the current runtime.
 
 | Check | Observed result |
 | --- | --- |
-| `cargo test -p tinylang --test abi_api_soundness` | 42 passed; build 32.35 s, tests 5.15 s. |
-| `cargo test --manifest-path tinylang_v2/Cargo.toml --target-dir target/abi-v2` | 25 passed (2 unit + 23 integration); initial build 27.36 s. |
-| `cargo clippy --manifest-path tinylang_v2/Cargo.toml --target-dir target/abi-v2 --all-targets -- -D warnings` | Passed, including baseline benchmark. |
-| `cargo fmt --manifest-path tinylang_v2/Cargo.toml -- --check` | Initially failed inherited formatting differences/nightly settings; passes with crate-local stable configuration. No bulk formatting applied. |
-| `cargo test --release --locked --manifest-path tinylang_v2/Cargo.toml --target-dir target/abi-v2` | All 25 tests pass in release too. |
-| `node --test tinylang_v2/bindings/node/wire.test.mjs` | 4 passed. Sandbox process-spawn denial resolved through approved escalation. |
-| `node tinylang_v2/bindings/node/programs.mjs target/abi-v2/debug/examples/abi_stdio_bridge.exe` | Three artifacts load/create/release successfully; invocation explicitly unavailable. |
-| `python tinylang_v2/bindings/python/smoke.py target/abi-v2/debug/tinylang_v2.dll` | Passed using uv-managed interpreter's absolute path. |
-| `python tinylang_v2/bindings/python/programs.py target/abi-v2/debug/tinylang_v2.dll` | Three artifacts load/create/release successfully; invocation explicitly unavailable. |
+| `cargo test -p tynra --test abi_api_soundness` | 42 passed; build 32.35 s, tests 5.15 s. |
+| `cargo test --manifest-path tynra_v2/Cargo.toml --target-dir target/abi-v2` | 25 passed (2 unit + 23 integration); initial build 27.36 s. |
+| `cargo clippy --manifest-path tynra_v2/Cargo.toml --target-dir target/abi-v2 --all-targets -- -D warnings` | Passed, including baseline benchmark. |
+| `cargo fmt --manifest-path tynra_v2/Cargo.toml -- --check` | Initially failed inherited formatting differences/nightly settings; passes with crate-local stable configuration. No bulk formatting applied. |
+| `cargo test --release --locked --manifest-path tynra_v2/Cargo.toml --target-dir target/abi-v2` | All 25 tests pass in release too. |
+| `node --test tynra_v2/bindings/node/wire.test.mjs` | 4 passed. Sandbox process-spawn denial resolved through approved escalation. |
+| `node tynra_v2/bindings/node/programs.mjs target/abi-v2/debug/examples/abi_stdio_bridge.exe` | Three artifacts load/create/release successfully; invocation explicitly unavailable. |
+| `python tynra_v2/bindings/python/smoke.py target/abi-v2/debug/tynra_v2.dll` | Passed using uv-managed interpreter's absolute path. |
+| `python tynra_v2/bindings/python/programs.py target/abi-v2/debug/tynra_v2.dll` | Three artifacts load/create/release successfully; invocation explicitly unavailable. |
 | `target/abi-v2/debug/examples/interop_rust.exe` | Three artifacts decode, execute through Rust API, load, create sessions; outputs empty, 42, 42. This is not foreign invocation evidence. |
 | C11 `/W4 /WX` linked `bindings/c/smoke.c` | Compiled and executed successfully through MSVC developer PowerShell. |
-| `dumpbin /exports target/abi-v2/debug/tinylang_v2.dll` | Six v2, nine v1, five allocator symbols. Debug DLL file size 3,747,328 bytes. |
+| `dumpbin /exports target/abi-v2/debug/tynra_v2.dll` | Six v2, nine v1, five allocator symbols. Debug DLL file size 3,747,328 bytes. |
 
 Build times above are single observations, not performance comparisons. The
 two crates currently resolve different dependency versions; no timing claim

@@ -32,7 +32,7 @@ return normalized integer booleans (`0` or `1`). Use parentheses to override.
 
 ## Literals
 
-```tinylang
+```tynra
 42          # integer literal
 -7          # unary minus applied to 7
 "hello"     # string literal (UTF-8, heap-allocated)
@@ -43,7 +43,7 @@ null        # null raw pointer
 
 ## Identifiers
 
-```tinylang
+```tynra
 x           # read variable x
 ```
 
@@ -54,7 +54,7 @@ resolved lexically by scope.
 
 ## Arithmetic
 
-```tinylang
+```tynra
 a + b       # integer addition
 a - b       # integer subtraction
 a * b       # integer multiplication
@@ -73,7 +73,7 @@ runtime error. Mixing integers with heap objects is a runtime error.
 
 ## Comparisons
 
-```tinylang
+```tynra
 a < b       # 1 if a < b, else 0
 a <= b      # 1 if a ≤ b, else 0
 a > b       # 1 if a > b, else 0
@@ -90,7 +90,7 @@ require integer operands. For pointer equality, use `ptr_eq(a, b)` and
 
 ## Boolean Operators
 
-```tinylang
+```tynra
 a && b      # 1 if both operands are truthy, else 0
 a || b      # 1 if either operand is truthy, else 0
 !expr       # 1 if expr is falsey, else 0
@@ -104,7 +104,7 @@ only when the left operand is falsey.
 
 ## Unary Minus
 
-```tinylang
+```tynra
 -expr       # negate integer expr
 ```
 
@@ -112,7 +112,7 @@ only when the left operand is falsey.
 
 ## Parentheses
 
-```tinylang
+```tynra
 (a + b) * c   # override default precedence
 ```
 
@@ -120,7 +120,7 @@ only when the left operand is falsey.
 
 ## Function Calls
 
-```tinylang
+```tynra
 f(arg1, arg2)             # call top-level function f
 namespace.f(arg1, arg2)   # call exported function f from imported module
 ```
@@ -132,7 +132,7 @@ the stack and invokes the function chunk.
 
 ## Struct Constructors
 
-```tinylang
+```tynra
 Point(3, 4)   # construct a Point with fields x=3, y=4
 ```
 
@@ -143,7 +143,7 @@ be declared with `struct` before its constructor is called.
 
 ## Array Literals
 
-```tinylang
+```tynra
 [10, 20, 30]   # heap array of three integers
 []             # empty heap array
 ```
@@ -152,7 +152,7 @@ be declared with `struct` before its constructor is called.
 
 ## Postfix Index
 
-```tinylang
+```tynra
 arr[i]    # read element i of array arr, or Unicode scalar i of string arr
 ```
 
@@ -167,7 +167,7 @@ explicit Unicode-scalar access.
 
 ## Postfix Field Access
 
-```tinylang
+```tynra
 value.field_name   # read named field from struct value
 ```
 
@@ -175,7 +175,7 @@ value.field_name   # read named field from struct value
 
 ## `unsafe` Expression
 
-```tinylang
+```tynra
 unsafe expr
 ```
 
@@ -187,7 +187,7 @@ keyword. Required for: `free`, `ptr_at`, `ptr_add`, `ptr_load`,
 Use `unsafe { ... }` as a statement block when several unsafe operations share
 the same trusted region.
 
-```tinylang
+```tynra
 let byte = unsafe read8(ptr(buf, 0))
 unsafe {
   write8(ptr(buf, 0), u8(255))

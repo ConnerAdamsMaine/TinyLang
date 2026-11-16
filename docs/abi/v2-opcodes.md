@@ -1,4 +1,4 @@
-# TinyLang v2 VM opcode schemas
+# Tynra v2 VM opcode schemas
 
 Status: experimental v2.0 draft  
 Wire envelope: [`v2-binary-spec.md`](v2-binary-spec.md)
@@ -36,11 +36,11 @@ output buffer.
 
 ## `0x1000` — PROGRAM_LOAD
 
-Loads and verifies a deterministic TinyLang binary artifact. Source text and
+Loads and verifies a deterministic Tynra binary artifact. Source text and
 JSON artifacts are not accepted by this opcode. Format 1 is
 [artifact profile 0](v2-artifact-spec.md), an executable main-code-only
 program with no external metadata pools. Format 2 is the existing compiler's
-`TINYLANG` binary artifact, decoded by its untrusted verified loader. It supports
+`TYNRA\0\0\0` binary artifact, decoded by its untrusted verified loader. It supports
 the compiler's functions and metadata pools without granting serialized host
 permissions. Format 2 currently requires compiler artifact version 5 and at
 most 8 MiB; its compiler-specific version is independent of the TLV2 frame.
@@ -152,7 +152,7 @@ bytes; with a smaller bound they contain only the 32-byte response header.
 `BUFFER_TOO_SMALL` is returned only during preflight and never after execution
 starts.
 
-VM language side effects commit according to TinyLang execution semantics even
+VM language side effects commit according to Tynra execution semantics even
 when execution traps. Boundary failures discovered before execution have no VM
 side effects. A dispatcher must document whether a specific host-call facility
 has effects outside the VM; the base v2 ABI provides no automatic rollback of

@@ -1,6 +1,6 @@
 # Function decorators and stdx
 
-```tiny
+```tynra
 import "stdx" as ext
 
 fn helper(x) { return x * 2 }
@@ -87,7 +87,7 @@ explicitly. Each function stores a decorator count followed by path-segment
 and argument tables before its parameter count. Argument tags are 0 string,
 1 signed i64, 2 boolean (strict byte 0/1), and 3 identifier. Text uses bounded
 UTF-8 length prefixes. Unknown tags, invalid booleans, truncation, excessive
-counts, and malformed metadata return `TinyLangError`.
+counts, and malformed metadata return `TynraError`.
 
 JSON stays at revision **2**, retaining legacy revision 1 policy behavior and
 the existing enum metadata limitation. A missing function `decorators` field
@@ -132,8 +132,8 @@ semantics are unchanged.
 ## Existing Arduino reference
 
 The sibling `../Arduino-Coprocessor` prototype was inspected without changes:
-`test_tinylang_micro.py` and
-`tinylang_micro_runtime/tinylang_arduino_runtime/tinylang_arduino_runtime.ino`.
+`test_tynra_micro.py` and
+`tynra_micro_runtime/tynra_arduino_runtime/tynra_arduino_runtime.ino`.
 Its TMB/2 runtime has indexed function frames, shared globals, syscalls,
 separate `RUN_MAIN` and `CALL` lifecycles, and Uno limits of 640 module bytes,
 8 functions, 16 slots, 24 operand values, and depth 4. A later lowerer can
@@ -146,7 +146,7 @@ Tests require no hardware or physical COM port.
 
 ## Implementation files and verification
 
-Files changed for this feature, relative to `crates/tinylang_core`:
+Files changed for this feature, relative to `crates/tynra_core`:
 
 - `src/decorators.rs`, `src/decorators/metadata.rs`,
   `src/decorators/registry.rs`, `src/decorators/stdx.rs`: representation,

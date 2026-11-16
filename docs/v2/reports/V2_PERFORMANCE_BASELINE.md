@@ -1,16 +1,16 @@
-# TinyLang v2 performance baseline
+# Tynra v2 performance baseline
 
 Status: **executed local release baseline**, 2026-11-01.
 
-The [benchmark](../../../crates/tinylang_core/examples/engine_bench.rs) executes the compiler-
+The [benchmark](../../../crates/tynra_core/examples/engine_bench.rs) executes the compiler-
 produced `sum(100)` and independently checks the result is 4950. It separates
 lexing, frontend plus lowering, scalar lowering, backend preparation, and
 warm execution. VM and native measurements include argument/frame/result
 overhead, not just arithmetic instruction timing.
 
 ```powershell
-cargo run --release -p tinylang-v2 --example engine_bench --locked
-cargo run --release -p tinylang-v2 --features cranelift --example engine_bench --locked
+cargo run --release -p tynra-v2 --example engine_bench --locked
+cargo run --release -p tynra-v2 --features cranelift --example engine_bench --locked
 ```
 
 101 samples per metric follow 8 warmups; warm execution batches 256
@@ -47,7 +47,7 @@ Times are nanoseconds per operation.
 
 Same host and release configuration (`--features cranelift`), same checked
 `sum(100) = 4950` workload and harness; whole-call-closure program profile
-added to the same [harness](../../../crates/tinylang_core/examples/engine_bench.rs).
+added to the same [harness](../../../crates/tynra_core/examples/engine_bench.rs).
 Program preparation covers whole-closure lowering and, for ASM, image
 emission and cross-call patching; for Cranelift, per-function IR lowering and
 module finalization. Warm invocation includes the frame bank and depth
@@ -86,7 +86,7 @@ state were not controlled.
 ## CLI process wall time and binary size
 
 31 fresh processes per backend, Cranelift-enabled release CLI, persistent
-[example](../../../crates/tinylang_core/examples/scalar.tinylang), `sum 100`; every output checked
+[example](../../../crates/tynra_core/examples/scalar.tynra), `sum 100`; every output checked
 4950. These measurements include PowerShell launch, process startup, file
 compilation/cache handling, preparation and execution. Source/OS caches were
 warm, so they are not uncached cold-source measurements. With 31 samples P99
@@ -98,16 +98,16 @@ is the maximum observed value, not a sustained tail-latency guarantee.
 | Cranelift | 11.063 | 18.128 | 25.123 |
 
 Release CLI file size: 1,244,160 bytes default build; 5,977,600 bytes with
-Cranelift. Both were built with `cargo build --release --bin tinylang-v2`
+Cranelift. Both were built with `cargo build --release --bin tynra-v2`
 and executed successfully. These are CLI sizes, not DLL/object-file sizes.
 
 ## Optional LLVM 20.1.8 object baseline
 
-The [repeatable LLVM benchmark](../../../crates/tinylang_core/examples/llvm_bench.py) uses the
+The [repeatable LLVM benchmark](../../../crates/tynra_core/examples/llvm_bench.py) uses the
 same checked `sum(100) = 4950` workload, 8 warmups and 101 samples:
 
 ```powershell
-& '.\target\llvm-validation\Scripts\python.exe' '.\crates\tinylang_core\examples\llvm_bench.py'
+& '.\target\llvm-validation\Scripts\python.exe' '.\crates\tynra_core\examples\llvm_bench.py'
 ```
 
 Use the pinned environment setup in [LLVM integration](LLVM_CRANELIFT_INTEGRATION.md).

@@ -1,15 +1,17 @@
-﻿# TinyLang v2 Authority/TPack Relationship Security Audit
+﻿# Tynra v2 Authority/TPack Relationship Security Audit
 
 **Date:** 2026-11-08  
 **Status:** Complete  
 **Scope:** Authority trust boundary, TPack artifact verification, sandbox/FFI isolation, supply chain, compromised employee/credential scenarios  
-**Repository:** TinyOne/TinyOne (crates/tinylang_core)
+**Repository:** TinyOne/TinyOne (crates/tynra_core)
+
+> **2026-11-11 note:** "TinyOne/TinyOne" is the pre-rename name of the Tynra v2 workspace, now at the repository root (`crates/tynra_core`). The v1-era tree this label once referred to survives only in `recovery/Authority-TinyOne-recovered-2026-11-11/` (git repo, HEAD `db770d0`) and the `release/v1` branch.
 
 ---
 
 ## Executive Summary
 
-This audit covers the **Authority <-> TPack trust relationship** in TinyLang v2. The architecture uses a policy_trusted flag on Program to distinguish untrusted TPack artifacts (default: sandboxed, no capabilities) from Authority-verified artifacts (opt-in: full declared capabilities). 
+This audit covers the **Authority <-> TPack trust relationship** in Tynra v2. The architecture uses a policy_trusted flag on Program to distinguish untrusted TPack artifacts (default: sandboxed, no capabilities) from Authority-verified artifacts (opt-in: full declared capabilities).
 
 **Critical finding:** No critical vulnerabilities. The trust boundary is correctly implemented at the type level (VerifiedProgram vs Program).
 
@@ -43,7 +45,7 @@ This audit covers the **Authority <-> TPack trust relationship** in TinyLang v2.
 - config.rs: verify_module_signature(), authority certificate management
 - runtime/builtins.rs: Capability enforcement at builtin boundary
 - ffi.rs / ffi/sandbox.rs: Sandbox worker transport
-- bin/tinylang-sandbox-worker.rs: Sandbox worker entry point
+- bin/tynra-sandbox-worker.rs: Sandbox worker entry point
 
 ---
 
@@ -53,7 +55,7 @@ This audit covers the **Authority <-> TPack trust relationship** in TinyLang v2.
 
 | Vector | Exposure | Mitigation Status |
 |--------|----------|-------------------|
-| Malicious TPack artifact loaded via FFI | C ABI tinylang_load_* accepts arbitrary JSON/binary | **Mitigated**: Artifact verification runs before execution; policy_trusted=false by default |
+| Malicious TPack artifact loaded via FFI | C ABI tynra_load_* accepts arbitrary JSON/binary | **Mitigated**: Artifact verification runs before execution; policy_trusted=false by default |
 | Sandbox worker hijack via PATH/env | sandbox_worker_path() searches current_exe ancestors + deps/ | **H1 - GAP**: No signature/hash verification of worker binary |
 | Supply chain: compromised dependency | 100+ transitive deps, no cargo-deny, no SBOM | **H2 - GAP**: No advisory scanning in CI, no sigstore verification |
 | Module import path traversal | ModuleResolver canonicalizes but TOCTOU window exists | **M3 - PARTIAL**: Documents concurrent modification risk; no OS isolation |
@@ -68,7 +70,7 @@ This audit covers the **Authority <-> TPack trust relationship** in TinyLang v2.
 | Compromised employee: inject malicious module into Config.toml | Config.toml declares module permissions; over-privilege possible | **M4 - GAP**: No least-privilege enforcement; require_module_signatures opt-in |
 | Compromised credentials: Authority signing key theft | Ed25519 keys in AuthorityCertificate; verify_strict not used | **PARTIAL**: Keys parsed but weak-key check missing (see Authority audit A-01) |
 | Malicious Config.toml symlink | canonicalize() on config path; symlink check exists | **Mitigated**: Config.toml must not be symlink outside project root |
-| Arena allocator corruption | tinylang_ralloc uses unsafe extensively | **M1 - GAP**: No fuzzing, no cargo-miri in CI |
+| Arena allocator corruption | tynra_ralloc uses unsafe extensively | **M1 - GAP**: No fuzzing, no cargo-miri in CI |
 
 ### Supply Chain Attacks
 
@@ -96,9 +98,9 @@ This audit covers the **Authority <-> TPack trust relationship** in TinyLang v2.
 
 #### H1: FFI Sandbox Worker Path Trust
 **Location:** ffi.rs:236-278 (sandbox_worker_path())  
-**Risk:** The sandbox worker binary is located by searching ancestor directories of current_exe() and deps/ subdirectories for a file matching tinylang_sandbox_worker-*. No integrity verification (hash, signature, code signing) is performed. An attacker with filesystem write access can replace the worker binary.  
+**Risk:** The sandbox worker binary is located by searching ancestor directories of current_exe() and deps/ subdirectories for a file matching tynra_sandbox_worker-*. No integrity verification (hash, signature, code signing) is performed. An attacker with filesystem write access can replace the worker binary.
 **Attack scenario:** Compromised CI/CD artifact, insider with write access to deployment directory, supply chain compromise of built binary.  
-**Evidence:** Function accepts TINYLANG_SANDBOX_WORKER env var OR searches filesystem; no sha256/verify step.  
+**Evidence:** Function accepts TYNRA_SANDBOX_WORKER env var OR searches filesystem; no sha256/verify step.
 **Remediation:** Embed expected worker hash at build time; verify on spawn; or use current_exe() sibling with known hash.
 
 #### H2: No Supply Chain Verification
@@ -110,7 +112,7 @@ This audit covers the **Authority <-> TPack trust relationship** in TinyLang v2.
 ### MEDIUM
 
 #### M1: Custom allocator unsafe surface
-**Location:** tinylang_ralloc/src/arena.rs: 20+ unsafe blocks for pointer arithmetic, header manipulation, block splitting/merging  
+**Location:** tynra_ralloc/src/arena.rs: 20+ unsafe blocks for pointer arithmetic, header manipulation, block splitting/merging
 **Risk:** Memory safety bugs (use-after-free, double-free, buffer overflow) in allocator could lead to arbitrary code execution. No fuzzing, no cargo-miri in CI.  
 **Evidence:** unsafe impl Send for Arena; raw pointer casts; manual header writes.  
 **Remediation:** Integrate cargo-fuzz targeting alloc/dealloc; add cargo-miri to CI; consider #[cfg(test)] invariants.
@@ -213,7 +215,7 @@ ow >= expires_at)
 
 1. **H1:** Harden sandbox_worker_path(): embed SHA-256 at build, verify on spawn
 2. **H2:** Add deny.toml + cargo-deny check to CI; generate SBOM (cargo-cyclonedx)
-3. **M1:** Add cargo-fuzz target for tinylang_ralloc arena alloc/dealloc
+3. **M1:** Add cargo-fuzz target for tynra_ralloc arena alloc/dealloc
 4. **M4:** Change SigningPolicy::default() to require_module_signatures = true
 5. **L4:** Switch all Ed25519 verification to verify_strict(); add weak key rejection
 
@@ -256,7 +258,7 @@ The **Authority/TPack trust boundary is correctly designed**: policy_trusted fla
 | Authority model | bytecode/program.rs, bytecode/certificate.rs, language/compiler/modules.rs |
 | Artifact loading | bytecode/artifact.rs, bytecode/binary.rs |
 | Runtime enforcement | runtime/builtins.rs, runtime/vm.rs, jit/vm.rs |
-| Sandbox/FFI | ffi.rs, ffi/sandbox.rs, bin/tinylang-sandbox-worker.rs |
-| Allocator | tinylang_ralloc/src/arena.rs |
+| Sandbox/FFI | ffi.rs, ffi/sandbox.rs, bin/tynra-sandbox-worker.rs |
+| Allocator | tynra_ralloc/src/arena.rs |
 | Configuration | config.rs |
 | Tests | tests/module_sandbox.rs, tests/artifact_contract.rs, tests/ffi_contract.rs, tests/allocator_audit.rs |

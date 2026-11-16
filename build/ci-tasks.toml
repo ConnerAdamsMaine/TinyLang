@@ -36,7 +36,7 @@ command = "cargo"
 args = [
   "test",
   "-p",
-  "tinylang-v2",
+  "tynra-v2",
   "--features",
   "testing-hooks",
   "--test",

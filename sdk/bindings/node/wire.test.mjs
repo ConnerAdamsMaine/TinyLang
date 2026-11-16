@@ -22,10 +22,10 @@ import {
   parseUtf8Value,
   valueRecord,
   utf8Value,
-} from "./tinylang_v2_wire.mjs";
+} from "./tynra_v2_wire.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const vectors = join(here, "..", "..", "..", "crates", "tinylang_core", "tests", "vectors");
+const vectors = join(here, "..", "..", "..", "crates", "tynra_core", "tests", "vectors");
 
 test("NOP ArrayBuffer exactly matches the committed Rust vector", () => {
   const encoded = makeRequest(OPCODE_NOP, new Uint8Array(), 0x0102_0304_0506_0708n);
@@ -107,8 +107,8 @@ test("handle response parser preserves full u64 values in offset views", () => {
 });
 
 test("UTF-8 values encode canonical UTF-8 bytes and zero padding", () => {
-  const encoded = new Uint8Array(utf8Value("TinyLang λ 🦀"));
-  const payload = new TextEncoder().encode("TinyLang λ 🦀");
+  const encoded = new Uint8Array(utf8Value("Tynra λ 🦀"));
+  const payload = new TextEncoder().encode("Tynra λ 🦀");
   assert.equal(new DataView(encoded.buffer).getUint16(0, true), VALUE_UTF8);
   assert.equal(new DataView(encoded.buffer).getUint32(4, true), payload.byteLength);
   assert.deepEqual(encoded.subarray(16, 16 + payload.byteLength), payload);
@@ -121,8 +121,8 @@ test("UTF-8 values reject non-strings and unpaired surrogates", () => {
 });
 
 test("UTF-8 value parser returns text and rejects noncanonical records", () => {
-  const encoded = utf8Value("TinyLang λ 🦀");
-  assert.equal(parseUtf8Value(encoded), "TinyLang λ 🦀");
+  const encoded = utf8Value("Tynra λ 🦀");
+  assert.equal(parseUtf8Value(encoded), "Tynra λ 🦀");
 
   const wrongTag = new Uint8Array(encoded);
   new DataView(wrongTag.buffer).setUint16(0, 12, true);

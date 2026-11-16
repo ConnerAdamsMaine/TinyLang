@@ -1,4 +1,4 @@
-# TinyLang v2 compiler architecture
+# Tynra v2 compiler architecture
 
 ## Mission 2 contract and implemented milestone
 
@@ -9,7 +9,7 @@ No new source typing, implicit conversion or reference-counting semantics
 are authorized by those documents.
 
 This milestone adds an experimental checked-i64 function execution profile
-inside `tinylang_core` (`tinylang::engine`). The existing lexer, parser, module resolver,
+inside `tynra_core` (`tynra::engine`). The existing lexer, parser, module resolver,
 optimizer and verifier remain authoritative. Native engines consume an
 immutable, verified scalar IR, not independently parsed source.
 
@@ -107,9 +107,9 @@ instruction) to every emitted closure member and derives each frame from a
 bank segment addressed by call depth, sharing the checked binary/floor-division
 lowering with the single-function profile through a trap-sink trait; see
 [JIT backend status](JIT_BACKEND_STATUS.md).
-`tinylang-v2` selects interpreter, ASM, Cranelift or LLVM emission without
+`tynra-v2` selects interpreter, ASM, Cranelift or LLVM emission without
 changing the existing CLI or C ABI. LLVM's generated scalar frame interface
-is `i32 tinylang_scalar(slots, stack, output, fuel, error_instruction)`, with
+is `i32 tynra_scalar(slots, stack, output, fuel, error_instruction)`, with
 five pointers to host-owned storage; it is not the frozen language C ABI.
 Status codes are 0 success, 1 overflow, 2 division by zero and 3 fuel exhaustion.
 The optional LLVM test compiles this IR into real AMD64 ELF objects, loads

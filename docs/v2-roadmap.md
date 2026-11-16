@@ -1,8 +1,8 @@
 ---
-title: TinyLang v2 Roadmap
+title: Tynra v2 Roadmap
 ---
 
-TinyLang is now in the v2 language generation. V2 expands the language
+Tynra is now in the v2 language generation. V2 expands the language
 core while preserving the existing VM, JIT, Ralloc-backed heap, bytecode
 verifier, and VM/JIT parity requirements.
 
@@ -40,7 +40,7 @@ V2 accepts generic function declarations:
     fn identity<T>(value: T) -> T { return value }
 
 Generic parameters are recorded in `Function` metadata and bytecode
-artifacts. They are erased during execution because TinyLang values
+artifacts. They are erased during execution because Tynra values
 remain dynamically typed; one function body serves every runtime
 instantiation. V2 follow-up work includes generic constraints,
 explicit-instantiation syntax, and static type checking where those

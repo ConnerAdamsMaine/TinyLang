@@ -1,4 +1,4 @@
-use tinylang_xtask::{Task, plan_for};
+use tynra_xtask::{Task, plan_for};
 
 #[test]
 fn release_gate_expands_to_ci_order() {
@@ -23,15 +23,15 @@ fn release_gate_expands_to_ci_order() {
 #[test]
 fn package_check_verifies_publishable_workspace_crates_without_uploading() {
     let task: Task = "package-check".parse().expect("publication task");
-    assert_eq!(plan_for(task).render_commands(), ["cargo package --workspace --exclude tinylang-xtask --locked"]);
+    assert_eq!(plan_for(task).render_commands(), ["cargo package --workspace --exclude tynra-xtask --locked"]);
 }
 
 #[test]
 fn command_plans_use_current_repo_paths() {
     let check = plan_for(Task::Check).render_commands();
     assert!(check.iter().any(|cmd| cmd.contains("xtask/Cargo.toml")));
-    assert!(check.iter().any(|cmd| cmd.contains("tinylang_core/Cargo.toml")));
-    assert!(check.iter().any(|cmd| cmd.contains("tinylang_ralloc/Cargo.toml")));
+    assert!(check.iter().any(|cmd| cmd.contains("tynra_core/Cargo.toml")));
+    assert!(check.iter().any(|cmd| cmd.contains("tynra_ralloc/Cargo.toml")));
 
     let hooks = plan_for(Task::TestHooks).render_commands();
     assert!(hooks.iter().any(|cmd| cmd.contains("--features testing-hooks")));
@@ -52,8 +52,8 @@ fn command_plans_use_current_repo_paths() {
 fn formatting_commands_select_nightly_without_changing_other_cargo_tasks() {
     let expected = vec![
         "rustup run nightly cargo fmt --manifest-path crates/xtask/Cargo.toml --all --check",
-        "rustup run nightly cargo fmt --manifest-path crates/tinylang_core/Cargo.toml --all --check",
-        "rustup run nightly cargo fmt --manifest-path crates/tinylang_ralloc/Cargo.toml --all --check",
+        "rustup run nightly cargo fmt --manifest-path crates/tynra_core/Cargo.toml --all --check",
+        "rustup run nightly cargo fmt --manifest-path crates/tynra_ralloc/Cargo.toml --all --check",
     ];
     assert_eq!(plan_for(Task::FmtCheck).render_commands(), expected);
 

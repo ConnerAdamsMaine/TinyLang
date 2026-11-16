@@ -16,9 +16,9 @@ Usage: ${_self} <c|cpp|rust|all> [help|-h|--help]
 Dispatcher for per-lang consumer fixtures. No fallback -- arg required.
 
 Args:
-${t}c       Compile C fixture  (tests/consumers/tinylang_consumer.c)
-${t}cpp     Compile C++ fixture (tests/consumers/tinylang_consumer.cpp)
-${t}rust    Compile Rust fixture (tests/consumers/tinylang_consumer.rs)
+${t}c       Compile C fixture  (tests/consumers/tynra_consumer.c)
+${t}cpp     Compile C++ fixture (tests/consumers/tynra_consumer.cpp)
+${t}rust    Compile Rust fixture (tests/consumers/tynra_consumer.rs)
 ${t}all     Compile all three (c + cpp + rust)
 
 Options:

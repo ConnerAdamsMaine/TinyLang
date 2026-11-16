@@ -1,16 +1,16 @@
-# TinyLang v2 experimental bindings
+# Tynra v2 experimental bindings
 
 These bindings are isolated from the frozen v1 ABI and consume the same
 little-endian golden vectors as the Rust implementation.
 
-- `c/smoke.c` is a zero-dependency linked C11 consumer of `tinylang_v2.h`.
-- `python/tinylang_v2.py` is a dependency-free `ctypes` wrapper around the raw
+- `c/smoke.c` is a zero-dependency linked C11 consumer of `tynra_v2.h`.
+- `python/tynra_v2.py` is a dependency-free `ctypes` wrapper around the raw
   runtime lifecycle and call interface; `python/smoke.py` exercises it against
   a built shared library. `python/programs.py` loads the committed TLBC example
   programs and exercises Program and VM handle ownership. The Python wire
   helpers encode and decode canonical UTF-8 value records and build
   `VM_INVOKE` request frames from pre-encoded argument records.
-- `node/tinylang_v2_wire.mjs` builds and parses canonical `ArrayBuffer` frames.
+- `node/tynra_v2_wire.mjs` builds and parses canonical `ArrayBuffer` frames.
   Envelope parsing rejects reserved flags and nonzero request status; Handle
   response parsing additionally requires the response flag. UTF-8 helpers
   encode and decode canonical text records, and the `VM_INVOKE` builder accepts
@@ -23,7 +23,7 @@ little-endian golden vectors as the Rust implementation.
 
 All integer serialization uses explicit little-endian operations. Bindings
 must treat handles as opaque 64-bit values (`BigInt` in JavaScript) and must not
-retain borrowed raw-call buffers after `tinylang_v2_call` returns.
+retain borrowed raw-call buffers after `tynra_v2_call` returns.
 
 Runtime and object handles now occupy disjoint internal domains: passing a
 runtime value as an object, or an object value as a runtime, returns

@@ -12,7 +12,7 @@ import {
   makeVmCreateRequest,
   parseFrame,
   parseHandleResponse,
-} from "./tinylang_v2_wire.mjs";
+} from "./tynra_v2_wire.mjs";
 
 class ExactReader {
   constructor(stream) {
@@ -113,13 +113,13 @@ async function runCase(bridge, path, correlation) {
   checkedResponse(await bridge.call(makeHandleReleaseRequest(program, correlation + 2n), 48), 32);
   checkedResponse(await bridge.call(makeHandleReleaseRequest(vm, correlation + 3n), 48), 32);
   console.log(
-    `JS-TL ${path.split(/[\\/]/).at(-1)}: load=OK vm_create=OK lifecycle=OK ` +
+    `JS-TYNRA ${path.split(/[\\/]/).at(-1)}: load=OK vm_create=OK lifecycle=OK ` +
       "execute=UNAVAILABLE(no exported function)",
   );
 }
 
 const here = dirname(fileURLToPath(import.meta.url));
-const crate = resolve(here, "..", "..", ".."); // the tinylang_core crate's repository root
+const crate = resolve(here, "..", "..", ".."); // the tynra_core crate's repository root
 const workspace = crate;
 const suffix = process.platform === "win32" ? ".exe" : "";
 const bridgePath = process.argv[2] ?? join(workspace, "target", "debug", "examples", `abi_stdio_bridge${suffix}`);
@@ -128,9 +128,9 @@ const artifacts =
   suppliedArtifacts.length > 0
     ? suppliedArtifacts
     : [
-        join(crate, "crates", "tinylang_core", "tests", "artifacts", "minimal_halt.tlbc"),
-        join(crate, "crates", "tinylang_core", "tests", "artifacts", "push_print_halt.tlbc"),
-        join(crate, "crates", "tinylang_core", "tests", "artifacts", "arithmetic_print.tlbc"),
+        join(crate, "crates", "tynra_core", "tests", "artifacts", "minimal_halt.tlbc"),
+        join(crate, "crates", "tynra_core", "tests", "artifacts", "push_print_halt.tlbc"),
+        join(crate, "crates", "tynra_core", "tests", "artifacts", "arithmetic_print.tlbc"),
       ];
 
 const bridge = new AbiBridge(bridgePath);

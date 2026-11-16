@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
-"""TinyLang C ABI symbol manifest, header drift, and built-artifact checker.
+"""Tynra C ABI symbol manifest, header drift, and built-artifact checker.
 
 This tool intentionally uses only the Python standard library. The default
 check compares the exported `extern "C"` Rust symbols of every advertised ABI
 surface group against its committed C header:
 
 - `v1-json`: legacy JSON entry points in
-  `crates/tinylang_core/src/interoperability/ffi.rs` versus
-  `crates/tinylang_core/include/tinylang.h`.
+  `crates/tynra_core/src/interoperability/ffi.rs` versus
+  `crates/tynra_core/include/tynra.h`.
 - `v2-binary`: binary ABI entry points in
-  `crates/tinylang_core/src/interoperability/ffi/v2/mod.rs` versus
-  `crates/tinylang_core/include/tinylang_v2.h`.
+  `crates/tynra_core/src/interoperability/ffi/v2/mod.rs` versus
+  `crates/tynra_core/include/tynra_v2.h`.
 - `ralloc`: allocator entry points in
-  `crates/tinylang_ralloc/src/ralloc.rs` versus
-  `crates/tinylang_ralloc/include/ralloc.h`.
+  `crates/tynra_ralloc/src/ralloc.rs` versus
+  `crates/tynra_ralloc/include/ralloc.h`.
 
 The `exports` command enumerates the symbols actually exported by a built
 CDyLib artifact (PE or ELF), so the declared symbol set can be proven against
@@ -37,8 +37,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 CRATES = ROOT / "crates"
 DEFAULT_CBINDGEN_CONFIG = ROOT / "cbindgen.toml"
-DEFAULT_GENERATED_HEADER = CRATES / "tinylang_core" / "include" / "tinylang.h"
-EXPECTED_PACKAGE_NAME = "tinylang-v2"
+DEFAULT_GENERATED_HEADER = CRATES / "tynra_core" / "include" / "tynra.h"
+EXPECTED_PACKAGE_NAME = "tynra-v2"
 
 RUST_EXPORT_RE = re.compile(
     r"#\s*\[\s*(?:unsafe\s*\(\s*)?no_mangle\s*\)?\s*\]\s*"
@@ -64,25 +64,25 @@ class AbiGroup:
 
 V1_JSON_GROUP = AbiGroup(
     name="v1-json",
-    rust_path=CRATES / "tinylang_core" / "src" / "interoperability" / "ffi.rs",
-    header_path=CRATES / "tinylang_core" / "include" / "tinylang.h",
-    symbol_prefix="tinylang",
+    rust_path=CRATES / "tynra_core" / "src" / "interoperability" / "ffi.rs",
+    header_path=CRATES / "tynra_core" / "include" / "tynra.h",
+    symbol_prefix="tynra",
 )
 V2_BINARY_GROUP = AbiGroup(
     name="v2-binary",
-    rust_path=CRATES / "tinylang_core" / "src" / "interoperability" / "ffi" / "v2" / "mod.rs",
-    header_path=CRATES / "tinylang_core" / "include" / "tinylang_v2.h",
-    symbol_prefix="tinylang",
+    rust_path=CRATES / "tynra_core" / "src" / "interoperability" / "ffi" / "v2" / "mod.rs",
+    header_path=CRATES / "tynra_core" / "include" / "tynra_v2.h",
+    symbol_prefix="tynra",
 )
 RALLOC_GROUP = AbiGroup(
     name="ralloc",
-    rust_path=CRATES / "tinylang_ralloc" / "src" / "ralloc.rs",
-    header_path=CRATES / "tinylang_ralloc" / "include" / "ralloc.h",
+    rust_path=CRATES / "tynra_ralloc" / "src" / "ralloc.rs",
+    header_path=CRATES / "tynra_ralloc" / "include" / "ralloc.h",
     symbol_prefix="ralloc",
 )
 ABI_GROUPS: tuple[AbiGroup, ...] = (V1_JSON_GROUP, V2_BINARY_GROUP, RALLOC_GROUP)
 
-MANIFEST_FORMAT = "tinylang-abi-symbol-manifest-v2"
+MANIFEST_FORMAT = "tynra-abi-symbol-manifest-v2"
 
 
 @dataclass(frozen=True)
@@ -237,7 +237,7 @@ def render_group_section(symbols: AbiSymbols, indent: str) -> list[str]:
 
 def render_manifest(symbols: list[AbiSymbols]) -> str:
     lines = [
-        "# TinyLang ABI symbol manifest",
+        "# Tynra ABI symbol manifest",
         "# Deterministic symbol inventory only; not a stable ABI claim.",
         f"format: {MANIFEST_FORMAT}",
         "groups:",
@@ -248,7 +248,7 @@ def render_manifest(symbols: list[AbiSymbols]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def validate_tinylang_crate_dir(crate_dir: Path) -> Path:
+def validate_tynra_crate_dir(crate_dir: Path) -> Path:
     manifest = crate_dir / "Cargo.toml"
     if not manifest.is_file():
         raise ValueError(f"crate directory {rel(crate_dir)} must contain Cargo.toml")
@@ -480,7 +480,7 @@ def command_exports(args: argparse.Namespace) -> int:
 
 def command_generate_header(args: argparse.Namespace) -> int:
     try:
-        crate_dir = validate_tinylang_crate_dir(args.crate_dir)
+        crate_dir = validate_tynra_crate_dir(args.crate_dir)
         source = validate_cbindgen_source(args.ffi_source)
     except ValueError as error:
         print(str(error), file=sys.stderr)
@@ -500,7 +500,7 @@ def command_generate_header(args: argparse.Namespace) -> int:
         cbindgen = shutil.which(args.cbindgen)
     if cbindgen is None:
         print(
-            "cbindgen is not available on PATH; cannot generate tinylang.h.",
+            "cbindgen is not available on PATH; cannot generate tynra.h.",
             file=sys.stderr,
         )
         print(
@@ -558,8 +558,8 @@ def parser() -> argparse.ArgumentParser:
     )
     common.add_argument(
         "--symbol-prefix",
-        default="tinylang",
-        help="header symbol prefix when using --ffi/--header (default: tinylang)",
+        default="tynra",
+        help="header symbol prefix when using --ffi/--header (default: tynra)",
     )
     common.add_argument(
         "--group",
@@ -569,7 +569,7 @@ def parser() -> argparse.ArgumentParser:
     )
 
     root = argparse.ArgumentParser(
-        description="Check TinyLang C ABI header drift, emit symbol manifests, and scan built artifacts."
+        description="Check Tynra C ABI header drift, emit symbol manifests, and scan built artifacts."
     )
     subcommands = root.add_subparsers(dest="command", required=True)
 
@@ -602,13 +602,13 @@ def parser() -> argparse.ArgumentParser:
 
     generate = subcommands.add_parser(
         "generate-header",
-        help="generate planned tinylang.h with cbindgen when cbindgen is installed",
+        help="generate planned tynra.h with cbindgen when cbindgen is installed",
     )
     generate.add_argument(
         "--crate-dir",
         type=Path,
-        default=CRATES / "tinylang_core",
-        help="Rust crate directory whose Cargo.toml must identify the tinylang-v2 package",
+        default=CRATES / "tynra_core",
+        help="Rust crate directory whose Cargo.toml must identify the tynra-v2 package",
     )
     generate.add_argument(
         "--ffi-source",

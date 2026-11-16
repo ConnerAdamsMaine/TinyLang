@@ -1,0 +1,42 @@
+name: "Supply Chain"
+
+# Supply-chain gate (TM-16): cargo-deny advisories + license + ban checks.
+# Runs weekly, on manual dispatch, and on dependency-relevant PR changes.
+on:
+  schedule:
+    # Weekly, Mondays 05:17 UTC (off-minute to reduce runner load spikes)
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+      - "deny.toml"
+      - ".github/workflows/supply-chain.yml"
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: "always"
+
+jobs:
+  cargo-deny:
+    name: "cargo deny check"
+    runs-on: "ubuntu-latest"
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+
+      # Reuses the repo's composite setup action; restrict tool installs to
+      # cargo-deny only (the action defaults to cargo-binstall/cargo-make/just/taplo).
+      - name: "Setup Rust"
+        uses: "./.github/actions/setup-rust"
+        with:
+          tools: "cargo-deny"
+
+      - name: "cargo deny check"
+        shell: "bash"
+        # Advisories (RustSec), licenses, and bans are all checked by default.
+        run: cargo deny check

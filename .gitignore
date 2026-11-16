@@ -93,6 +93,6 @@ git-prep/*
 
 # Local compiler output
 /main.s
-.tinylang-cache/
+.tynra-cache/
 
 .zipignore

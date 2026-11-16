@@ -2,9 +2,9 @@
 title: Performance
 ---
 
-# TinyLang performance workflow
+# Tynra performance workflow
 
-`tinylang_bench` is the performance regression and optimization-targeting
+`tynra_bench` is the performance regression and optimization-targeting
 harness. It measures isolated subsystems instead of treating source-to-output
 latency as one opaque number.
 
@@ -70,8 +70,8 @@ correctness was skipped, `--quick` was used, there are fewer than seven
 repeats, or any row exceeds its CV limit:
 
 ```text
-cargo build --release --manifest-path crates/tinylang_core/Cargo.toml --bin tinylang_bench
-./target/release/tinylang_bench --repeats 7
+cargo build --release --manifest-path crates/tynra_core/Cargo.toml --bin tynra_bench
+./target/release/tynra_bench --repeats 7
 ```
 
 Hot-loop decision rows use a stricter 5 percent coefficient-of-variation
@@ -95,7 +95,7 @@ Save machine-local baselines under the platform-specific
 `target/perf/` tree with:
 
 ```text
-./target/release/tinylang_bench --repeats 7 \
+./target/release/tynra_bench --repeats 7 \
   --machine-label workstation --power-policy performance \
   --save-baseline-auto
 ```
@@ -112,7 +112,7 @@ with an all-row, normalized capture (increase `--sample-scale` if a row is
 noisy, and keep it identical for each side of a pair):
 
 ```text
-./target/release/tinylang_bench --priority-3-only --repeats 7 \
+./target/release/tynra_bench --priority-3-only --repeats 7 \
   --sample-scale 16 \
   --baseline target/perf/<platform>/baseline-<commit>-<time>.json \
   --priority-3-gate
@@ -133,13 +133,13 @@ must also have the same actual iteration count; old shorter-batch baselines
 cannot pass the gate against the longer-batch harness:
 
 ```text
-./target/release/tinylang_bench --priority-5-only --repeats 7 \
+./target/release/tynra_bench --priority-5-only --repeats 7 \
   --sample-scale 4 --machine-label workstation --power-policy performance \
   --save-baseline target/perf/windows-native/priority-5-guardrails-baseline-final.json
 ```
 
 ```text
-./target/release/tinylang_bench --priority-5-only --priority-5-gate \
+./target/release/tynra_bench --priority-5-only --priority-5-gate \
   --repeats 7 --sample-scale 4 --machine-label workstation --power-policy performance \
   --baseline target/perf/windows-native/priority-5-guardrails-baseline-final.json \
   --save-baseline target/perf/windows-native/priority-5-guardrails-current-final.json
@@ -160,7 +160,7 @@ root, set:
 export CARGO_TARGET_DIR="$PWD/target/linux"
 ```
 
-Then use `$CARGO_TARGET_DIR/release/tinylang_bench` as the benchmark binary.
+Then use `$CARGO_TARGET_DIR/release/tynra_bench` as the benchmark binary.
 This prevents one operating system from replacing the other's binaries and
 Cargo fingerprints.
 
@@ -219,7 +219,7 @@ not establish the intended source/executable pairing.
 | `api.*` | End-to-end public API cost, including compilation where applicable |
 
 Build with `--features testing-hooks` to use
-`tinylang::testing::{reset_runtime_cost_counters, runtime_cost_counters}`. The
+`tynra::testing::{reset_runtime_cost_counters, runtime_cost_counters}`. The
 process-wide diagnostic counters report heap-lock acquisitions, encoded-value
 encodes/decodes, successful Ralloc buffer growth events, and bytes copied by
 allocator moves. Reset them only around an exclusive measurement interval;
@@ -228,7 +228,7 @@ they deliberately aggregate work from spawned runtime threads.
 For combined runtime attribution, run the process-isolated diagnostic:
 
 ```text
-cargo test -p tinylang --release --features testing-hooks --test allocation_profile -- --ignored --nocapture --test-threads=1
+cargo test -p tynra --release --features testing-hooks --test allocation_profile -- --ignored --nocapture --test-threads=1
 ```
 
 It covers 15 sources at thresholds 0/8, with separate first/repeated executions
@@ -245,7 +245,7 @@ The retained-object timing rows share their sources and golden checksums with
 a separate scaling diagnostic:
 
 ```text
-cargo test -p tinylang --release --features testing-hooks --test retained_allocation_profile -- --ignored --nocapture --test-threads=1
+cargo test -p tynra --release --features testing-hooks --test retained_allocation_profile -- --ignored --nocapture --test-threads=1
 ```
 
 It covers cells, strings, standalone structs and enums at 0, 1, 16, 256 and
@@ -259,7 +259,7 @@ this process-wide diagnostic alone, never concurrently with timing captures.
 For real native-exhaustion and recovery checks, run:
 
 ```text
-cargo test -p tinylang --features testing-hooks --test allocation_failure -- --nocapture --test-threads=1
+cargo test -p tynra --features testing-hooks --test allocation_failure -- --nocapture --test-threads=1
 ```
 
 This single-test harness reserves fixed-pool storage until no 512-KiB request
@@ -274,7 +274,7 @@ See the [ownership and exhaustion audit](optimization-worklog.md#ralloc-ownershi
 For feedback storage versus code size, run:
 
 ```text
-cargo test -p tinylang --lib report_sparse_feedback_storage -- --ignored --nocapture
+cargo test -p tynra --lib report_sparse_feedback_storage -- --ignored --nocapture
 ```
 
 This reports six prefix/suffix padding shapes at thresholds 0/1/8 (18 cases),
@@ -293,7 +293,7 @@ The current implementation still budgets a full-chunk boxed table.
 For complete-verifier host allocation attribution, run:
 
 ```text
-cargo test -p tinylang --release --features testing-hooks --test verifier_profile report_verifier_allocations -- --exact --ignored --nocapture --test-threads=1
+cargo test -p tynra --release --features testing-hooks --test verifier_profile report_verifier_allocations -- --exact --ignored --nocapture --test-threads=1
 ```
 
 The test-only observer counts the public verifier, including module tables,
@@ -329,8 +329,8 @@ For explicit source-pipeline wall-clock attribution, use the testing-only
 diagnostics below, one process at a time after release builds have finished:
 
 ```text
-cargo test -p tinylang --release --features testing-hooks --lib compiler::profile::tests::report_empty_frontend_clock_floor -- --ignored --exact --nocapture --test-threads=1
-cargo test -p tinylang --release --features testing-hooks --test frontend_profile report_source_compilation_phases -- --ignored --exact --nocapture --test-threads=1
+cargo test -p tynra --release --features testing-hooks --lib compiler::profile::tests::report_empty_frontend_clock_floor -- --ignored --exact --nocapture --test-threads=1
+cargo test -p tynra --release --features testing-hooks --test frontend_profile report_source_compilation_phases -- --ignored --exact --nocapture --test-threads=1
 ```
 
 The explicit capture entry point calls the existing constructor, compiler,
@@ -361,7 +361,7 @@ attribution within the fused compiler pass remain outside this diagnostic.
 For host argument/capture allocation attribution, run the isolated diagnostic:
 
 ```text
-cargo test -p tinylang --release --features testing-hooks --test call_profile -- --ignored --nocapture --test-threads=1
+cargo test -p tynra --release --features testing-hooks --test call_profile -- --ignored --nocapture --test-threads=1
 ```
 
 Its counting `System` wrapper belongs only to that test binary, never to the
@@ -380,7 +380,7 @@ deallocation counts need not balance. Ralloc cleanup is checked separately.
 For host allocation during map removal, run:
 
 ```text
-cargo test -p tinylang --release --features testing-hooks --test map_profile report_map_removal_allocation_profiles -- --exact --ignored --nocapture --test-threads=1
+cargo test -p tynra --release --features testing-hooks --test map_profile report_map_removal_allocation_profiles -- --exact --ignored --nocapture --test-threads=1
 ```
 
 This reuses the same test-only counter implementation. It covers integer,
@@ -397,7 +397,7 @@ remain necessary to establish latency improvements.
 For host allocation during fixed-cardinality map queries, run separately:
 
 ```text
-cargo test -p tinylang --release --features testing-hooks --test map_profile report_map_query_allocation_profiles -- --exact --ignored --nocapture --test-threads=1
+cargo test -p tynra --release --features testing-hooks --test map_profile report_map_query_allocation_profiles -- --exact --ignored --nocapture --test-threads=1
 ```
 
 This keeps a one-entry map and measures get, has, missing has, missing delete
@@ -427,7 +427,7 @@ is restored exactly; the 24-capture screen stops the 112 conditional captures.
 For host allocation during JIT preparation, run:
 
 ```text
-cargo test -p tinylang --release --features testing-hooks --test jit_preparation_profile -- --ignored --nocapture --test-threads=1
+cargo test -p tynra --release --features testing-hooks --test jit_preparation_profile -- --ignored --nocapture --test-threads=1
 ```
 
 Eleven fixtures cover source print/straight-line/float-loop/functions, raw expression
@@ -445,9 +445,9 @@ For opt-in wall-clock attribution within preparation, build first and then run
 the two diagnostics separately, with no other measurement or build running:
 
 ```text
-cargo test -p tinylang --release --features testing-hooks --locked --offline --lib --test jit_preparation_phases --no-run
-cargo test -p tinylang --release --features testing-hooks --locked --offline --lib report_empty_phase_clock_floor -- --ignored --nocapture --test-threads=1
-cargo test -p tinylang --release --features testing-hooks --locked --offline --test jit_preparation_phases -- --ignored --nocapture --test-threads=1
+cargo test -p tynra --release --features testing-hooks --locked --offline --lib --test jit_preparation_phases --no-run
+cargo test -p tynra --release --features testing-hooks --locked --offline --lib report_empty_phase_clock_floor -- --ignored --nocapture --test-threads=1
+cargo test -p tynra --release --features testing-hooks --locked --offline --test jit_preparation_phases -- --ignored --nocapture --test-threads=1
 ```
 
 `testing::capture_jit_preparation` records 17 disjoint phases: chunk setup,
@@ -481,7 +481,7 @@ loader's mandatory verification. Compare it with the separate
 introducing an unverified artifact-loading API solely for benchmarking.
 
 File fixtures default to the platform temporary directory. Set
-`TINYLANG_BENCH_FIXTURE_ROOT` to measure a specific filesystem. Benchmark JSON
+`TYNRA_BENCH_FIXTURE_ROOT` to measure a specific filesystem. Benchmark JSON
 records both the process working-directory filesystem and the fixture
 filesystem, which distinguishes WSL `/mnt/c` runs from WSL native `/tmp` runs.
 
@@ -585,7 +585,7 @@ baseline machine:
    fallbacks. Vector pop avoids a temporary host byte vector, collection growth
    is amortized fourfold, maps reserve their small host index, and cell churn
    reuses one fixed payload. The VM heap no longer shadow-tracks each payload
-   through TinyAllocator's diagnostics, while its standalone diagnostics stay
+   through TynraAllocator's diagnostics, while its standalone diagnostics stay
    intact. Two decision-grade Windows captures reduced CPU/cycles by 16-18% /
    19% for vector, 23-24% / 23-24% for map, and 41% / 40-42% for heap churn.
    Two Arch WSL captures reduced them by 13-17% / 13-17%, 22-23% / 22-23%, and

@@ -1,4 +1,4 @@
-# TinyLang v2 runtime memory model
+# Tynra v2 runtime memory model
 
 Status: **existing model verified in focused tests; v2 automatic RC blocked**.
 

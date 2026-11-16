@@ -44,7 +44,8 @@ jobs:
 
       - name: "Cargo test (workspace)"
         shell: "bash"
-        run: cargo test --workspace -- --test-threads=1
+        # --locked: supply-chain gate (TM-16) — fail loudly if Cargo.lock is stale
+        run: cargo test --workspace --locked -- --test-threads=1
 
       - name: "Language suite (testing-hooks)"
         shell: "bash"
@@ -60,4 +61,4 @@ jobs:
 
       - name: "Verify publication packages (no upload)"
         shell: "bash"
-        run: cargo package --workspace --exclude tinylang-xtask --locked
+        run: cargo package --workspace --exclude tynra-xtask --locked

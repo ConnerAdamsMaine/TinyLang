@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Windows MSVC C smoke: build cdylib + link tinylang_consumer.c via cl.exe against .dll.lib
+# Windows MSVC C smoke: build cdylib + link tynra_consumer.c via cl.exe against .dll.lib
 # Requires setup-msvc (msvc-dev-cmd + PATH filtered). Fail hard; no fallback.
 # Candidate-chain dispatch (array + centralized switch -> helper) for toolchain probing.
 
@@ -14,7 +14,7 @@ _usage() {
 Usage: ${_self} [help|-h|--help]
   or: bash ${BASH_SOURCE[0]} [help|-h|--help]
 
-Builds cdylib (cargo build), links tests/consumers/tinylang_consumer.c via cl.exe
+Builds cdylib (cargo build), links tests/consumers/tynra_consumer.c via cl.exe
 against the cdylib import lib (*.dll.lib), and executes the binary.
 Requires: cl.exe on PATH (setup-msvc). No arguments expected.
 
@@ -59,14 +59,14 @@ fi
 
 cargo build
 
-IMPORT_LIB="${BUILD_DIR}/tinylang.dll.lib"
+IMPORT_LIB="${BUILD_DIR}/tynra.dll.lib"
 if [[ ! -f "${IMPORT_LIB}" ]]; then
   printf "consumer_smoke_msvc: import library not found: %s\n" "${IMPORT_LIB}" >&2
   exit 1
 fi
 
-OUT="${BUILD_DIR}/tinylang_consumer.exe"
-SRC="${ROOT_DIR}/tests/consumers/tinylang_consumer.c"
+OUT="${BUILD_DIR}/tynra_consumer.exe"
+SRC="${ROOT_DIR}/tests/consumers/tynra_consumer.c"
 
 _base_msvc_args=(
   /nologo

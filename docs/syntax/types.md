@@ -4,7 +4,7 @@ title: Syntax - Types
 
 # Types
 
-TinyLang is dynamically typed. Every value at runtime has one of the
+Tynra is dynamically typed. Every value at runtime has one of the
 following types. Use `type_of(value)` to inspect the type at runtime.
 
 Runtime algebraic and ownership types are constructible through the stdlib
@@ -106,7 +106,7 @@ Captures are prepended to the explicit call arguments.
 
 `fn(args) { ... }` creates a closure. Captures are automatic and lexical:
 
-```tinylang
+```tynra
 fn make_counter() {
     let count = 0
     let increment = fn() {
@@ -137,7 +137,7 @@ print counters[0]()   // 2
   function are stored in shared cells; other captures are copied by value.
   Top-level variables are globals and are always read live.
 - Shared captures have no implicit synchronization. Cross-thread sharing
-  must follow TinyLang's concurrency rules.
+  must follow Tynra's concurrency rules.
 - `break` and `continue` inside a closure body cannot target loops of the
   enclosing function, and an enclosing `unsafe` block does not extend into
   the closure body.
@@ -145,7 +145,7 @@ print counters[0]()   // 2
   `(fn(x) { return x * 2 })(21)` and `callbacks[0](42)` are valid. A call on
   a new line is not joined to the previous expression. Local bindings
   shadow functions and builtins of the same name in call position.
-- Names beginning with `__tiny_closure_` are reserved for compiler-generated
+- Names beginning with `__tynra_closure_` are reserved for compiler-generated
   closure functions and are rejected in declarations and `closure_new`.
 - Captured environments are opaque. `closure_captures` requires `unsafe`
   and returns a snapshot of the current captured values.
@@ -159,13 +159,13 @@ instruction; shared bindings use `MakeCell`, `LoadCell` and `StoreCell`.
 
 V2 accepts generic function declarations such as:
 
-```tinylang
+```tynra
 fn identity<T>(value: T) -> T { return value }
 print identity(42)
 print identity("text")
 ```
 
-Generic parameters are currently erased because TinyLang has dynamic runtime
+Generic parameters are currently erased because Tynra has dynamic runtime
 values. The compiler records the declared parameters in function metadata and
 artifacts, while one runtime body serves all instantiations.
 

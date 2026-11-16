@@ -4,8 +4,8 @@ Status: **real Windows and Linux x86-64 scalar JIT implemented and tested;
 full-language backend remains partial**.
 
 The existing [decoded-opcode JIT](../../architecture.md) is retained. The new
-experimental ASM backend consumes [ScalarFunction](../../../crates/tinylang_core/src/execution/engine/ir.rs)
-and, for whole call closures, [ScalarProgram](../../../crates/tinylang_core/src/execution/engine/program.rs);
+experimental ASM backend consumes [ScalarFunction](../../../crates/tynra_core/src/execution/engine/ir.rs)
+and, for whole call closures, [ScalarProgram](../../../crates/tynra_core/src/execution/engine/program.rs);
 it is distinct from that executor.
 
 Verified acceptance: real x86-64 emission; checked arithmetic and floor-division

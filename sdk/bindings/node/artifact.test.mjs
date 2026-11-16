@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import * as sdk from "./tinylang_v2_wire.mjs";
+import * as sdk from "./tynra_v2_wire.mjs";
 
 test("default format1 PROGRAM_LOAD remains byte-for-byte compatible", () => {
   const request = sdk.makeProgramLoadRequest(
@@ -82,12 +82,12 @@ test("limit-sized artifacts and offset Buffer views preserve exact bytes", () =>
 });
 
 test("compiler-produced version-5 artifact survives Node format2 encoding", {
-  skip: process.env.TINYLANG_V2_COMPILER_ARTIFACT === undefined
-    ? "set TINYLANG_V2_COMPILER_ARTIFACT to the sdk_artifact example output"
+  skip: process.env.TYNRA_V2_COMPILER_ARTIFACT === undefined
+    ? "set TYNRA_V2_COMPILER_ARTIFACT to the sdk_artifact example output"
     : false,
 }, () => {
-  const artifact = readFileSync(process.env.TINYLANG_V2_COMPILER_ARTIFACT);
-  assert.equal(artifact.subarray(0, 8).toString("ascii"), "TINYLANG");
+  const artifact = readFileSync(process.env.TYNRA_V2_COMPILER_ARTIFACT);
+  assert.equal(artifact.subarray(0, 8).toString("ascii"), "TYNRA\0\0\0");
   assert.equal(artifact.readUInt16LE(8), 5);
   const encoded = sdk.makeProgramLoadRequest(
     artifact,

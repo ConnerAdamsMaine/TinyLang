@@ -1,7 +1,7 @@
-# TinyLang v2 deterministic binary ABI
+# Tynra v2 deterministic binary ABI
 
 Status: experimental v2.0 draft  
-Canonical header: `crates/tinylang_core/include/tinylang_v2.h`
+Canonical header: `crates/tynra_core/include/tynra_v2.h`
 
 ## 1. Scope and invariants
 
@@ -59,10 +59,10 @@ mirrors the request's opcode and correlation ID.
 ## 3. Status model
 
 The C function result reports whether the boundary operation itself completed.
-`TINY_STATUS_OK` means a syntactically valid response frame was written. The
+`TYNRA_STATUS_OK` means a syntactically valid response frame was written. The
 response header's status field reports protocol, application, or VM failure.
 Consequently an unknown but well-formed opcode produces a response frame whose
-status is `TINY_STATUS_UNKNOWN_OPCODE`, while the C function returns OK.
+status is `TYNRA_STATUS_UNKNOWN_OPCODE`, while the C function returns OK.
 
 Boundary failures that prevent a trustworthy response—invalid pointers,
 overlap, an invalid frame, an invalid runtime handle, or insufficient output
@@ -79,7 +79,7 @@ capacity—are returned directly. No response is produced for them.
 | 6 | `INVALID_HANDLE` | Zero, malformed, inactive, or foreign handle. |
 | 7 | `STALE_HANDLE` | Slot exists but its generation does not match. |
 | 8 | `OUT_OF_MEMORY` | Runtime or optional pool capacity is exhausted. |
-| 9 | `VM_TRAP` | TinyLang execution trapped. |
+| 9 | `VM_TRAP` | Tynra execution trapped. |
 | 10 | `INTERNAL` | Runtime invariant or synchronization failure. |
 | 11 | `PANIC` | A Rust panic was caught before crossing the C ABI. |
 | 12 | `BUSY` | Resource has outstanding children, such as owned buffers. |
@@ -139,7 +139,7 @@ used for variable-width or heterogeneous values. Nesting is bounded to 32.
 
 ### Binding requirements
 
-- C and C++ use the fixed-width declarations in `tinylang_v2.h`; C++ callers
+- C and C++ use the fixed-width declarations in `tynra_v2.h`; C++ callers
   receive the same `extern "C"` symbols and must not allow exceptions across
   them.
 - Python bindings use `ctypes.c_uint64` (or an equivalent CFFI type) for both
@@ -153,11 +153,11 @@ used for variable-width or heterogeneous values. Nesting is bounded to 32.
   runtime nor a binding may retain a borrowed C buffer after the call returns.
 
 Reference C, Python, and Node implementations live under
-`crates/tinylang_core/bindings/` and are checked against the committed golden vectors.
+`sdk/bindings/` and are checked against the committed golden vectors.
 
 ## 5. Handles and provenance
 
-No VM pointer appears on the wire. `TinyHandle` and `TinyRuntimeHandle` are
+No VM pointer appears on the wire. `TynraHandle` and `TynraRuntimeHandle` are
 opaque nonzero u64 values. The reference implementation divides handles into a
 slot component and generation component, but consumers must not inspect them.
 Destroying an object invalidates its generation, allowing stale references to
@@ -195,7 +195,7 @@ Raw pointers exist only in C ABI buffer descriptors. For every call:
 
 ## 6. Ownership and allocation
 
-`tinylang_v2_call` uses host-owned request and response allocations. Envelope
+`tynra_v2_call` uses host-owned request and response allocations. Envelope
 parsing and response serialization allocate no transfer buffers. Opcode
 execution may allocate explicitly runtime-owned state (for example, a verified
 Program) only after response capacity preflight. If response capacity is
@@ -207,17 +207,17 @@ enough for either its success or error response; on success, `out_written` is
 always the actual encoded frame length.
 
 Hosts that prefer runtime-owned transfer storage may explicitly call
-`tinylang_v2_buffer_acquire`. Such buffers are zero-initialized, tied to one
+`tynra_v2_buffer_acquire`. Such buffers are zero-initialized, tied to one
 runtime and owner token, and must be returned exactly once using
-`tinylang_v2_buffer_release`. A runtime cannot be destroyed while one of its
+`tynra_v2_buffer_release`. A runtime cannot be destroyed while one of its
 buffers remains outstanding. A copied or already released descriptor is stale
 and must not be dereferenced or released again.
 
 ### 6.1 Transfer buffers are experimental (V2-TOKEN-WRAP resolution)
 
 The transfer-buffer pair is **experimental** in 2.x: stable clients and stable
-bindings must not call `tinylang_v2_buffer_acquire` or
-`tinylang_v2_buffer_release`. The following ABA/lifetime argument is the
+bindings must not call `tynra_v2_buffer_acquire` or
+`tynra_v2_buffer_release`. The following ABA/lifetime argument is the
 documented resolution of the audited `V2-TOKEN-WRAP` concern.
 
 **Token scheme.** Each successful `buffer_acquire` draws a transfer token from
@@ -262,7 +262,7 @@ never dereferences caller descriptors beyond the identity match and never
 deallocates anything but the allocation recorded in the matched slot.
 
 Boundary and concurrency behavior is pinned by
-`crates/tinylang_core/tests/buffer_transfer.rs` (released copies, double
+`crates/tynra_core/tests/buffer_transfer.rs` (released copies, double
 release, address/capacity reuse with a stale token, forged-token mix,
 cross-runtime release, concurrent acquire/release, null and length-mismatched
 descriptors).

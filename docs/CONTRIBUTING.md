@@ -2,7 +2,7 @@
 title: Contributing
 ---
 
-# Contributing to TinyLang
+# Contributing to Tynra
 
 ## Prerequisites
 
@@ -15,13 +15,13 @@ title: Contributing
 
 ## Branches and Release Lines
 
-TinyLang v1 is in maintenance while v2 is developed. The support window is
+Tynra v1 is in maintenance while v2 is developed. The support window is
 listed under [Release Lines](../README.md#release-lines).
 
 | Branch | Line | Open PRs here for |
 |--------|------|-------------------|
-| `main` | TinyLang v2 development | New features, language/runtime/JIT changes, the v2 ABI and SDKs, `crates/tinylang_core/` |
-| `release/v1` | TinyLang v1 maintenance | Bug fixes, security fixes, v1 ABI-conformance fixes, documentation corrections |
+| `main` | Tynra v2 development | New features, language/runtime/JIT changes, the v2 ABI and SDKs, `crates/tynra_core/` |
+| `release/v1` | Tynra v1 maintenance | Bug fixes, security fixes, v1 ABI-conformance fixes, documentation corrections |
 
 Rules for `release/v1`:
 
@@ -42,10 +42,10 @@ neither line rebuilds the other's artifacts:
 ```sh
 # From the primary checkout on main
 git fetch origin
-git worktree add ../TinyLang-v1 release/v1
+git worktree add ../Tynra-v1 release/v1
 ```
 
-Remove it with `git worktree remove ../TinyLang-v1` once its work is pushed.
+Remove it with `git worktree remove ../Tynra-v1` once its work is pushed.
 
 ## Build System
 
@@ -69,10 +69,10 @@ Install taplo with `cargo install taplo-cli` for full formatting.
 
 ```sh
 # Build the CLI and library
-cargo build --manifest-path crates/tinylang_core/Cargo.toml
+cargo build --manifest-path crates/tynra_core/Cargo.toml
 
 # Build the release binary
-cargo build --release --manifest-path crates/tinylang_core/Cargo.toml
+cargo build --release --manifest-path crates/tynra_core/Cargo.toml
 ```
 
 ## Developer Harness
@@ -89,7 +89,7 @@ cargo run --manifest-path crates/xtask/Cargo.toml -- release-gate
 
 Supported tasks are `check`, `test`, `test-hooks`, `fmt-check`, `clippy`,
 `bench-smoke`, `tools-test`, `package-check`, and `release-gate`. The harness uses the active
-`crates/tinylang_core/Cargo.toml` and `crates/tinylang_ralloc/Cargo.toml` manifests plus the Python tools
+`crates/tynra_core/Cargo.toml` and `crates/tynra_ralloc/Cargo.toml` manifests plus the Python tools
 under `Tools/`; it does not restore or require the removed root `stdlib/`.
 
 The release gate packages and builds every publishable crate and requires a
@@ -101,19 +101,19 @@ package order, the registry ownership prerequisite, and v2 migration details.
 
 ```sh
 # Standard test suite (122 tests, all should pass)
-cargo test --manifest-path crates/tinylang_core/Cargo.toml
+cargo test --manifest-path crates/tynra_core/Cargo.toml
 
 # Language fixture suite (requires testing-hooks feature)
-cargo test --manifest-path crates/tinylang_core/Cargo.toml --features testing-hooks
+cargo test --manifest-path crates/tynra_core/Cargo.toml --features testing-hooks
 
 # Single test suite
-cargo test --manifest-path crates/tinylang_core/Cargo.toml --test runtime_parity
-cargo test --manifest-path crates/tinylang_core/Cargo.toml --test abi_api_soundness
-cargo test --manifest-path crates/tinylang_core/Cargo.toml --test stdlib_parity
+cargo test --manifest-path crates/tynra_core/Cargo.toml --test runtime_parity
+cargo test --manifest-path crates/tynra_core/Cargo.toml --test abi_api_soundness
+cargo test --manifest-path crates/tynra_core/Cargo.toml --test stdlib_parity
 
 # Run the C FFI smoke test (requires pre-built cdylib)
-cargo build --manifest-path crates/tinylang_core/Cargo.toml
-cargo test --manifest-path crates/tinylang_core/Cargo.toml --test abi_api_soundness \
+cargo build --manifest-path crates/tynra_core/Cargo.toml
+cargo test --manifest-path crates/tynra_core/Cargo.toml --test abi_api_soundness \
   c_header_ffi_smoke_covers_ownership_null_and_mode_contracts
 ```
 
@@ -128,31 +128,31 @@ bash scripts/consumer-smoke.sh                   # Unix native C smoke
 ```
 
 CI runs the C smoke executable with native compilers on Ubuntu, macOS, and
-Windows. C++, Rust, and Zig consumers use the same generated `tinylang.h`.
+Windows. C++, Rust, and Zig consumers use the same generated `tynra.h`.
 
 ## Code Quality
 
 ```sh
 # Format check (must pass before commit)
-cargo fmt --manifest-path crates/tinylang_core/Cargo.toml --all --check
+cargo fmt --manifest-path crates/tynra_core/Cargo.toml --all --check
 
 # Apply formatting
-cargo fmt --manifest-path crates/tinylang_core/Cargo.toml --all
+cargo fmt --manifest-path crates/tynra_core/Cargo.toml --all
 
 # Lints (must be clean)
-cargo clippy --manifest-path crates/tinylang_core/Cargo.toml --all-targets -- -D warnings
+cargo clippy --manifest-path crates/tynra_core/Cargo.toml --all-targets -- -D warnings
 ```
 
 ## Benchmarks
 
 ```sh
 # Full benchmark suite
-cargo build --release --manifest-path crates/tinylang_core/Cargo.toml --bin tinylang_bench
-./crates/tinylang_core/target/release/tinylang_bench
+cargo build --release --manifest-path crates/tynra_core/Cargo.toml --bin tynra_bench
+./crates/tynra_core/target/release/tynra_bench
 
 # Quick smoke run
-cargo build --release --manifest-path crates/tinylang_core/Cargo.toml --bin tinylang_bench
-./crates/tinylang_core/target/release/tinylang_bench \
+cargo build --release --manifest-path crates/tynra_core/Cargo.toml --bin tynra_bench
+./crates/tynra_core/target/release/tynra_bench \
   --quick --repeats 1
 ```
 
@@ -173,12 +173,12 @@ the VM/JIT. Follow this sequence:
 
 ### 1. Add a test fixture first
 
-Add a `.to` file to `crates/tinylang_core/tests/language/pass/`, `fail_compile/`, or
+Add a `.to` file to `crates/tynra_core/tests/language/pass/`, `fail_compile/`, or
 `fail_runtime/` depending on expected behavior. Run the language suite to
 confirm the fixture fails before your change:
 
 ```sh
-cargo test --manifest-path crates/tinylang_core/Cargo.toml --features testing-hooks 2>&1 | grep FAIL
+cargo test --manifest-path crates/tynra_core/Cargo.toml --features testing-hooks 2>&1 | grep FAIL
 ```
 
 ### 2. Extend the lexer if needed (`syntax/lexer.rs`, `syntax/token.rs`)
@@ -226,9 +226,9 @@ validates them under the existing limits.
 ### 9. Run the full suite
 
 ```sh
-cargo test --manifest-path crates/tinylang_core/Cargo.toml
-cargo test --manifest-path crates/tinylang_core/Cargo.toml --features testing-hooks
-cargo clippy --manifest-path crates/tinylang_core/Cargo.toml --all-targets -- -D warnings
+cargo test --manifest-path crates/tynra_core/Cargo.toml
+cargo test --manifest-path crates/tynra_core/Cargo.toml --features testing-hooks
+cargo clippy --manifest-path crates/tynra_core/Cargo.toml --all-targets -- -D warnings
 ```
 
 ---
@@ -242,7 +242,7 @@ do not insert into or reorder them.
 
 To add a Phase-2 stdlib bridge builtin:
 
-1. **`TinyLang/src/builtins.rs`** — append a new entry after index 34 in
+1. **`Tynra/src/builtins.rs`** — append a new entry after index 34 in
    `BUILTINS`. The name must not conflict with any existing builtin.
 
    ```rust
@@ -258,16 +258,16 @@ To add a Phase-2 stdlib bridge builtin:
    `runtime_call_stdlib_builtin` that calls your new function.
 3. **`runtime/stdlib.rs`** — implement the function as `pub fn b_your_name(…)`
    following the existing pattern. Return `Result<Value>`. Do not panic.
-4. **TinyLang wrapper modules** — deferred for now. The root `stdlib/` tree has
+4. **Tynra wrapper modules** — deferred for now. The root `stdlib/` tree has
    been intentionally removed while the standard library surface moves into the
    runtime/system layer.
-5. **`TinyLang/tests/stdlib_parity.rs`** — add at least one test covering the new
+5. **`Tynra/tests/stdlib_parity.rs`** — add at least one test covering the new
    builtin via `run_source`.
 
 ### Rules for all builtins
 
 - Never use `.unwrap()` or `.expect()` in a builtin implementation.
-- Check argument types explicitly; return `TinyLangError::runtime(…)` on type
+- Check argument types explicitly; return `TynraError::runtime(…)` on type
   mismatch rather than panicking.
 - Respect heap limits (MAX_HEAP_BYTES, MAX_ARRAY_LENGTH, MAX_BUFFER_BYTES).
   Validate sizes before allocating.
@@ -279,14 +279,14 @@ To add a Phase-2 stdlib bridge builtin:
 ## Adding Stdlib Surface
 
 The active stdlib direction is runtime/system-backed builtins, not a large
-root `stdlib/` tree written in TinyLang. Add the Rust builtin first, cover it
-with parity tests, and only add TinyLang wrapper modules if that tree is
+root `stdlib/` tree written in Tynra. Add the Rust builtin first, cover it
+with parity tests, and only add Tynra wrapper modules if that tree is
 explicitly restored later.
 
-1. Add the builtin entry in `TinyLang/src/builtins.rs`.
-2. Dispatch it through `TinyLang/src/runtime/builtins.rs`.
-3. Implement it in `TinyLang/src/runtime/stdlib.rs`.
-4. Test it through `TinyLang/tests/stdlib_parity.rs`.
+1. Add the builtin entry in `Tynra/src/builtins.rs`.
+2. Dispatch it through `Tynra/src/runtime/builtins.rs`.
+3. Implement it in `Tynra/src/runtime/stdlib.rs`.
+4. Test it through `Tynra/tests/stdlib_parity.rs`.
 
 ---
 
@@ -294,7 +294,7 @@ explicitly restored later.
 
 ### Language fixture (`.to` file)
 
-Place fixtures under `crates/tinylang_core/tests/language/`:
+Place fixtures under `crates/tynra_core/tests/language/`:
 
 - `pass/` — programs expected to compile and print deterministic output.
 - `fail_compile/` — programs expected to fail at compile time.
@@ -307,9 +307,9 @@ when run with `--features testing-hooks`.
 
 Add a `#[test]` function to the appropriate file:
 
-- `TinyLang/tests/runtime_parity.rs` — language behavior, VM/JIT parity
-- `TinyLang/tests/stdlib_parity.rs` — stdlib behavior
-- `TinyLang/tests/abi_api_soundness.rs` — FFI contracts, artifact limits, verifier
+- `Tynra/tests/runtime_parity.rs` — language behavior, VM/JIT parity
+- `Tynra/tests/stdlib_parity.rs` — stdlib behavior
+- `Tynra/tests/abi_api_soundness.rs` — FFI contracts, artifact limits, verifier
 
 All test functions must:
 - Use `run_source` or `compile_source` rather than constructing `Program` by hand
@@ -326,8 +326,8 @@ All test functions must:
   `unreachable!()` outside of `catch_unwind` guards or `#[cfg(test)]` blocks.
 - All operations that can fail must return `Result<T>` and propagate errors
   with `?`.
-- Errors must be `TinyLangError::compile(…)` for compilation-time failures or
-  `TinyLangError::runtime(…)` for execution-time failures.
+- Errors must be `TynraError::compile(…)` for compilation-time failures or
+  `TynraError::runtime(…)` for execution-time failures.
 - Resource limits must be checked **before** any allocation. Do not allocate a
   `Vec` from an untrusted count field before validating that count against its
   limit.
@@ -338,7 +338,7 @@ All test functions must:
 
 When adding a new `extern "C"` function:
 
-1. Add the declaration to `tinylang.h` with a `# Safety` doc comment.
+1. Add the declaration to `tynra.h` with a `# Safety` doc comment.
 2. Add the Rust implementation in `ffi.rs`.
 3. If the function returns `char *`, it **must** route through `respond()` to
    get the double-`catch_unwind` panic boundary.
@@ -346,7 +346,7 @@ When adding a new `extern "C"` function:
    `catch_unwind` guard — `respond()` cannot be used for void functions.
 5. Nullable `const char *` parameters must be annotated `/* nullable */` in the
    header.
-6. Add a test in `TinyLang/tests/abi_api_soundness.rs` exercising the null-pointer
+6. Add a test in `Tynra/tests/abi_api_soundness.rs` exercising the null-pointer
    and error cases.
 
 ---

@@ -15,7 +15,7 @@ SCRIPT_DIR = "${ROOT}/scripts"
 TOOL_DIR = "${ROOT}/tools"
 
 # Name of output if/when calling dist tasks, should match the cargo bin output
-PROJECT_NAME = "tinylang" # "cargo_output_binary_name_for_PROJECT_NAME"
+PROJECT_NAME = "tynra" # "cargo_output_binary_name_for_PROJECT_NAME"
 # Default profile to use for builds during dist related tasks
 SLEEP_TIME = "15"
 

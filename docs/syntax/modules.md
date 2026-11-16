@@ -4,7 +4,7 @@ title: Syntax - Modules
 
 # Modules
 
-TinyLang's module system separates source files into independently
+Tynra's module system separates source files into independently
 compiled namespaces. An `import` declaration compiles and links another
 source file and makes its exported declarations available under an alias.
 
@@ -40,11 +40,11 @@ Import paths are resolved in this order:
    ```
 
 2. **Manifest lookup:** if the path does not end in `.to`, the compiler
-   searches for a `tinylang.json` package manifest in the importing
+   searches for a `tynra.json` package manifest in the importing
    file's directory and then in each ancestor directory up to the entry
    file's directory. The first manifest that maps the module name wins.
    ```
-   import "math" as math   # resolved via tinylang.json
+   import "math" as math   # resolved via tynra.json
    ```
 
 3. **Stem alias:** if `as alias` is omitted, the filename stem (without
@@ -61,9 +61,9 @@ into a parent project, user home directory, or machine-wide manifest.
 
 ---
 
-## `tinylang.json` Package Manifest
+## `tynra.json` Package Manifest
 
-A `tinylang.json` file in a directory maps module names to source paths:
+A `tynra.json` file in a directory maps module names to source paths:
 
 ```json
 {
@@ -129,18 +129,18 @@ caller's import/export boundary. An imported module cannot name a root function
 to turn that function into a privileged deputy; it may select its own functions
 or exported functions from modules it imports.
 
-TinyLang does not yet expose socket or GPU builtins. The reserved `network` and
+Tynra does not yet expose socket or GPU builtins. The reserved `network` and
 `graphics` grants establish the stable contract those bridges must use when
 they arrive; they do not by themselves provide access to a device or network.
 
-Within one compilation session, TinyLang caches canonical resolutions, parsed
+Within one compilation session, Tynra caches canonical resolutions, parsed
 manifests (including missing-manifest probes), and source text. Repeated or
 diamond-shaped imports do not reread the same file. CLI source runs also use a
-dependency-validated `.tinylang-cache/` artifact by default; `--no-cache`
+dependency-validated `.tynra-cache/` artifact by default; `--no-cache`
 disables it. A single changed module with stable declaration topology can be
 relocated into the cached program and the complete result is re-verified.
 
-Manifest targets are TinyLang source files. Native shared libraries (`.dll`,
+Manifest targets are Tynra source files. Native shared libraries (`.dll`,
 `.so`, versioned `.so.*`, and `.dylib`) are rejected explicitly, including
 when hidden behind a manifest module name. Loading arbitrary native code in
 the VM/JIT process would bypass bytecode verification and could corrupt the
@@ -158,7 +158,7 @@ In a module source file, declarations without `export` are private —
 they cannot be accessed by importing files. Declarations prefixed with
 `export` are public.
 
-```tinylang
+```tynra
 # math.to
 fn normalize(x) { return x }          # private helper
 
@@ -184,7 +184,7 @@ also enforce the invoking function's module/import/export boundary.
 
 ## Using Imported Declarations
 
-```tinylang
+```tynra
 import "math.to" as math
 
 let result = math.add(40, 2)      # call exported function
@@ -211,13 +211,13 @@ detected via a seen-set in the compiler's shared state.
 
 ```
 project/
-├── tinylang.json
+├── tynra.json
 ├── main.to
 └── lib/
     └── counter.to
 ```
 
-**`tinylang.json`:**
+**`tynra.json`:**
 
 ```json
 {
@@ -230,7 +230,7 @@ project/
 
 **`lib/counter.to`:**
 
-```tinylang
+```tynra
 export struct Counter { value }
 
 export fn new_counter() {
@@ -245,7 +245,7 @@ export fn increment(c) {
 
 **`main.to`:**
 
-```tinylang
+```tynra
 import "counter" as ctr
 
 let c = ctr.new_counter()
@@ -258,7 +258,7 @@ print c.value   # 2
 
 ```bash
 mkdir -p /tmp/tinytest/lib
-cat > /tmp/tinytest/tinylang.json << 'EOF'
+cat > /tmp/tinytest/tynra.json << 'EOF'
 {"package": "project", "modules": {"counter": "lib/counter.to"}}
 EOF
 cat > /tmp/tinytest/lib/counter.to << 'EOF'
@@ -273,7 +273,7 @@ c = ctr.increment(c)
 c = ctr.increment(c)
 print c.value
 EOF
-tinylang /tmp/tinytest/main.to
+tynra /tmp/tinytest/main.to
 # Expected output: 2
 ```
 

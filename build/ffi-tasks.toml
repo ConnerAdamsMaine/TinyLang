@@ -3,7 +3,7 @@
 # Uses CARGO_TARGET_DIR directly (adaptive, not redefined) and ROOT/SCRIPT_DIR from Makefile.toml
 
 [tasks.ffi-build-cdylib]
-description = "Build cdylib (tinylang cdylib) for consumer fixtures"
+description = "Build cdylib (tynra cdylib) for consumer fixtures"
 command = "cargo"
 args = ["build"]
 

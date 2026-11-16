@@ -9,21 +9,21 @@ from pathlib import Path
 import struct
 import unittest
 
-import tinylang_v2 as sdk
+import tynra_v2 as sdk
 
 
 class CompilerArtifactIntegrationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        library = os.environ.get("TINYLANG_V2_LIBRARY")
-        artifact_path = os.environ.get("TINYLANG_V2_COMPILER_ARTIFACT")
+        library = os.environ.get("TYNRA_V2_LIBRARY")
+        artifact_path = os.environ.get("TYNRA_V2_COMPILER_ARTIFACT")
         if library is None and artifact_path is None:
-            raise unittest.SkipTest("set TINYLANG_V2_LIBRARY and TINYLANG_V2_COMPILER_ARTIFACT")
+            raise unittest.SkipTest("set TYNRA_V2_LIBRARY and TYNRA_V2_COMPILER_ARTIFACT")
         if not library or not artifact_path:
             raise ValueError("both explicit DLL and compiler artifact paths are required")
         cls.library_path = Path(library)
         cls.artifact = Path(artifact_path).read_bytes()
-        if cls.artifact[:10] != b"TINYLANG\x05\x00":
+        if cls.artifact[:10] != b"TYNRA\0\0\0\x05\x00":
             raise ValueError("expected the compiler-produced version-5 sdk_artifact output")
 
     def checked_call(
@@ -98,7 +98,7 @@ class CompilerArtifactIntegrationTests(unittest.TestCase):
             self.assertEqual(struct.unpack_from("<H", response, 32)[0], 2)  # VM error detail
 
     def test_format2_rejects_tlbc_and_corrupt_compiler_artifacts(self) -> None:
-        tlbc = Path(__file__).resolve().parents[3] / "crates" / "tinylang_core" / "tests" / "artifacts" / "minimal_halt.tlbc"
+        tlbc = Path(__file__).resolve().parents[3] / "crates" / "tynra_core" / "tests" / "artifacts" / "minimal_halt.tlbc"
         invalid_artifacts = (
             tlbc.read_bytes(),
             self.artifact + b"\x00",
@@ -115,7 +115,7 @@ class CompilerArtifactIntegrationTests(unittest.TestCase):
                     )
 
     def test_default_format1_still_loads_real_tlbc(self) -> None:
-        path = Path(__file__).resolve().parents[3] / "crates" / "tinylang_core" / "tests" / "artifacts" / "minimal_halt.tlbc"
+        path = Path(__file__).resolve().parents[3] / "crates" / "tynra_core" / "tests" / "artifacts" / "minimal_halt.tlbc"
         with sdk.Runtime(self.library_path) as runtime:
             with self.owned_handle(runtime, sdk.make_program_load_request(path.read_bytes())):
                 pass

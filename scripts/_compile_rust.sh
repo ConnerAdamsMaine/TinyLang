@@ -11,7 +11,7 @@ Usage: ${_self} [help|-h|--help]
   or: bash ${BASH_SOURCE[0]} [help|-h|--help]
 
 Emits Rust consumer metadata via rustc --emit=metadata.
-Output: \$BUILD_DIR/tinylang_consumer_rust.rmeta (via \${BASH_SOURCE[0]} dir)
+Output: \$BUILD_DIR/tynra_consumer_rust.rmeta (via \${BASH_SOURCE[0]} dir)
 No arguments expected; help flags show this message.
 
 Examples:
@@ -32,8 +32,8 @@ source "${SCRIPT_DIR}/_common.sh"
 
 _args=(
   "${_rustc_base_args[@]}"
-  "${ROOT_DIR}/tests/consumers/tinylang_consumer.rs"
-  -o "${BUILD_DIR}/tinylang_consumer_rust.rmeta"
+  "${ROOT_DIR}/tests/consumers/tynra_consumer.rs"
+  -o "${BUILD_DIR}/tynra_consumer_rust.rmeta"
 )
 
 rustc "${_args[@]}"

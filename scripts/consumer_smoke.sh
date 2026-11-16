@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Consumer smoke: build cdylib + compile C consumer against it + run.
-# Uses CARGO_TARGET_DIR, not TinyLang/target.
+# Uses CARGO_TARGET_DIR, not Tynra/target.
 
 export t=$'\t'
 
@@ -13,8 +13,8 @@ _usage() {
 Usage: ${_self} [help|-h|--help]
   or: bash ${BASH_SOURCE[0]} [help|-h|--help]
 
-Builds cdylib (cargo build), links tests/consumers/tinylang_consumer.c against
-libtinylang, and executes the resulting binary.
+Builds cdylib (cargo build), links tests/consumers/tynra_consumer.c against
+libtynra, and executes the resulting binary.
 Honors: CC, CARGO_TARGET_DIR.
 No arguments expected; help flags show this message.
 
@@ -49,19 +49,19 @@ cargo build
 
 _link_c_args=(
   "${_base_c_args[@]}"
-  "${ROOT_DIR}/tests/consumers/tinylang_consumer.c"
+  "${ROOT_DIR}/tests/consumers/tynra_consumer.c"
   -L"${BUILD_DIR}"
   -Wl,-rpath,"${BUILD_DIR}"
-  -ltinylang
-  -o "${BUILD_DIR}/tinylang_consumer_c"
+  -ltynra
+  -o "${BUILD_DIR}/tynra_consumer_c"
 )
 
 "${CC_BIN}" "${_link_c_args[@]}"
 
 if [[ "$(uname -s)" == "Darwin" ]]; then
   DYLD_LIBRARY_PATH="${BUILD_DIR}${DYLD_LIBRARY_PATH:+:${DYLD_LIBRARY_PATH}}" \
-    "${BUILD_DIR}/tinylang_consumer_c"
+    "${BUILD_DIR}/tynra_consumer_c"
 else
   LD_LIBRARY_PATH="${BUILD_DIR}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}" \
-    "${BUILD_DIR}/tinylang_consumer_c"
+    "${BUILD_DIR}/tynra_consumer_c"
 fi

@@ -2,9 +2,9 @@
 title: Standard Library
 ---
 
-# TinyLang Standard Library Reference
+# Tynra Standard Library Reference
 
-TinyLang has two layers of builtin functions in the current TinyLang
+Tynra has two layers of builtin functions in the current Tynra
 implementation:
 
 - **Phase-1 (core builtins)** — slots 0–34 in the canonical builtin table.
@@ -15,7 +15,26 @@ implementation:
 - **Phase-2 (stdlib bridge builtins)** — slots 35 onward. These are also
   bytecode-stable within the Phase-2 group. The active direction is to build
   this surface into the runtime/system layer first instead of maintaining a
-  large root `stdlib/` tree written in TinyLang.
+  large root `stdlib/` tree written in Tynra.
+
+## Capabilities and `unsafe` syntax
+
+Builtins that observe or modify host state are additionally gated at runtime by
+module capabilities. The check happens at every builtin dispatch (VM and JIT
+alike), so artifact decoding cannot bypass the policy the host applied:
+
+| Capability | Required by |
+| --- | --- |
+| `filesystem` | `fs_read`, `fs_write`, `fs_exists`, `fs_list_dir` |
+| `environment` | `sys_env_has`, `sys_env_get` |
+| `threads` | `thread_spawn`, `thread_join` |
+| `unsafe_memory` | every builtin marked `unsafe` below (pointer, buffer, and free operations, `fs_read`, `fs_write`, `fs_list_dir`, `closure_captures`, `fd_new`, `alloc_new`) |
+
+`unsafe` syntax (an enclosing `unsafe` block) is a separate source-level
+requirement for those builtins and is not itself a capability grant. In
+addition, `sys_env_has`/`sys_env_get` reject variable names that are not in the
+calling module's environment-read allowlist. See `docs/syntax/modules.md` for
+the capability declaration format.
 
 ## Current Module Status
 
@@ -23,10 +42,10 @@ The root `stdlib/` module tree has been intentionally removed for now. Use the
 bridge builtins directly while the standard-library surface is being rebuilt
 into the system.
 
-Historical TinyLang module imports looked like this, but they are not the
+Historical Tynra module imports looked like this, but they are not the
 active verification path in the current checkout:
 
-```tinylang
+```tynra
 import "vec"    as vec
 import "map"    as map
 import "io"     as io
@@ -162,8 +181,11 @@ Stores `value` through a raw pointer. Returns `value`.
 Returns the explicit cast type tag if set (`cast_ptr` was called), otherwise the
 pointer kind string.
 
-#### `is_null(ptr) → int`
-Returns `1` if `ptr` is the null raw pointer, `0` otherwise.
+#### `is_null(ptr) → bool`
+Returns `true` if `ptr` is the null raw pointer, `false` otherwise. Note that
+`is_null` returns a boolean while the adjacent `ptr_eq`/`ptr_ne` return the
+integers `1`/`0`; the mixed convention is a known wart pending a deliberate
+owner decision (do not rely on implicit interchange between the two forms).
 
 #### `ptr_eq(left, right) → int` / `ptr_ne(left, right) → int`
 Raw-pointer equality/inequality. Use these for pointer comparisons; the ordinary
@@ -240,8 +262,18 @@ Returns a new array containing all values in key-insertion order.
 
 ### I/O abstractions (`io`)
 
-TinyLang I/O operates on deterministic file-descriptor handles. `io_stdout()`,
-`io_stderr()`, and `io_stdin()` return the standard handles.
+Tynra I/O operates on deterministic file-descriptor handles returned by
+`io_stdout()`, `io_stderr()`, and `io_stdin()`.
+
+#### `io_stdout() → int`
+Returns the standard-output file descriptor (`1`).
+
+#### `io_stderr() → int`
+Returns the standard-error file descriptor (`2`).
+
+#### `io_stdin() → int`
+Returns the standard-input file descriptor (`0`). Writing to this handle with
+`io_write`/`io_writeln` is a runtime error.
 
 #### `io_write(fd, text) → int`
 Writes `text` to `fd` without a trailing newline. Returns the number of bytes
@@ -302,8 +334,9 @@ the bytes are not valid UTF-8.
 
 ### Threading and sync (`sync`)
 
-The current TinyLang implementation supports real OS multithreading. Threads
+The current Tynra implementation supports real OS multithreading. Threads
 share the same heap; mutex and atomic operations use blocking OS primitives.
+`thread_spawn` and `thread_join` require the `threads` capability.
 
 #### `thread_spawn(fn_name, arg...) → thread`
 Spawns an OS thread running the named function with the given arguments. The
@@ -349,7 +382,7 @@ Results and options are heap structs with a tag field.
 
 #### Result
 
-```tinylang
+```tynra
 let r = result_ok(42)
 let e = result_err("not found")
 print result_is_ok(r)       # 1
@@ -368,7 +401,7 @@ print result_unwrap_err(e)  # "not found"
 
 #### Option
 
-```tinylang
+```tynra
 let some = option_some(99)
 let none = option_none()
 print option_is_some(some)   # 1
@@ -388,7 +421,9 @@ print option_unwrap(some)    # 99
 ### System introspection (`sys`)
 
 Args and environment are injected by the runtime at startup and are
-deterministic.
+deterministic. `sys_env_has` and `sys_env_get` require the `environment`
+capability; the named variable must also appear in the calling module's
+environment-read allowlist when one is declared.
 
 #### `sys_argc() → int`
 Number of program arguments.
@@ -420,7 +455,9 @@ Returns the parent directory of path `p`.
 
 ### Filesystem (`fs`)
 
-All FS operations that modify or read host state require `unsafe`.
+All four FS builtins require the `filesystem` capability. `fs_read`,
+`fs_write`, and `fs_list_dir` additionally require `unsafe` and the
+`unsafe_memory` capability; `fs_exists` does not.
 
 #### `unsafe fs_read(path) → buffer`
 Reads the file at `path` as a byte buffer. Runtime error if the file does not
@@ -510,7 +547,7 @@ format's largest finite magnitude rather than producing an infinity — see
 only way to produce a non-`fp64` float — bare float literals (`1.5`) are
 always `fp64`, and `let x: fp32 = ...` type annotations are decorative (see
 `docs/syntax/statements.md`'s `let` section) like every other type
-annotation in TinyLang. Arithmetic (`+ - * /`) between mixed float
+annotation in Tynra. Arithmetic (`+ - * /`) between mixed float
 precisions rounds the result to the wider operand's precision.
 
 #### `smallest_fit(value) → string`
@@ -534,3 +571,131 @@ negation.
 #### `assert(condition)` / `assert(condition, message)`
 Runtime error if `condition` is zero. The two-argument form includes `message`
 in the error text.
+
+---
+
+## Runtime value types
+
+These Phase-2 builtins construct and inspect the runtime scaffold value kinds
+that have language-visible representations: closures, sums, tagged unions,
+`dyn` trait values, boxes, chars, char buffers, records, dictionaries, file
+descriptor values, and raw typed allocations. They exist so every value the
+runtime can hold is also constructible and inspectable from Tynra. The
+`type_of` names of the values they produce are given per entry.
+
+### Closures
+
+A closure is a heap value binding a function id to an array of captured
+values. Closures produced by `closure_new` (and by function literals) are
+called with ordinary call syntax:
+
+```tynra
+let add = closure_new("add_with", [10])
+print add(7)   # calls add_with(10, 7)
+```
+
+#### `closure_new(function_name, captures) → closure`
+Creates a closure over the function named by the string `function_name` with
+the elements of the `captures` array as bound arguments. `function_name` is
+resolved like `thread_spawn`: the function must be callable from the calling
+function under the import/export boundary rules, and names beginning with the
+compiler-generated closure-function prefix are rejected. Runtime errors if the
+name is not resolvable, `captures` is not an array, or the program was not
+compiled with a callable table.
+
+#### `closure_function(c) → int`
+Returns the closure's function id (an index into the compiled program's
+function table), not the function's name.
+
+#### `unsafe closure_captures(c) → array`
+Returns a new array containing the closure's captured values. Capture cells
+are exposed as snapshots of their current contents rather than as cell
+references. Requires `unsafe` syntax and the `unsafe_memory` capability.
+
+### Sums and tagged unions
+
+Both are tagged heap values. A sum may carry zero or one payload; a tagged
+union always carries exactly one payload. Tags are non-negative integers that
+fit in `u32`.
+
+#### `sum_new(tag) → sum` / `sum_new(tag, payload) → sum`
+Creates a sum value with the given tag and optional payload. Runtime error if
+`tag` is negative or exceeds `u32`.
+
+#### `sum_tag(s) → int`
+Returns the sum's tag.
+
+#### `sum_has_payload(s) → int`
+Returns `1` if the sum carries a payload, `0` otherwise.
+
+#### `sum_unwrap(s) → value`
+Returns the sum's payload. Runtime error if the sum has no payload.
+
+#### `tagged_union_new(tag, payload) → tagged_union`
+Creates a tagged union with the given tag and payload. Runtime error if `tag`
+is negative or exceeds `u32`.
+
+#### `tagged_union_tag(u) → int`
+Returns the tagged union's tag.
+
+#### `tagged_union_unwrap(u) → value`
+Returns the tagged union's payload.
+
+### Dyn trait values
+
+A `dyn` value pairs an erased payload with runtime metadata ids supplied by the
+compiler (there is no source-level way to name them; see `docs/syntax/types.md`).
+
+#### `dyn_new(type_id, vtable_id, value) → dyn`
+Creates a `dyn` value holding `value` with the given type id and vtable id.
+`type_id` must fit in `u16` and `vtable_id` in `u32`; runtime error otherwise.
+
+#### `dyn_type_id(d) → int` / `dyn_vtable_id(d) → int`
+Return the stored type id or vtable id.
+
+#### `dyn_unwrap(d) → value`
+Returns the erased payload.
+
+### Boxes, chars, records, and dictionaries
+
+#### `box_new(value) → box`
+Allocates a heap box holding one value. `type_of` reports `"Box"`.
+
+#### `box_get(b) → value`
+Returns the box's current value. Runtime error if `b` is not a box.
+
+#### `box_set(b, value) → value`
+Replaces the box's value in place. Returns `value`.
+
+#### `char_new(code) → char`
+Creates a heap character from a Unicode scalar value given as a non-negative
+integer. Runtime error if `code` is negative, exceeds `u32`, or is not a valid
+Unicode scalar value (e.g. a surrogate). Printing a char renders the character
+itself.
+
+#### `char_buffer_new(codepoints) → char_buffer`
+Creates a heap character buffer from an array of Unicode scalar values, each
+validated like `char_new`. Printing a char buffer renders the characters as a
+string.
+
+#### `record_new(struct_value) → record`
+Copies the fields of a struct or record into a new `Record` heap value.
+Runtime error if the argument is neither a struct nor a record.
+
+#### `dictionary_new(map_value) → dictionary`
+Copies the entries of a map or dictionary into a new `Dictionary` heap value.
+Runtime error if the argument is neither a map nor a dictionary.
+
+### File descriptor values and raw allocations
+
+#### `unsafe fd_new(fd) → file_descriptor`
+Wraps an integer file descriptor number (must fit in `i32`) in a heap
+`FileDescriptor` value. This only creates the value; it does not open, close,
+or otherwise touch any host resource. Printing renders as `fd(n)`.
+
+#### `unsafe alloc_new(type_name, buffer) → alloc`
+Creates a raw typed allocation by copying `buffer`'s bytes into an `Alloc`
+heap value tagged with `type_name`. `type_name` must be a known runtime type
+name string (the same names `type_of` reports, plus integer and float width
+names such as `"i8"`, `"u32"`, `"fp16"`). The bytes are stored as-is; the byte
+count is not validated against the named type's size.

@@ -4,7 +4,7 @@ title: VM and JIT
 
 # VM and JIT Operation
 
-The TinyLang implementation has two execution backends that share the same verified bytecode:
+The Tynra implementation has two execution backends that share the same verified bytecode:
 the **VM** (portable interpreter) and the **JIT** (adaptive bytecode
 tier). Both are selected via `--mode vm` or `--mode jit` on the CLI, or
 `"vm"` / `"jit"` in the Rust and C APIs.
@@ -20,7 +20,7 @@ For heap and memory operation, see [`memory-model.md`](memory-model.md).
 
 `VM::run` iterates over the main chunk's instruction stream. Each `Instr { op, arg, arg2 }` dispatches to a match arm in `run_chunk`. The match arm reads operands from `arg`/`arg2`, manipulates the operand stack and stack-frame memory, and may call into the heap or runtime helpers.
 
-All operations return `Result`. There are no `unwrap` or `panic` calls on production paths. A runtime error immediately unwinds through `?` and surfaces as a `TinyLangError::Runtime` to the caller.
+All operations return `Result`. There are no `unwrap` or `panic` calls on production paths. A runtime error immediately unwinds through `?` and surfaces as a `TynraError::Runtime` to the caller.
 
 ### Operand Stack
 
@@ -28,7 +28,7 @@ A `Vec<Value>` inside the VM holds the operand stack. Instructions push and pop 
 
 ### Stack-Frame Memory
 
-`TinyMemory` owns a Ralloc allocation of fixed-width, 64-byte encoded slots.
+`TynraMemory` owns a Ralloc allocation of fixed-width, 64-byte encoded slots.
 Each active function call has its own frame; the operand stack is a separate
 `Vec<Value>`. Slots initially contain `I64(0)` and persist between loop
 iterations until explicitly overwritten.
@@ -36,13 +36,13 @@ iterations until explicitly overwritten.
 ### Function Calls
 
 `CALL arg arg2` pops `arg2` arguments from the operand stack, allocates the
-callee's `TinyMemory`, initializes its first `arg2` slots, and recurses into
+callee's `TynraMemory`, initializes its first `arg2` slots, and recurses into
 `run_chunk` for the callee's bytecode. The portable VM remains the semantic
 reference.
 
-The default and maximum call-depth limit is **16** nested TinyLang function
+The default and maximum call-depth limit is **16** nested Tynra function
 calls; verified VM settings can select a lower limit. Exceeding it returns
-`TinyLangError::Runtime` with `Call stack overflow after N nested call(s)`.
+`TynraError::Runtime` with `Call stack overflow after N nested call(s)`.
 
 The JIT uses an explicit vector of suspended call frames instead of recursive
 host interpreter calls. Each cursor retains its chunk, resume PC, and operand
@@ -103,7 +103,7 @@ single `VerifiedProgram` for all strings and declaration metadata rather than
 cloning those tables. Listing generation is the deliberate exception and
 lowers every chunk so the output is complete.
 
-The JIT is an **adaptive bytecode tier** — it compiles TinyLang bytecode into a lower-level internal bytecode (`JitOp`) with decoded operands, then interprets `JitOp` and quickens hot loops in-place. It does not produce native machine code.
+The JIT is an **adaptive bytecode tier** — it compiles Tynra bytecode into a lower-level internal bytecode (`JitOp`) with decoded operands, then interprets `JitOp` and quickens hot loops in-place. It does not produce native machine code.
 
 ### Compilation Phase (`JitProgram::compile`)
 

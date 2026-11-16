@@ -10,7 +10,7 @@ _usage() {
 Usage: ${_self} [help|-h|--help]
   or: bash ${BASH_SOURCE[0]} [help|-h|--help]
 
-Compiles tests/consumers/tinylang_consumer.c for the detected toolchain.
+Compiles tests/consumers/tynra_consumer.c for the detected toolchain.
 Utils: cl.exe (MSVC) -> clang.exe (Windows) -> cc (fallback).
 No arguments expected; help flags show this message.
 
@@ -37,8 +37,8 @@ _compile_msvc() {
   _args=(
     "${_common_msvc_flags[@]}"
     /std:c11
-    /c "$(_to_win_path "${ROOT_DIR}/tests/consumers/tinylang_consumer.c")"
-    /Fo:"${BUILD_DIR_WIN}/tinylang_consumer_c.obj"
+    /c "$(_to_win_path "${ROOT_DIR}/tests/consumers/tynra_consumer.c")"
+    /Fo:"${BUILD_DIR_WIN}/tynra_consumer_c.obj"
   )
   pushd "${BUILD_DIR}" >/dev/null
   MSYS2_ARG_CONV_EXCL="*" cl.exe "${_args[@]}"
@@ -49,8 +49,8 @@ _compile_clang_win() {
   _args=(
     -std=c11
     "${_common_gcc_flags[@]}"
-    -c "${ROOT_DIR}/tests/consumers/tinylang_consumer.c"
-    -o "${BUILD_DIR}/tinylang_consumer_c.obj"
+    -c "${ROOT_DIR}/tests/consumers/tynra_consumer.c"
+    -o "${BUILD_DIR}/tynra_consumer_c.obj"
   )
   clang.exe "${_args[@]}"
 }
@@ -59,8 +59,8 @@ _compile_gcc() {
   _args=(
     -std=c11
     "${_common_gcc_flags[@]}"
-    -c "${ROOT_DIR}/tests/consumers/tinylang_consumer.c"
-    -o "${BUILD_DIR}/tinylang_consumer_c.o"
+    -c "${ROOT_DIR}/tests/consumers/tynra_consumer.c"
+    -o "${BUILD_DIR}/tynra_consumer_c.o"
   )
   "${CC_BIN}" "${_args[@]}"
 }

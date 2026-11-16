@@ -1,4 +1,4 @@
-# TinyLang v2 SDK compatibility
+# Tynra v2 SDK compatibility
 
 | Surface | Status | Compatibility boundary |
 | --- | --- | --- |
@@ -11,8 +11,8 @@
 | General host registration | Not started in this milestone | No new native callback/typed aggregate ownership surface |
 
 The v1 ABI remains on `release/v1`. On `main`, inherited JSON exports use
-the `tinylang_*` namespace and ABI version 2; the experimental binary exports
-retain their separate `tinylang_v2_*` namespace. Compiler format and
+the `tynra_*` namespace and ABI version 2; the experimental binary exports
+retain their separate `tynra_v2_*` namespace. Compiler format and
 invocation protocol versions are separate contracts; selecting compiler
 artifact format 2 does not change the wire protocol version.
 
@@ -21,7 +21,7 @@ records. Heap, aggregate, unit and opaque language-handle marshalling remain
 incomplete. The scalar native profile uses only i64 and is not automatically
 installed behind the C ABI's existing JIT-permission flag.
 
-The integration example generates a genuine compiler `TINYLANG` version-5
+The integration example generates a genuine compiler `TYNRA\0\0\0` version-5
 artifact (230 bytes), then verifies it through the untrusted decoder.
 Python invokes export 0 through the DLL, releases program and VM handles,
 destroys the runtime and uses host-owned response buffers. Invalid selectors,

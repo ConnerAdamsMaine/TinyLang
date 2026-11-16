@@ -10,10 +10,10 @@ ROOT = Path(__file__).resolve().parents[1]
 TOOL = ROOT / "tools" / "abi_manifest.py"
 
 DECLARED_GROUPS = ("v1-json", "v2-binary", "ralloc")
-# Real CDyLib artifacts produced by `cargo build -p tinylang_core -p tinylang_ralloc`.
+# Real CDyLib artifacts produced by `cargo build -p tynra_core -p tynra_ralloc`.
 BUILT_ARTIFACTS = {
-    "v1-json": ROOT / "target" / "debug" / "tinylang.dll",
-    "v2-binary": ROOT / "target" / "debug" / "tinylang.dll",
+    "v1-json": ROOT / "target" / "debug" / "tynra.dll",
+    "v2-binary": ROOT / "target" / "debug" / "tynra.dll",
     "ralloc": ROOT / "target" / "debug" / "ralloc.dll",
 }
 
@@ -32,17 +32,17 @@ class AbiManifestToolTests(unittest.TestCase):
     def test_manifest_lists_symbols_from_rust_and_header(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             ffi = Path(tmp) / "ffi.rs"
-            header = Path(tmp) / "tinylang.h"
+            header = Path(tmp) / "tynra.h"
             ffi.write_text(
                 textwrap.dedent(
                     """
                     #[unsafe(no_mangle)]
-                    pub unsafe extern "C" fn tinylang_beta(value: *const c_char) -> *mut c_char {
+                    pub unsafe extern "C" fn tynra_beta(value: *const c_char) -> *mut c_char {
                         todo!()
                     }
 
                     #[unsafe(no_mangle)]
-                    pub extern "C" fn tinylang_alpha() {
+                    pub extern "C" fn tynra_alpha() {
                         todo!()
                     }
                     """
@@ -52,10 +52,10 @@ class AbiManifestToolTests(unittest.TestCase):
             header.write_text(
                 textwrap.dedent(
                     """
-                    #ifndef TINYLANG_H
-                    #define TINYLANG_H
-                    void tinylang_alpha(void);
-                    char *tinylang_beta(const char *value);
+                    #ifndef TYNRA_H
+                    #define TYNRA_H
+                    void tynra_alpha(void);
+                    char *tynra_beta(const char *value);
                     #endif
                     """
                 ),
@@ -72,8 +72,8 @@ class AbiManifestToolTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("rust_symbols:", result.stdout)
-        self.assertIn("  - tinylang_alpha", result.stdout)
-        self.assertIn("  - tinylang_beta", result.stdout)
+        self.assertIn("  - tynra_alpha", result.stdout)
+        self.assertIn("  - tynra_beta", result.stdout)
         self.assertIn("header_symbols:", result.stdout)
 
     def test_default_check_covers_all_declared_groups(self) -> None:
@@ -87,7 +87,7 @@ class AbiManifestToolTests(unittest.TestCase):
         result = self.run_tool("manifest")
 
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("format: tinylang-abi-symbol-manifest-v2", result.stdout)
+        self.assertIn("format: tynra-abi-symbol-manifest-v2", result.stdout)
         for group in DECLARED_GROUPS:
             self.assertIn(f"  {group}:", result.stdout)
             self.assertIn("  missing_from_header:", result.stdout)
@@ -96,19 +96,19 @@ class AbiManifestToolTests(unittest.TestCase):
     def test_check_reports_header_drift(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             ffi = Path(tmp) / "ffi.rs"
-            header = Path(tmp) / "tinylang.h"
+            header = Path(tmp) / "tynra.h"
             ffi.write_text(
                 textwrap.dedent(
                     """
                     #[unsafe(no_mangle)]
-                    pub unsafe extern "C" fn tinylang_only_in_rust() {
+                    pub unsafe extern "C" fn tynra_only_in_rust() {
                         todo!()
                     }
                     """
                 ),
                 encoding="utf-8",
             )
-            header.write_text("void tinylang_only_in_header(void);\n", encoding="utf-8")
+            header.write_text("void tynra_only_in_header(void);\n", encoding="utf-8")
 
             result = self.run_tool(
                 "check",
@@ -120,9 +120,9 @@ class AbiManifestToolTests(unittest.TestCase):
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("missing from header", result.stdout)
-        self.assertIn("tinylang_only_in_rust", result.stdout)
+        self.assertIn("tynra_only_in_rust", result.stdout)
         self.assertIn("missing from Rust exports", result.stdout)
-        self.assertIn("tinylang_only_in_header", result.stdout)
+        self.assertIn("tynra_only_in_header", result.stdout)
 
     def test_exports_rejects_missing_and_non_artifact_files(self) -> None:
         missing = self.run_tool("exports", str(Path("does") / "not" / "exist.dll"))
@@ -138,11 +138,11 @@ class AbiManifestToolTests(unittest.TestCase):
         self.assertIn("unsupported artifact format", result.stderr)
 
     def test_exports_verifies_real_built_cdylib_against_declared_groups(self) -> None:
-        # The tinylang-v2 CDyLib statically links ralloc, so its export table is
+        # The tynra-v2 CDyLib statically links ralloc, so its export table is
         # the union of all three declared ABI groups; the standalone ralloc
         # CDyLib exports exactly the ralloc group.
         cases = {
-            "tinylang.dll": "v1-json,v2-binary,ralloc",
+            "tynra.dll": "v1-json,v2-binary,ralloc",
             "ralloc.dll": "ralloc",
         }
         for artifact_name, groups in cases.items():
@@ -173,7 +173,7 @@ class AbiManifestToolTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn("unknown ABI group", result.stderr)
 
-    def test_generate_header_requires_tinylang_crate_manifest(self) -> None:
+    def test_generate_header_requires_tynra_crate_manifest(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             crate = Path(tmp) / "crate"
             crate.mkdir()
@@ -199,23 +199,23 @@ class AbiManifestToolTests(unittest.TestCase):
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Cargo.toml", result.stderr)
-        self.assertIn("tinylang", result.stderr)
+        self.assertIn("tynra", result.stderr)
 
     def test_generate_header_checks_crate_and_passes_ffi_source_to_cbindgen(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            crate = base / "TinyLang"
+            crate = base / "Tynra"
             source_dir = crate / "src"
             source_dir.mkdir(parents=True)
             ffi_source = source_dir / "ffi.rs"
-            output = base / "tinylang.h"
+            output = base / "tynra.h"
             argv_file = base / "argv.txt"
             fake_cbindgen = base / "fake-cbindgen.py"
             (crate / "Cargo.toml").write_text(
                 textwrap.dedent(
                     """
                     [package]
-                    name = "tinylang-v2"
+                    name = "tynra-v2"
                     version = "2.1.0"
                     edition = "2024"
                     """
@@ -223,7 +223,7 @@ class AbiManifestToolTests(unittest.TestCase):
                 encoding="utf-8",
             )
             ffi_source.write_text(
-                '#[unsafe(no_mangle)]\npub extern "C" fn tinylang_smoke() {}\n',
+                '#[unsafe(no_mangle)]\npub extern "C" fn tynra_smoke() {}\n',
                 encoding="utf-8",
             )
             fake_cbindgen.write_text(
@@ -261,14 +261,14 @@ class AbiManifestToolTests(unittest.TestCase):
     def test_generate_header_reports_missing_cbindgen_config(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            crate = base / "TinyLang"
+            crate = base / "Tynra"
             crate.mkdir()
             missing_config = base / "missing-cbindgen.toml"
             (crate / "Cargo.toml").write_text(
                 textwrap.dedent(
                     """
                     [package]
-                    name = "tinylang-v2"
+                    name = "tynra-v2"
                     version = "2.1.0"
                     edition = "2024"
                     """
@@ -292,14 +292,14 @@ class AbiManifestToolTests(unittest.TestCase):
     def test_generate_header_reports_missing_ffi_source(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            crate = base / "TinyLang"
+            crate = base / "Tynra"
             crate.mkdir()
             missing_source = base / "missing-ffi.rs"
             (crate / "Cargo.toml").write_text(
                 textwrap.dedent(
                     """
                     [package]
-                    name = "tinylang-v2"
+                    name = "tynra-v2"
                     version = "2.1.0"
                     edition = "2024"
                     """

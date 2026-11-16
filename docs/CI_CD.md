@@ -94,16 +94,16 @@ cargo run --locked --manifest-path crates/xtask/Cargo.toml -- release-gate
 cargo test --locked --workspace --all-features -- --test-threads=1
 cargo test --locked --workspace --all-features --release -- --test-threads=1
 cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
-cargo build --locked --release -p tinylang-v2 --lib --bins
+cargo build --locked --release -p tynra-v2 --lib --bins
 ```
 
 Run the C/C++/Rust consumer fixtures and native C smoke test on each platform
 as well. Use an actual Linux environment for Linux execution tests, not only
 a Windows cross-compilation.
 
-Package the CLI, `tinylang_bench`, `tinylang-sandbox-worker`, shared library,
-`include/tinylang.h`, `tinylang-response-schema.json`, readme, and license
-together. Windows binaries use `.exe`; include `tinylang.dll.lib` for MSVC
+Package the CLI, `tynra_bench`, `tynra-sandbox-worker`, shared library,
+`include/tynra.h`, `tynra-response-schema.json`, readme, and license
+together. Windows binaries use `.exe`; include `tynra.dll.lib` for MSVC
 consumers. Use ZIP for Windows and tar.gz for Linux, preserving Linux executable
 permissions. Do not distribute debug/test binaries or the experimental SDK
 workspace as the core runtime.
@@ -120,21 +120,19 @@ The workspace publishes three crates in dependency order:
 
 | Package | Version | Purpose |
 | --- | --- | --- |
-| `tinylang_test_support` | `0.1.0` | Versioned development dependency for packaged tests |
-| `tinylang_ralloc` | `0.2.0` | Runtime allocator (`ralloc` Rust library) |
-| `tinylang-v2` | `2.1.0` | Compiler, runtime, CLI, JSON C API, and sandbox worker |
+| `tynra_test_support` | `0.1.0` | Versioned development dependency for packaged tests |
+| `tynra_ralloc` | `0.2.0` | Runtime allocator (`ralloc` Rust library) |
+| `tynra-v2` | `2.2.0` | Compiler, runtime, CLI, JSON C API, and sandbox worker |
 
-`tinylang-xtask` is private (`publish = false`). The v2 fuzz targets
-(`crates/tinylang_core/fuzz/`) and experiments (`crates/tinylang_core/experiments/`)
+`tynra-xtask` is private (`publish = false`). The v2 fuzz targets
+(`crates/tynra_core/fuzz/`) and experiments (`crates/tynra_core/experiments/`)
 are separate private workspaces excluded from this publication. Keep every dependency between published workspace crates
 versioned as well as path-based. Shared licensing and repository metadata
-live in the root `[workspace.package]`; do not replace the custom license
-with an unrelated SPDX identifier.
+live in the root `[workspace.package]`.
 
-**Naming and authorization:** the core package is `tinylang-v2`, while its
-Rust library and CLI remain `tinylang`. The unrelated crates.io package
-`tinylang` is not this project. Keep package selectors, publication checks,
-and header-generation validation aligned with `tinylang-v2`. A package check
+**Naming and authorization:** the core package is `tynra-v2`, while its
+Rust library and CLI use `tynra`. Keep package selectors, publication checks,
+and header-generation validation aligned with `tynra-v2`. A package check
 or publish dry run verifies contents and builds, not permission to publish;
 confirm registry ownership and release approval before any upload.
 
@@ -143,27 +141,27 @@ From a clean checkout:
 
 ```sh
 cargo run --manifest-path crates/xtask/Cargo.toml -- release-gate
-cargo publish --workspace --exclude tinylang-xtask --dry-run --locked
+cargo publish --workspace --exclude tynra-xtask --dry-run --locked
 ```
 
 For an uncommitted preparation branch, inspect the current changes without
 uploading:
 
 ```sh
-cargo package --workspace --exclude tinylang-xtask --allow-dirty --locked
-cargo publish --workspace --exclude tinylang-xtask --dry-run --allow-dirty --locked
+cargo package --workspace --exclude tynra-xtask --allow-dirty --locked
+cargo publish --workspace --exclude tynra-xtask --dry-run --allow-dirty --locked
 ```
 
 `package-check` is the packaging-only xtask. Cargo verifies all three
 archives, using a temporary local registry for unpublished workspace
 dependencies. Do not add `--no-verify`. Archives under `target/package/`
 must contain their readme and license. The core archive also contains its
-CLI sources, `include/tinylang.h`, `tinylang-response-schema.json`, test
-fixtures, and `tinylang-sandbox-worker` source. The root C header is only a
+CLI sources, `include/tynra.h`, `tynra-response-schema.json`, test
+fixtures, and `tynra-sandbox-worker` source. The root C header is only a
 source-checkout forwarding header; generate the canonical header with
 `uv run --no-project python tools/abi_manifest.py generate-header`.
 
-On Windows, Cargo may warn that the same-named `tinylang` library and CLI
+On Windows, Cargo may warn that the same-named `tynra` library and CLI
 share a debug `.pdb` filename. Release builds disable debug information.
 Keep the public names consistent; use separate library and binary builds
 when collecting debug symbols.
@@ -172,21 +170,21 @@ Only after ownership, validation, and release approval are resolved, publish
 from the clean release commit:
 
 ```sh
-cargo publish --workspace --exclude tinylang-xtask --locked
+cargo publish --workspace --exclude tynra-xtask --locked
 ```
 
 No repository workflow uploads crates automatically.
 
 ### V2 migration boundary
 
-- Rust imports use `tinylang`, with `TinyLangError`.
-- The JSON C ABI uses `tinylang_*` exports and `TINYLANG_ABI_VERSION = 2`.
-  Its response shapes remain unchanged; the experimental `tinylang_v2_*`
+- Rust imports use `tynra`, with `TynraError`.
+- The JSON C ABI uses `tynra_*` exports and `TYNRA_ABI_VERSION = 2`.
+  Its response shapes remain unchanged; the experimental `tynra_v2_*`
   binary ABI is separate.
-- Use `TINYLANG_*` environment variables, `tinylang.json` module maps, and
-  the `tinylang-sandbox-worker` executable.
-- Recompile artifacts: the JSON format name is `tinylang-bytecode` and
-  the binary magic is the eight-byte `TINYLANG`. JSON layout versions 1/2
+- Use `TYNRA_*` environment variables, `tynra.json` module maps, and
+  the `tynra-sandbox-worker` executable.
+- Recompile artifacts: the JSON format name is `tynra-bytecode` and
+  the binary magic is the eight-byte `TYNRA\0\0\0`. JSON layout versions 1/2
   and binary layout version 5 are independent of package/ABI versions.
 - Re-sign module metadata with language version 2 and the renamed signing
   domain prefixes. Do not reuse v1 signatures or caches.

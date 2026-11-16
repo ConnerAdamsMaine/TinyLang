@@ -1,4 +1,4 @@
-﻿# TinyLang v2 build profile policy
+﻿# Tynra v2 build profile policy
 
 Status: **enforced and verified**, 2026-11-08.
 
