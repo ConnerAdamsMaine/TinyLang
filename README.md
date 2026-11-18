@@ -1,3 +1,16 @@
+> [!IMPORTANT]
+> **Development Status: Temporarily Paused**
+>
+> Active development of this project has been suspended until further notice.
+>
+> This decision comes after considerable reflection. Development has reached a point where the limitations of my current hardware, tooling, and development environment have made maintaining and expanding my projects increasingly difficult and unenjoyable.
+>
+> I am taking this time to establish a more sustainable development environment that allows me to return to building software with the passion and enjoyment that originally drove me to start.
+>
+> **This project is not abandoned.** Development will resume when I have the resources, infrastructure, and environment necessary to continue sustainably.
+>
+> Thank you for your understanding and patience.
+
 [![CI](https://github.com/ConnerAdamsMaine/TinyOne/actions/workflows/test.yml/badge.svg)](https://github.com/ConnerAdamsMaine/TinyOne/actions/workflows/test.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](#license)
 
